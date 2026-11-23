@@ -9,7 +9,7 @@ Este repo contiene el panel web, el motor de runs y los agentes. El CRM que modi
 
 ## Estado
 
-H0 · esqueleto del repo con Next.js, Drizzle + Neon, CI y despliegue en Vercel. Comprobación: `GET /api/health`.
+H0 hecho: esqueleto con Next.js, Drizzle + Neon, CI y despliegue en Vercel. Producción: <https://crm-agents.vercel.app> · comprobación en [`/api/health`](https://crm-agents.vercel.app/api/health).
 
 ## Desarrollo local
 

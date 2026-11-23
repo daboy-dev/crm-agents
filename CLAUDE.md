@@ -47,4 +47,4 @@ Decisiones: `docs/DECISIONES.md` · Proceso e hitos: `docs/PROCESO.md`.
 - `pnpm db:migrate` · aplica las migraciones (lee `DATABASE_URL` de `.env.local` o `.env`).
 
 ## Estado
-H0 en curso.
+H0 hecho (23/11/2026). Siguiente: H1 · `crm-demo`.
