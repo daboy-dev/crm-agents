@@ -16,7 +16,7 @@ Cómo se ha construido este proyecto, sesión a sesión.
 | Hito | Se da por verificado cuando… | Estado |
 |---|---|---|
 | H0 · Plan y base del repo | Plan validado, documentos en el repo, esqueleto desplegado en Vercel con CI en verde | Hecho |
-| H1 · CRM demo | `crm-demo` en producción con clientes, presupuestos y facturas | Pendiente |
+| H1 · CRM demo | `crm-demo` en producción con clientes, presupuestos y facturas, CI en verde, y un PR de prueba que crea su vista previa con su propia rama de Neon y la borra al cerrarse | En curso |
 | H2 · Tubería sin IA | Un commit de prueba genera vista previa, webhook y capturas de Actions que llegan al panel | Pendiente |
 | H3 · Panel y motor de runs | Login y un run completo con `MockProvider` | Pendiente |
 | H4 · Orquestador | Plan con criterios de aceptación que el cliente aprueba o rechaza | Pendiente |
@@ -68,3 +68,20 @@ Cómo se ha construido este proyecto, sesión a sesión.
 **Resultado:** H0 cerrado. Transcripción en [`sesiones/01-h0-base.md`](./sesiones/01-h0-base.md).
 
 **Siguiente paso:** H1 · `crm-demo` en producción con clientes, presupuestos y facturas.
+
+## Sesión 02 · Planificación de H1 (Project de Claude) · 23/11/2026
+
+**Objetivo:** decidir cómo se construye `crm-demo` antes de abrir Claude Code y comprobar los límites de Neon pendientes de D7.
+
+**Cómo fue:**
+- Se comprobaron los límites del plan gratuito de Neon: 100 proyectos, 10 ramas por proyecto, 1 GB y 100 CU-h por proyecto.
+- Se definió el modelo de datos: `clients`, `quotes` + `quote_items` (borrador, enviado, aceptado o rechazado) e `invoices` + `invoice_items` (se generan desde un presupuesto aceptado; pendiente o pagada, con vencimiento).
+- Login de demo con cookie firmada y un usuario configurado en variables de entorno.
+
+**Qué cambió por el camino:**
+- El límite de 10 ramas es un riesgo real: si se llena, las vistas previas no llegan a compilar. Se añade la limpieza automática de ramas y un solo run activo (D11).
+- El criterio de H1 se amplía con un PR de prueba que compruebe la rama de Neon por vista previa y su borrado, para validar D11 antes de H2.
+
+**Resultado:** decisiones D11–D14 aceptadas (limpieza de ramas, stack y estructura de `crm-demo`, migraciones en el build, datos de prueba con huecos a propósito).
+
+**Siguiente paso:** sesión 03 de Claude Code (H1) en el repo `crm-demo`.

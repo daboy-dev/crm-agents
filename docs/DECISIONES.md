@@ -83,7 +83,7 @@ Registro de decisiones de arquitectura (formato ADR corto). Se toman en el Proje
 - Proyecto de Neon `crm-agents`: runs, tareas, eventos y resultados.
 - Proyecto de Neon `crm-demo`: los datos del CRM, con una **rama de Neon por vista previa** gracias a la integración Neon–Vercel. Así Develop puede cambiar el esquema (por ejemplo, añadir el NIF) sin tocar producción.
 
-**Por comprobar en H1:** los límites de proyectos y ramas del plan gratuito.
+**Comprobado (23/11/2026):** el plan gratuito da 100 proyectos y 10 ramas por proyecto. El límite de ramas se gestiona en D11.
 
 ## D8 · Capa de LLM intercambiable
 **Fecha:** 23/11/2026 · **Estado:** aceptada
@@ -106,3 +106,47 @@ Registro de decisiones de arquitectura (formato ADR corto). Se toman en el Proje
 - Login con un usuario de prueba y un middleware que protege todas las rutas.
 - Límite de runs al día.
 - Ninguna clave en el repo: solo un `.env.example`.
+
+## D11 · Limpieza de ramas de Neon y un solo run activo
+**Fecha:** 23/11/2026 · **Estado:** aceptada
+
+**Contexto:** el plan gratuito de Neon permite 10 ramas por proyecto. Cuando se llenan, la integración no puede crear la rama de la vista previa y el despliegue de Vercel falla antes de compilar. Con agentes abriendo PRs, el tope se alcanza rápido.
+
+**Decisión:**
+- Integración **Neon-Managed** en el proyecto de Vercel `crm-demo`, con borrado de la rama de Neon cuando se borra la rama de Git.
+- En GitHub, `crm-demo` borra automáticamente la rama al hacer merge.
+- El panel borra la rama de Git (y con ella la de Neon) cuando un run se rechaza o se abandona.
+- Como máximo **1 run activo** a la vez y 3 PRs abiertos.
+
+**Consecuencias:**
+- Nunca se pasa de unas pocas ramas a la vez, lejos del tope de 10.
+- Las peticiones simultáneas se encolan; la UI debe mostrar la cola.
+
+## D12 · `crm-demo` con el mismo stack y una estructura pensada para un LLM
+**Fecha:** 23/11/2026 · **Estado:** aceptada
+
+**Contexto:** quien modifica `crm-demo` es el agente Develop (Gemini). Cuanto más predecible sea el código, más fiables serán sus cambios.
+
+**Decisión:**
+- Next.js 16 (App Router), TypeScript estricto, Drizzle, Neon y Tailwind, sin librería de componentes.
+- Estructura plana: una carpeta por entidad (`clientes`, `presupuestos`, `facturas`) con su página, server actions y queries.
+- Un `AGENTS.md` en `crm-demo` con las convenciones; Develop lo recibe en cada tarea.
+- `data-testid` estables en los elementos clave, para los tests de Playwright.
+
+## D13 · Las migraciones se aplican en el build
+**Fecha:** 23/11/2026 · **Estado:** aceptada
+
+**Decisión:** el comando de build de Vercel es `drizzle-kit migrate && next build`. Cada vista previa migra su propia rama de Neon y producción migra al hacer merge.
+
+**Consecuencias:**
+- Las ramas de Neon se copian de producción, así que traen los datos de prueba sin volver a sembrarlos.
+- Una migración que falla rompe el build, y eso se ve como un fallo del despliegue que Testing puede devolver a Develop.
+
+## D14 · Datos de prueba y huecos funcionales a propósito
+**Fecha:** 23/11/2026 · **Estado:** aceptada
+
+**Decisión:**
+- Datos de prueba realistas: unos 15 clientes y presupuestos y facturas en todos los estados.
+- El CRM deja fuera a propósito funciones fáciles de pedir y de comprobar visualmente: NIF de clientes, buscador, facturas vencidas marcadas y página de contacto.
+
+**Consecuencias:** los evaluadores tienen peticiones de demo preparadas con resultados visibles en la vista previa.
