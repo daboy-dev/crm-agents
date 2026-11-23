@@ -30,8 +30,21 @@ Decisiones: `docs/DECISIONES.md` · Proceso e hitos: `docs/PROCESO.md`.
 2. Exportar la transcripción (`/export`) a `docs/sesiones/NN-titulo.md` y revisarla para quitar claves, URLs con tokens y datos personales.
 3. Actualizar este archivo si cambia el stack, la estructura o los comandos.
 
+## Estructura
+- `src/app`: UI y rutas API (`/api/health`).
+- `src/server/db`: esquema y cliente de Drizzle. Migraciones en `drizzle/`.
+- `src/server/runs`, `src/server/agents`, `src/server/llm`, `src/server/github`: reservadas para H2–H6.
+- Next.js 16: la doc de la versión instalada está en `node_modules/next/dist/docs/` (ver `AGENTS.md`). `cacheComponents` está activo: los route handlers que deban ejecutarse en cada petición llaman a `connection()`.
+
 ## Comandos
-_(se completan en H0)_
+- `pnpm dev` · servidor de desarrollo.
+- `pnpm build` · build de producción.
+- `pnpm lint` · ESLint.
+- `pnpm format` / `pnpm format:check` · Prettier (no toca el Markdown).
+- `pnpm typecheck` · `next typegen` + `tsc --noEmit`.
+- `pnpm test` · Vitest (`src/**/*.test.ts`).
+- `pnpm db:generate` · genera una migración a partir de `src/server/db/schema.ts`.
+- `pnpm db:migrate` · aplica las migraciones (lee `DATABASE_URL` de `.env.local` o `.env`).
 
 ## Estado
 H0 en curso.
