@@ -1,6 +1,8 @@
+import { sql } from "drizzle-orm";
 import {
   bigint,
   bigserial,
+  boolean,
   index,
   integer,
   jsonb,
@@ -9,6 +11,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 /** Key/value metadata about the app itself. Used by the health check. */
@@ -107,4 +110,143 @@ export const screenshots = pgTable(
     size: integer().notNull(),
   },
   (t) => [unique("screenshots_uq").on(t.reportId, t.page, t.width)],
+);
+
+// --- H3 · Runs (D20–D25). ---
+
+/**
+ * One request from the client, carried through plan → develop → test → merge.
+ * Every transition is a compare-and-swap on `version` (D22).
+ */
+export const runs = pgTable(
+  "runs",
+  {
+    id: serial().primaryKey(),
+    request: text().notNull(),
+    /** LLM provider name: mock | gemini */
+    provider: text().notNull(),
+    /** MockProvider scenario (D24): ok | fail-once | blocked | forbidden */
+    scenario: text(),
+    /** Mock only: the develop step crashes once right after moving the ref. */
+    simulateCrash: boolean("simulate_crash").notNull().default(false),
+    crashedAt: timestamp("crashed_at", { withTimezone: true }),
+    /** See RunStatus in src/server/runs/machine.ts. */
+    status: text().notNull().default("queued"),
+    version: integer().notNull().default(0),
+    statusChangedAt: timestamp("status_changed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    /** Status to resume when a blocked run is retried. */
+    blockedFrom: text("blocked_from"),
+    blockedReason: text("blocked_reason"),
+    /** Bumped every time client feedback sends the run back to planning. */
+    planRevision: integer("plan_revision").notNull().default(1),
+    feedback: text(),
+    planSummary: text("plan_summary"),
+    /** Branch head the panel last pushed; previews and reports must match it. */
+    headSha: text("head_sha"),
+    /** Commit chain built but not yet pointed to by the ref (D22). */
+    targetSha: text("target_sha"),
+    targetCommits: jsonb("target_commits").$type<Record<string, string>>(),
+    prNumber: integer("pr_number"),
+    prUrl: text("pr_url"),
+    /** The PR still has to be closed and the branch deleted. */
+    cleanupPending: boolean("cleanup_pending").notNull().default(false),
+    llmCalls: integer("llm_calls").notNull().default(0),
+    /** Failed attempts of the current step; reset on every transition. */
+    stepAttempts: integer("step_attempts").notNull().default(0),
+    leaseUntil: timestamp("lease_until", { withTimezone: true }),
+    leaseToken: text("lease_token"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("runs_status_idx").on(t.status),
+    index("runs_head_sha_idx").on(t.headSha),
+    // A single active run (D11, D23): every status but queued and the final ones.
+    uniqueIndex("runs_one_active_uq")
+      .on(sql`(true)`)
+      .where(
+        sql`${t.status} not in ('queued', 'done', 'rejected', 'cancelled', 'failed')`,
+      ),
+  ],
+);
+
+/** One task of a plan revision. Develop makes one commit per task (D20). */
+export const tasks = pgTable(
+  "tasks",
+  {
+    id: serial().primaryKey(),
+    runId: integer("run_id")
+      .notNull()
+      .references(() => runs.id, { onDelete: "cascade" }),
+    planRevision: integer("plan_revision").notNull(),
+    position: integer().notNull(),
+    title: text().notNull(),
+    description: text().notNull(),
+    acceptanceCriteria: jsonb("acceptance_criteria")
+      .$type<string[]>()
+      .notNull(),
+    /** pending | developing | testing | passed | failed | blocked */
+    status: text().notNull().default("pending"),
+    iteration: integer().notNull().default(0),
+    maxIterations: integer("max_iterations").notNull().default(3),
+    lastFeedback: text("last_feedback"),
+    commitSha: text("commit_sha"),
+  },
+  (t) => [unique("tasks_uq").on(t.runId, t.planRevision, t.position)],
+);
+
+/** Append-only timeline of a run (D21). */
+export const runEvents = pgTable(
+  "run_events",
+  {
+    id: bigserial({ mode: "number" }).primaryKey(),
+    runId: integer("run_id")
+      .notNull()
+      .references(() => runs.id, { onDelete: "cascade" }),
+    /** Run version this event belongs to. */
+    runVersion: integer("run_version").notNull(),
+    /** orchestrator | develop | testing | human | system | github */
+    actor: text().notNull(),
+    kind: text().notNull(),
+    message: text().notNull(),
+    data: jsonb(),
+    at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("run_events_run_idx").on(t.runId, t.id)],
+);
+
+/**
+ * Validated output of one LLM call. A retried step reads it instead of
+ * calling the LLM again (D22).
+ */
+export const agentSteps = pgTable(
+  "agent_steps",
+  {
+    id: serial().primaryKey(),
+    runId: integer("run_id")
+      .notNull()
+      .references(() => runs.id, { onDelete: "cascade" }),
+    /** null for the orchestrator, whose iteration is the plan revision. */
+    taskId: integer("task_id").references(() => tasks.id, {
+      onDelete: "cascade",
+    }),
+    iteration: integer().notNull(),
+    /** orchestrator | develop | testing */
+    agent: text().notNull(),
+    output: jsonb().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    unique("agent_steps_uq")
+      .on(t.runId, t.taskId, t.iteration, t.agent)
+      .nullsNotDistinct(),
+  ],
 );
