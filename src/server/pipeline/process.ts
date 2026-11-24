@@ -3,6 +3,7 @@ import { getDb, type Db } from "@/server/db/client";
 import { githubEvents } from "@/server/db/schema";
 import { classifyEvent } from "./classify";
 import { applyDeployment, applyPullRequest } from "./previews";
+import { handlePreviewRun } from "./reports";
 
 async function runEvent(db: Db, event: string, payload: unknown) {
   const classified = classifyEvent(event, payload);
@@ -12,8 +13,7 @@ async function runEvent(db: Db, event: string, payload: unknown) {
     case "deployment_status":
       return applyDeployment(db, classified.update);
     case "workflow_run":
-      // The artifact step lands in the next commit; keep it pending.
-      throw new Error("workflow_run processing not available yet");
+      return handlePreviewRun(db, classified.run);
     case "ignored":
       return;
   }
