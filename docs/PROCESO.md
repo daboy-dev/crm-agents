@@ -17,7 +17,7 @@ Cómo se ha construido este proyecto, sesión a sesión.
 |---|---|---|
 | H0 · Plan y base del repo | Plan validado, documentos en el repo, esqueleto desplegado en Vercel con CI en verde | Hecho |
 | H1 · CRM demo | `crm-demo` en producción con clientes, presupuestos y facturas, CI en verde, y un PR de prueba que crea su vista previa con su propia rama de Neon y la borra al cerrarse | Hecho |
-| H2 · Tubería sin IA | Un PR de prueba en `crm-demo` aparece en `/pipeline` (con login) con su vista previa, el resultado de los tests y las capturas a 1280 px y 390 px; un test roto a propósito aparece como fallo; reenviar un webhook no duplica nada | En curso |
+| H2 · Tubería sin IA | Un PR de prueba en `crm-demo` aparece en `/pipeline` (con login) con su vista previa, el resultado de los tests y las capturas a 1280 px y 390 px; un test roto a propósito aparece como fallo; reenviar un webhook no duplica nada | Hecho |
 | H3 · Motor de runs | Un run completo con `MockProvider` | Pendiente |
 | H4 · Orquestador | Plan con criterios de aceptación que el cliente aprueba o rechaza | Pendiente |
 | H5 · Develop | PR real que compila en su vista previa | Pendiente |
@@ -157,3 +157,46 @@ Cómo se ha construido este proyecto, sesión a sesión.
 - Secrets de Actions en `crm-demo` con las credenciales de demo.
 
 **Siguiente paso:** sesión 05 de Claude Code (H2), en `crm-demo` y `crm-agents`.
+
+## Sesión 05 · H2 · Tubería sin IA (Claude Code) · 24/11/2026
+
+**Objetivo:** cada vista previa de `crm-demo` pasa Playwright en GitHub Actions y los resultados (tests y capturas) llegan al panel, que los muestra en `/pipeline` tras un login (D15–D19). Sin IA ni runs.
+
+**Cómo fue:**
+- Claude propuso un plan de commits por repo y ocho decisiones de detalle. Empezó tras el visto bueno.
+- **`crm-demo`** (PR [crm-demo#3](https://github.com/daboy-dev/crm-demo/pull/3), fusionado):
+  - `e2e/pages.ts` lista las páginas que se capturan: las tres listas y dos detalles, que se abren desde la primera fila para no depender de ids. `screenshots.spec.ts` guarda `<página>-<1280|390>.jpg` con los dos proyectos de Playwright que ya existían.
+  - `e2e/write-flow.spec.ts`: el flujo de escritura de H1. Solo se ejecuta si el host es una vista previa (`crm-demo-*.vercel.app` y no es un alias de producción); en producción y en local se salta, porque el `.env.local` apunta a producción.
+  - `preview-e2e.yml`: `deployment_status` en `success` y entorno `Preview*` → job `resolve` (busca la rama del sha) → job `e2e` con `concurrency` por rama → artifact `e2e-results` (`results.json`, `meta.json`, capturas) con `if: always()` y 1 día de retención. Sin secretos del panel.
+  - `AGENTS.md`: cómo funciona el E2E de las vistas previas, para qué sirve `pages.ts` y que `.github/**` y los helpers de `e2e/` no se tocan.
+- **`crm-agents`** (directo a `master`):
+  - Login: sesión HMAC copiada de `crm-demo` con sus tests (cookie `agents_session`). El proxy deja públicos `/login`, `/api/health` y `/api/webhooks/github`.
+  - Esquema: `github_events` (solo se añaden filas, `delivery_id` único), `previews` (una fila por sha), `test_reports` (único por `run_id` + `run_attempt`) y `screenshots`.
+  - `POST /api/webhooks/github`: firma HMAC con `timingSafeEqual` sobre el cuerpo en crudo, insert con `on conflict do nothing`, 200 inmediato y procesamiento en `after()` (`maxDuration` 60 s). Si llega de nuevo un evento ya procesado, se ignora; si no se procesó, se reintenta.
+  - Procesamiento: `classifyEvent` valida con Zod y filtra por repo, por entorno `Preview*` y por la ruta `.github/workflows/preview-e2e.yml`. Las actualizaciones son upserts que solo aplican datos igual o más recientes, así que el orden de llegada no importa.
+  - Artifact: lista con el PAT, sigue la redirección a la URL firmada sin enviar el token, descomprime en memoria con `fflate` (solo los nombres esperados y con límites de tamaño), comprueba `meta.json` contra los datos del run y sube las capturas al Blob privado por OIDC en una ruta fija por intento. Las capturas ya guardadas no se vuelven a subir.
+  - `GET /api/screenshots/[id]` comprueba la sesión, lee el blob en el servidor y responde con `Cache-Control: private`. `/pipeline` muestra cada PR con su vista previa, sus tests (con el nombre y el error de los que fallan) y las capturas por tamaño. Se refresca cada 5 s con `router.refresh()` y tiene un botón para reprocesar eventos pendientes.
+  - 60 tests de Vitest: firma (incluido el ejemplo de la doc de GitHub), idempotencia del webhook y del insert, clasificador y filtro de `workflow_run`, parseo de `results.json` y `meta.json`, lectura del zip y descarga del artifact.
+- **Verificación en producción:**
+  - PR #3: dos commits, cada uno con vista previa e informe 24/24 (incluido el flujo de escritura en la rama de Neon de la vista previa) y 10 capturas.
+  - PR [crm-demo#4](https://github.com/daboy-dev/crm-demo/pull/4), con un test roto a propósito: llegó en directo como «Tests con fallos», 24 pasados y 2 fallidos, con el nombre y el error del test en escritorio y a 390 px.
+  - Reenviar seis entregas ya procesadas: GitHub recibió 200 y el panel siguió con 23 eventos, 1 intento cada uno y los mismos informes y capturas.
+  - `/pipeline` con login a 1280 y 390 px: sin scroll horizontal y sin ninguna URL de Blob en el HTML. Las capturas se sirven con `private`.
+  - CI en verde en los dos repos. El PR #4 se cerró sin fusionar y el #3 se fusionó; `neon-cleanup` borró `preview/test/broken-e2e` y `preview/ci/preview-e2e`.
+
+**Qué salió mal y qué se corrigió:**
+- **Vercel no creaba GitHub Deployments.** El repo no tenía ningún deployment, solo commit statuses, así que no habría llegado ningún `deployment_status`. El humano activó los eventos de despliegue en el proyecto de Vercel `crm-demo` antes del primer PR.
+- **`deployment.ref` es el sha, no la rama** (y el `payload` llega vacío). Con `concurrency` por `deployment.ref` no se cancelaban los commits anteriores del mismo PR. Con el visto bueno del humano se añadió el job `resolve`, que busca la rama con `branches-where-head`, y `meta.json.ref` lleva la rama. Anotado en D15.
+- **Host de producción:** `crm-demo.vercel.app` no es este proyecto; producción es `crm-demo-daboy-dev.vercel.app`, y el primer patrón de «vista previa» también lo aceptaba. Se añadió una lista explícita de hosts de producción antes del primer commit.
+- **Blob por OIDC en local:** el store solo tiene OIDC activado fuera de `development`, así que la prueba local falló con `BlobOidcEnvironmentNotAllowedError`. No se cambió nada; se verificó en producción, donde funciona.
+- **Webhook antes del despliegue:** las entregas del PR #3 llegaron con 404 porque el panel aún no tenía la ruta. Se reenviaron desde la API de GitHub en orden cronológico. Los ids de entrega pierden precisión en `jq` (son enteros de 64 bits) y se leyeron con Python.
+- **Variables del login:** se crearon solo para Production y Preview, así que `vercel env pull` (Development) no las traía. El humano las añadió a Development para la prueba local.
+- **Un commit con el formato roto:** `pnpm format:check | tail` ocultaba el código de salida. Se corrigió con un amend antes de subirlo.
+- **Errores largos:** el mensaje de Playwright incluye el *call log* y el fragmento de código. Ahora se guarda solo la aserción, y a 390 px las capturas de escritorio se ven de dos en dos.
+- **Ejecución `skipped` en `master`:** el despliegue de producción también dispara `preview-e2e.yml` (con los jobs saltados) y creaba una fila sin PR y un informe «cancelado». Ahora se ignora, y las filas sobrantes se borraron.
+- **Credenciales:** `results.json` incluye en sus metadatos el email del autor del commit. El panel no guarda el JSON en crudo, solo el resumen.
+
+**Resultado:** H2 hecho. Transcripción en [`sesiones/05-h2-tuberia.md`](./sesiones/05-h2-tuberia.md).
+
+**Siguiente paso:** H3 · motor de runs (máquina de estados con `MockProvider`), enlazando runs con `previews` y `test_reports` por rama y PR.
+

@@ -31,10 +31,19 @@ Decisiones: `docs/DECISIONES.md` · Proceso e hitos: `docs/PROCESO.md`.
 3. Actualizar este archivo si cambia el stack, la estructura o los comandos.
 
 ## Estructura
-- `src/app`: UI y rutas API (`/api/health`).
+- `src/app`: UI y rutas API.
+  - `/login` (sesión HMAC, D19) y `/pipeline` (PRs de `crm-demo`, vista previa, tests y capturas; polling cada 5 s).
+  - `/api/health`, `/api/webhooks/github` (D17) y `/api/screenshots/[id]` (D18).
+- `src/proxy.ts`: protege todo salvo `/login`, `/api/health` y `/api/webhooks/github`.
+- `src/server/auth.ts` (copia de `crm-demo`) y `src/server/session.ts`.
 - `src/server/db`: esquema y cliente de Drizzle. Migraciones en `drizzle/`.
-- `src/server/runs`, `src/server/agents`, `src/server/llm`, `src/server/github`: reservadas para H2–H6.
-- Next.js 16: la doc de la versión instalada está en `node_modules/next/dist/docs/` (ver `AGENTS.md`). `cacheComponents` está activo: los route handlers que deban ejecutarse en cada petición llaman a `connection()`.
+- `src/server/github`: firma de webhooks, registro idempotente de eventos, cliente de artifacts y configuración (`DEMO_REPO`, `preview-e2e.yml`).
+- `src/server/pipeline`: clasificación de eventos, upserts de `previews`, lectura del artifact, informes y capturas en Blob, consultas de `/pipeline` y reprocesado.
+- `src/server/runs`, `src/server/agents`, `src/server/llm`: reservadas para H3–H6.
+- Next.js 16: la doc de la versión instalada está en `node_modules/next/dist/docs/` (ver `AGENTS.md`). `cacheComponents` está activo: los route handlers que deban ejecutarse en cada petición llaman a `connection()`, y los componentes que leen la base de datos van dentro de `<Suspense>`.
+
+## Variables
+Ver `.env.example`. En Vercel y en `.env.local` (`vercel env pull`): `DATABASE_URL`, `AUTH_SECRET`, `DEMO_USER`, `DEMO_PASSWORD`, `GH_TOKEN` (PAT de `crm-demo` con Actions: lectura), `GH_WEBHOOK_SECRET`, `BLOB_STORE_ID` y `VERCEL_OIDC_TOKEN` (caduca en local; el store solo tiene OIDC fuera de `development`, así que Blob se prueba en producción).
 
 ## Comandos
 - `pnpm dev` · servidor de desarrollo.
@@ -49,4 +58,5 @@ Decisiones: `docs/DECISIONES.md` · Proceso e hitos: `docs/PROCESO.md`.
 ## Estado
 - H0 hecho (23/11/2026).
 - H1 hecho (24/11/2026): `crm-demo` en producción, con vista previa y rama de Neon por PR, borrada al cerrar el PR (`neon-cleanup.yml`).
-- Siguiente: H2 · tubería sin IA (vista previa → webhook → capturas de Actions → panel).
+- H2 hecho (24/11/2026): cada vista previa de `crm-demo` pasa Playwright en Actions; el panel recibe `workflow_run`, descarga el artifact `e2e-results` y muestra tests y capturas en `/pipeline` tras el login.
+- Siguiente: H3 · motor de runs con `MockProvider`.

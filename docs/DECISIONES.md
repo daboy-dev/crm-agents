@@ -170,6 +170,12 @@ Registro de decisiones de arquitectura (formato ADR corto). Se toman en el Proje
 - El PAT no necesita permiso para lanzar workflows.
 - Hay que comprobar que los eventos `deployment_status` están activos en la configuración Git del proyecto de Vercel `crm-demo`.
 
+**Extra (24/11/2026, sesión 05):**
+- **Comprobado en H2:** Vercel no creaba GitHub Deployments hasta activar sus eventos de despliegue en el proyecto `crm-demo`.
+- Vercel pone el **sha** en `deployment.ref` y deja el `payload` vacío: el evento no trae la rama. El workflow tiene un job `resolve` que la busca con `GET /commits/{sha}/branches-where-head`, y el job `e2e` usa `concurrency` por esa rama. `meta.json.ref` lleva la rama.
+- El entorno llega como `Preview` (y `Production` en `master`). El despliegue de producción también lanza el workflow con los jobs saltados; el panel ignora las ejecuciones `skipped`.
+- El evento `workflow_run` sí trae `head_branch` y el número de PR.
+
 ## D16 · Los resultados vuelven al panel por `workflow_run` y un artifact
 **Fecha:** 24/11/2026 · **Estado:** aceptada
 
