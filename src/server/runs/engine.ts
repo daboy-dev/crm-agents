@@ -1,12 +1,14 @@
 import { and, asc, desc, eq, isNull, notInArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { runDevelop, runOrchestrator, runTesting } from "@/server/agents";
+import { CONTEXT_FILES, readPlanContext } from "@/server/agents/context";
 import {
   developOutputSchema,
   planSchema,
   verdictSchema,
   type AgentName,
   type E2eSummary,
+  type PlanInput,
   type TaskBrief,
 } from "@/server/agents/contracts";
 import { checkPaths } from "@/server/agents/paths";
@@ -35,7 +37,22 @@ import {
   moveBranch,
 } from "@/server/github/repo";
 import { getProvider, runProviders } from "@/server/llm";
-import type { Generated, LLMProvider } from "@/server/llm/provider";
+import {
+  InvalidOutput,
+  QuotaExhausted,
+  RateLimited,
+  type CallHooks,
+  type Generated,
+  type LLMProvider,
+} from "@/server/llm/provider";
+import {
+  cachedCall as cachedStep,
+  CallLimitReached,
+  totals,
+  type CachedResult,
+  type StepKey,
+  type StepStore,
+} from "./cache";
 import { llmCallsPerRun } from "./limits";
 import {
   AWAITING_HUMAN,
@@ -49,6 +66,7 @@ import {
 } from "./machine";
 import {
   acquireLease,
+  LEASE_SECONDS,
   appendEvent,
   checkpoint,
   commitTransition,
@@ -76,6 +94,9 @@ const APPROVAL_TIMEOUT_HOURS = 24;
 class BlockRun extends Error {}
 class SimulatedCrash extends Error {}
 
+/** Margin on Gemini's retryDelay before the sweep resumes the step. */
+const RATE_LIMIT_MARGIN_MS = 2_000;
+
 type StepContext = {
   db: Db;
   run: LoadedRun;
@@ -93,69 +114,188 @@ const brief = (t: TaskRow): TaskBrief => ({
   acceptanceCriteria: t.acceptanceCriteria,
 });
 
+/** agent_steps and runs.llm_calls of the run, under the step's lease. */
+function stepStore(ctx: StepContext): StepStore {
+  const { db, run, token } = ctx;
+  const where = (key: StepKey) =>
+    and(
+      eq(agentSteps.runId, run.id),
+      key.taskId === null
+        ? isNull(agentSteps.taskId)
+        : eq(agentSteps.taskId, key.taskId),
+      eq(agentSteps.iteration, key.iteration),
+      eq(agentSteps.agent, key.agent),
+    );
+  return {
+    async find(key) {
+      const [row] = await db
+        .select({ output: agentSteps.output, calls: agentSteps.calls })
+        .from(agentSteps)
+        .where(where(key));
+      return row ?? null;
+    },
+    async insert(key, output, calls) {
+      const [row] = await db
+        .insert(agentSteps)
+        .values({ runId: run.id, ...key, output, calls, ...totals(calls) })
+        .onConflictDoNothing()
+        .returning({ id: agentSteps.id });
+      return Boolean(row);
+    },
+    async countCall() {
+      const [row] = await db
+        .update(runs)
+        .set({ llmCalls: sql`${runs.llmCalls} + 1` })
+        .where(eq(runs.id, run.id))
+        .returning({ llmCalls: runs.llmCalls });
+      run.llmCalls = row?.llmCalls ?? run.llmCalls + 1;
+      return run.llmCalls;
+    },
+    async renewLease() {
+      const [row] = await db
+        .update(runs)
+        .set({
+          leaseUntil: sql`now() + make_interval(secs => ${LEASE_SECONDS})`,
+        })
+        .where(and(eq(runs.id, run.id), eq(runs.leaseToken, token)))
+        .returning({ id: runs.id });
+      if (!row) throw new LeaseLost(run.id);
+    },
+  };
+}
+
 /**
- * Returns the stored output of an LLM call, or makes the call and stores it
+ * Returns the stored output of an LLM step, or makes the call and stores it
  * (D22). A retried step never calls the LLM twice for the same key.
  */
-async function cachedCall<T>(
+function cachedCall<T>(
   ctx: StepContext,
-  key: { agent: AgentName; taskId: number | null; iteration: number },
+  key: StepKey,
   schema: z.ZodType<T>,
-  call: () => Promise<Generated<T>>,
-): Promise<T> {
-  const where = and(
-    eq(agentSteps.runId, ctx.run.id),
-    key.taskId === null
-      ? isNull(agentSteps.taskId)
-      : eq(agentSteps.taskId, key.taskId),
-    eq(agentSteps.iteration, key.iteration),
-    eq(agentSteps.agent, key.agent),
-  );
-  const [stored] = await ctx.db.select().from(agentSteps).where(where);
-  if (stored) return schema.parse(stored.output);
-
-  if (ctx.run.llmCalls >= llmCallsPerRun()) {
-    throw new BlockRun(
-      `Se ha llegado al máximo de ${llmCallsPerRun()} llamadas al LLM del run`,
-    );
-  }
-  const { output } = await call();
-  const [inserted] = await ctx.db
-    .insert(agentSteps)
-    .values({ runId: ctx.run.id, ...key, output })
-    .onConflictDoNothing()
-    .returning({ id: agentSteps.id });
-  await ctx.db
-    .update(runs)
-    .set({ llmCalls: sql`${runs.llmCalls} + 1` })
-    .where(eq(runs.id, ctx.run.id));
-  ctx.run.llmCalls += 1;
-  if (inserted) return output;
-  // Another attempt stored it first: use that one.
-  const [winner] = await ctx.db.select().from(agentSteps).where(where);
-  return schema.parse(winner!.output);
+  call: (hooks: CallHooks) => Promise<Generated<T>>,
+): Promise<CachedResult<T>> {
+  return cachedStep({
+    store: stepStore(ctx),
+    key,
+    schema,
+    used: ctx.run.llmCalls,
+    limit: llmCallsPerRun(),
+    call,
+  });
 }
+
+/** Timeline data of an LLM step: model, tokens and latency (D26). */
+const callData = (r: CachedResult<unknown>) => ({
+  calls: r.calls,
+  cached: r.cached,
+});
 
 // --- Steps ---
 
+/** Previous revision of the plan, for a replan (D29). */
+async function previousPlan(
+  db: Db,
+  run: LoadedRun,
+): Promise<PlanInput["previous"]> {
+  if (run.planRevision <= 1 || !run.planSummary) return null;
+  const rows = await db
+    .select()
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.runId, run.id),
+        eq(tasks.planRevision, run.planRevision - 1),
+      ),
+    )
+    .orderBy(asc(tasks.position));
+  return {
+    summary: run.planSummary,
+    tasks: rows.map((t) => ({
+      position: t.position,
+      title: t.title,
+      status: t.status,
+      lastFeedback: t.lastFeedback,
+      acceptanceCriteria: t.acceptanceCriteria,
+    })),
+  };
+}
+
 async function stepPlanning(ctx: StepContext): Promise<Committed> {
-  const { db, run } = ctx;
-  const plan = await cachedCall(
+  const { db, run, token } = ctx;
+
+  // D27: every revision plans on the master sha read when the run started,
+  // which is also the base of run/<id>.
+  let baseSha = run.baseSha;
+  if (!baseSha) {
+    baseSha = await getBaseSha();
+    await checkpoint(db, run, token, { baseSha });
+    run.baseSha = baseSha;
+  }
+  const base = baseSha;
+  // Code on the branch: only new or corrective tasks (D29).
+  const mode = run.headSha ? "amend" : "replace";
+  let contextPaths = run.contextPaths;
+
+  const result = await cachedCall(
     ctx,
     { agent: "orchestrator", taskId: null, iteration: run.planRevision },
     planSchema,
-    async () =>
-      runOrchestrator(await ctx.llm("orchestrator"), {
-        runId: run.id,
-        request: run.request,
-        planRevision: run.planRevision,
-        mode: "replace",
-        feedback: run.feedback,
-        previous: null,
-        // Read from crm-demo once the engine wires the context in (D27).
-        context: { baseSha: "", tree: [], files: [] },
-      }),
+    async (hooks) => {
+      const context = await readPlanContext(base);
+      contextPaths = context.files.map((f) => f.path);
+      await checkpoint(db, run, token, { contextPaths });
+      return runOrchestrator(
+        await ctx.llm("orchestrator"),
+        {
+          runId: run.id,
+          request: run.request,
+          planRevision: run.planRevision,
+          mode,
+          feedback: run.feedback,
+          previous: await previousPlan(db, run),
+          context,
+        },
+        hooks,
+      );
+    },
   );
+  const plan = result.output;
+
+  if (run.simulatePlanCrash && !run.planCrashedAt) {
+    await checkpoint(db, run, token, { planCrashedAt: new Date() });
+    throw new SimulatedCrash(
+      "Caída simulada justo después de guardar el plan. El sweep reanudará el paso cuando caduque el lease, sin volver a llamar al LLM.",
+    );
+  }
+
+  const set = {
+    planSummary: plan.summary,
+    planAssumptions: plan.assumptions,
+    // Set by the call, or by the attempt that stored the plan first.
+    contextPaths: contextPaths ?? CONTEXT_FILES,
+  };
+
+  if (!plan.feasible) {
+    const reason = plan.rejectionReason ?? plan.summary;
+    return commitTransition(
+      db,
+      run,
+      { type: "plan_infeasible", reason },
+      {
+        leaseToken: token,
+        set: { ...set, rejectedReason: reason },
+        events: [
+          {
+            actor: "orchestrator",
+            kind: "infeasible",
+            message: `Petición fuera de alcance: ${reason}`,
+            data: { plan, ...callData(result) },
+          },
+        ],
+      },
+    );
+  }
+
   await db
     .insert(tasks)
     .values(
@@ -163,24 +303,28 @@ async function stepPlanning(ctx: StepContext): Promise<Committed> {
         runId: run.id,
         planRevision: run.planRevision,
         position: i + 1,
-        ...t,
+        title: t.title,
+        description: t.description,
+        files: t.files,
+        acceptanceCriteria: t.acceptanceCriteria,
       })),
     )
     .onConflictDoNothing();
   const withTasks = (await loadRun(db, run.id))!;
+  const kind = mode === "amend" ? "tareas nuevas" : "tareas";
   return commitTransition(
     db,
     withTasks,
     { type: "plan_ready" },
     {
-      leaseToken: ctx.token,
-      set: { planSummary: plan.summary },
+      leaseToken: token,
+      set,
       events: [
         {
           actor: "orchestrator",
           kind: "plan",
-          message: `Plan (revisión ${run.planRevision}) con ${plan.tasks.length} tareas: ${plan.summary}`,
-          data: plan,
+          message: `Plan (revisión ${run.planRevision}) con ${plan.tasks.length} ${kind}: ${plan.summary}`,
+          data: { plan, mode, ...callData(result) },
         },
       ],
     },
@@ -195,19 +339,24 @@ async function stepDeveloping(ctx: StepContext): Promise<Committed> {
 
   const outputs = [];
   for (const task of work) {
-    const output = await cachedCall(
+    const result = await cachedCall(
       ctx,
       { agent: "develop", taskId: task.id, iteration: task.iteration },
       developOutputSchema,
-      async () =>
-        runDevelop(await ctx.llm("develop"), {
-          runId: run.id,
-          request: run.request,
-          task: brief(task),
-          iteration: task.iteration,
-          feedback: task.lastFeedback,
-        }),
+      async (hooks) =>
+        runDevelop(
+          await ctx.llm("develop"),
+          {
+            runId: run.id,
+            request: run.request,
+            task: brief(task),
+            iteration: task.iteration,
+            feedback: task.lastFeedback,
+          },
+          hooks,
+        ),
     );
+    const output = result.output;
     // D16: checked where the commits are made, before anything is written.
     const check = checkPaths(output.files.map((f) => f.path));
     if (!check.ok) {
@@ -228,7 +377,7 @@ async function stepDeveloping(ctx: StepContext): Promise<Committed> {
         },
       );
     }
-    outputs.push({ task, output });
+    outputs.push({ task, output, calls: callData(result) });
   }
 
   // 1. Build the commit chain once and remember it before touching the ref.
@@ -241,7 +390,8 @@ async function stepDeveloping(ctx: StepContext): Promise<Committed> {
         `La rama ${branch} no está en el commit esperado (${current ? short(current) : "no existe"})`,
       );
     }
-    let parent = run.headSha ?? (await getBaseSha());
+    // The first commit sits on the sha the orchestrator read (D27).
+    let parent = run.headSha ?? run.baseSha ?? (await getBaseSha());
     let tree = await getCommitTree(parent);
     commits = {};
     for (const { task, output } of outputs) {
@@ -269,7 +419,9 @@ async function stepDeveloping(ctx: StepContext): Promise<Committed> {
 
   if (run.simulateCrash && !run.crashedAt) {
     await checkpoint(db, run, token, { crashedAt: new Date() });
-    throw new SimulatedCrash();
+    throw new SimulatedCrash(
+      "Caída simulada justo después de mover la rama. El sweep reanudará el paso cuando caduque el lease.",
+    );
   }
 
   // 3. One PR per run: reuse the open one (D22).
@@ -307,11 +459,11 @@ async function stepDeveloping(ctx: StepContext): Promise<Committed> {
         ]),
       ),
       events: [
-        ...outputs.map(({ task, output }) => ({
+        ...outputs.map(({ task, output, calls }) => ({
           actor: "develop" as const,
           kind: "commit",
           message: `Tarea ${task.position}, iteración ${task.iteration}: commit ${short(commits[String(task.id)] ?? "")} · ${output.commitMessage}`,
-          data: { files: output.files.map((f) => f.path) },
+          data: { files: output.files.map((f) => f.path), ...calls },
         })),
         {
           actor: "system",
@@ -353,18 +505,23 @@ async function stepTesting(ctx: StepContext): Promise<Committed> {
   const verdicts: Verdict[] = [];
   const events: EventDraft[] = [];
   for (const task of run.tasks.filter((t) => t.status === "testing")) {
-    const verdict = await cachedCall(
+    const result = await cachedCall(
       ctx,
       { agent: "testing", taskId: task.id, iteration: task.iteration },
       verdictSchema,
-      async () =>
-        runTesting(await ctx.llm("testing"), {
-          runId: run.id,
-          task: brief(task),
-          iteration: task.iteration,
-          report: summary,
-        }),
+      async (hooks) =>
+        runTesting(
+          await ctx.llm("testing"),
+          {
+            runId: run.id,
+            task: brief(task),
+            iteration: task.iteration,
+            report: summary,
+          },
+          hooks,
+        ),
     );
+    const verdict = result.output;
     verdicts.push({
       taskId: task.id,
       passed: verdict.passed,
@@ -374,7 +531,7 @@ async function stepTesting(ctx: StepContext): Promise<Committed> {
       actor: "testing",
       kind: verdict.passed ? "passed" : "failed",
       message: `Tarea ${task.position}, iteración ${task.iteration}: ${verdict.passed ? "pasa" : "falla"}. ${verdict.summary}`,
-      data: verdict,
+      data: { ...verdict, ...callData(result) },
     });
   }
   return commitTransition(
@@ -469,12 +626,33 @@ async function stepFailed(
     await appendEvent(db, run, {
       actor: "system",
       kind: "crash",
-      message:
-        "Caída simulada justo después de mover la rama. El sweep reanudará el paso cuando caduque el lease.",
+      message: error.message,
     });
     return { applied: false };
   }
-  if (error instanceof BlockRun) {
+  if (error instanceof RateLimited) {
+    // D26: no waiting inside the function and not a failure of the step. The
+    // lease is pushed to the retryDelay and the sweep resumes it then.
+    const ms = error.retryAfterMs + RATE_LIMIT_MARGIN_MS;
+    await db
+      .update(runs)
+      .set({
+        leaseUntil: sql`now() + make_interval(secs => ${Math.ceil(ms / 1000)})`,
+      })
+      .where(and(eq(runs.id, run.id), eq(runs.leaseToken, token)));
+    await appendEvent(db, run, {
+      actor: "system",
+      kind: "rate_limited",
+      message: `Gemini: ${error.message}. El paso se reanuda solo.`,
+      data: { model: error.model, retryAfterMs: error.retryAfterMs },
+    });
+    return { applied: false };
+  }
+  if (
+    error instanceof BlockRun ||
+    error instanceof CallLimitReached ||
+    error instanceof QuotaExhausted
+  ) {
     return commitTransition(
       db,
       run,
@@ -515,6 +693,8 @@ async function stepFailed(
     actor: "system",
     kind: "error",
     message: `Error en el paso ${run.status} (intento ${attempts} de ${MAX_STEP_ATTEMPTS}): ${message.slice(0, 500)}`,
+    // An answer that failed the contract still cost calls: show them.
+    data: error instanceof InvalidOutput ? { calls: error.calls } : undefined,
   });
   return { applied: false };
 }
