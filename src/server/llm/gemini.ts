@@ -178,9 +178,14 @@ export function isThinkingLevelRejected(error: unknown): boolean {
   return e?.status === 400 && /thinking level/i.test(String(e.message ?? ""));
 }
 
-/** Model overloaded ("high demand"): another model may answer now. */
+/**
+ * Model unavailable on Google's side (500, 503 "high demand", 504 deadline
+ * exceeded): another model of the list may answer now.
+ */
 export const isOverloaded = (error: unknown) =>
-  (error as { status?: unknown } | null)?.status === 503;
+  [500, 503, 504].includes(
+    (error as { status?: unknown } | null)?.status as number,
+  );
 
 // --- Provider ---
 

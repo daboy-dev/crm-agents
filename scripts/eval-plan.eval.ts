@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { GoogleGenAI } from "@google/genai";
 import { config } from "dotenv";
 import { describe, expect, it } from "vitest";
@@ -18,7 +18,8 @@ import { RateLimited, type CallMeta } from "@/server/llm/provider";
  * pnpm eval:plan (D30): the four requests of D14 against Gemini, with the
  * real context of crm-demo. Saves each plan in docs/evals/ and the raw
  * answers as fixtures for the Vitest suite. Spends 4 requests or more of
- * the daily quota: run it by hand.
+ * the daily quota: run it by hand. Requests that already have a plan are
+ * skipped (EVAL_FORCE=1 plans them again).
  */
 
 config({ path: [".env.local", ".env"], quiet: true });
@@ -123,8 +124,17 @@ describe("eval:plan (D14, D30)", () => {
     const results: Result[] = [];
     let requests = 0;
 
-    for (const [i, { slug, request }] of REQUESTS.entries()) {
-      if (i > 0) await sleep(PAUSE_MS);
+    let first = true;
+    for (const { slug, request } of REQUESTS) {
+      const file = `docs/evals/plan-${slug}.json`;
+      if (existsSync(file) && !process.env.EVAL_FORCE) {
+        const saved = JSON.parse(readFileSync(file, "utf8")) as Result;
+        results.push({ ...saved, slug });
+        console.log(`${slug}: ya planificada, se salta`);
+        continue;
+      }
+      if (!first) await sleep(PAUSE_MS);
+      first = false;
       raw = [];
       const input = {
         runId: 0,
@@ -150,7 +160,7 @@ describe("eval:plan (D14, D30)", () => {
       results.push({ slug, request, plan, calls });
 
       writeFileSync(
-        `docs/evals/plan-${slug}.json`,
+        file,
         JSON.stringify({ request, baseSha, plan, calls }, null, 2) + "\n",
       );
       mkdirSync("src/server/llm/fixtures/gemini/recorded", { recursive: true });
