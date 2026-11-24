@@ -1,0 +1,101 @@
+{
+  "config": { "metadata": {} },
+  "suites": [
+    {
+      "title": "screenshots.spec.ts",
+      "file": "screenshots.spec.ts",
+      "specs": [],
+      "suites": [
+        {
+          "title": "screenshots",
+          "specs": [
+            {
+              "title": "captures clientes",
+              "ok": true,
+              "tests": [
+                {
+                  "projectName": "desktop",
+                  "status": "expected",
+                  "results": [{ "status": "passed", "errors": [] }]
+                },
+                {
+                  "projectName": "mobile-390",
+                  "status": "flaky",
+                  "results": [
+                    {
+                      "status": "failed",
+                      "errors": [{ "message": "timeout" }]
+                    },
+                    { "status": "passed", "errors": [] }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "smoke.spec.ts",
+      "file": "smoke.spec.ts",
+      "specs": [
+        {
+          "title": "lists clients, quotes and invoices with data",
+          "ok": false,
+          "tests": [
+            {
+              "projectName": "desktop",
+              "status": "unexpected",
+              "results": [
+                {
+                  "status": "failed",
+                  "errors": [
+                    {
+                      "message": "\u001b[31mError: expect(locator).toBeVisible() failed\u001b[39m\n\nLocator: getByTestId('client-row')"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "projectName": "mobile-390",
+              "status": "expected",
+              "results": [{ "status": "passed", "errors": [] }]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "write-flow.spec.ts",
+      "file": "write-flow.spec.ts",
+      "suites": [
+        {
+          "title": "write flow",
+          "specs": [
+            {
+              "title": "client → quote → accept → invoice → paid",
+              "ok": true,
+              "tests": [
+                {
+                  "projectName": "desktop",
+                  "status": "skipped",
+                  "results": [{ "status": "skipped", "errors": [] }]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-11-24T13:24:55.729Z",
+    "duration": 46710.4,
+    "expected": 2,
+    "skipped": 1,
+    "unexpected": 1,
+    "flaky": 1
+  }
+}
