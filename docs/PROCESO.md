@@ -200,3 +200,31 @@ Cómo se ha construido este proyecto, sesión a sesión.
 
 **Siguiente paso:** H3 · motor de runs (máquina de estados con `MockProvider`), enlazando runs con `previews` y `test_reports` por rama y PR.
 
+## Sesión 06 · Planificación de H3 (Project de Claude) · 24/11/2026
+
+**Objetivo:** decidir cómo funciona el motor de runs antes de abrir Claude Code: estados, cómo avanzan los pasos sin esperar en vivo, la cola y qué simula `MockProvider`.
+
+**Cómo fue:**
+- Se comprobó que en Vercel Hobby el cron solo se ejecuta una vez al día, así que no sirve para recuperar pasos caídos (D22).
+- Se diseñaron los estados del run y de la tarea como una función pura de transiciones con tests (D21).
+- Se decidió que H3 use GitHub de verdad (rama, commits, PR, vista previa, Actions y merge) con solo el LLM simulado (D24).
+
+**Qué cambió por el camino:**
+- Un PR o un build por tarea costaba demasiados builds y chocaba con los límites de PRs y de ramas de Neon. Se pasa a un PR por run, un commit por tarea y un solo build por iteración (D20).
+- Sin cron, los pasos se recuperan con un lease y un `sweep()` que lanza el polling de la UI; los efectos se protegen con compare-and-swap y con la salida del LLM guardada (D22).
+- Un run esperando aprobación bloquearía la cola para siempre si nadie responde; se cancela a las 24 h (D23).
+- La regla de D16 (Develop no toca `.github/**` ni los helpers de `e2e/`) se adelanta de H5 a H3, con un escenario simulado que la comprueba (D24).
+
+**Resultado:** decisiones D20–D25 aceptadas. Criterio de H3 concretado:
+1. Escenario `ok` con 2 tareas: plan aprobado → PR con 2 commits y una sola vista previa → aprobación final → merge → `done`, y la rama de Neon se borra.
+2. `fail-once`: una tarea falla en la iteración 1 y pasa en la 2, visible en la línea de tiempo.
+3. `blocked`: tras 3 iteraciones, el humano abandona y el PR se cierra con su rama borrada.
+4. Un plan rechazado con feedback vuelve a planificarse.
+5. Un segundo run queda en cola y arranca cuando acaba el primero.
+6. Reenviar webhooks o hacer doble clic en aprobar no duplica nada, y un lease caducado se reanuda sin repetir el commit.
+
+**Comprobado por el humano:** `crm-demo` permite el merge squash y no tiene reglas de protección en `master`.
+
+**Pendiente:** el Whiteboard del plan no se pudo editar desde esta sesión. Se actualizará al día cuando esté todo terminado.
+
+**Siguiente paso:** sesión 07 de Claude Code (H3), en `crm-agents`.

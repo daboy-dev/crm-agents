@@ -224,3 +224,80 @@ Registro de decisiones de arquitectura (formato ADR corto). Se toman en el Proje
 **Decisión:** el login de D10 se implementa en H2 copiando la sesión HMAC de `crm-demo`, con sus tests, para que `/pipeline` no quede pública. El proxy protege todo salvo `/login`, `/api/health` y `/api/webhooks/github`.
 
 **Consecuencias:** H3 queda solo para el motor de runs.
+
+## D20 · Un PR por run, un commit por tarea y un build por iteración
+**Fecha:** 24/11/2026 · **Estado:** aceptada
+
+**Contexto:** cada build de una vista previa tarda minutos y hay como mucho 3 PRs abiertos y 10 ramas de Neon (D11).
+
+**Opciones:**
+- A. Un PR por tarea. Choca con el límite de PRs y de ramas de Neon.
+- B. Un PR por run y un build por tarea. Son N builds de minutos por iteración.
+- C. Un PR por run, un commit por tarea y un solo build por iteración.
+
+**Decisión:** C.
+- Cada run tiene la rama `run/<id>`. El nombre sale del id, así que repetir un paso no crea ramas nuevas.
+- Develop hace cada tarea en su propia llamada al LLM. El panel crea un commit por tarea con la Git Data API y actualiza la ref una sola vez, así que Vercel compila solo la cabeza.
+- Testing evalúa los criterios de cada tarea con el mismo informe de Playwright. Las tareas que fallan vuelven a Develop, con un máximo de 3 iteraciones por tarea (D5).
+
+**Consecuencias:** el historial del PR muestra un commit por tarea y cada iteración cuesta un solo build.
+
+## D21 · Estados del run y de la tarea
+**Fecha:** 24/11/2026 · **Estado:** aceptada
+
+**Decisión:**
+- Run: `queued → planning → awaiting_plan_approval → developing → awaiting_preview → testing → awaiting_final_approval → merging → done`.
+  - Desde `testing` se vuelve a `developing` o se pasa a `blocked` (decide el humano: reintentar o abandonar).
+  - El feedback del cliente en el plan o en la vista previa final devuelve el run a `planning` sobre la misma rama (D9).
+  - Estados finales: `done`, `rejected`, `cancelled` y `failed`.
+- Tarea: `pending → developing → testing → passed | failed | blocked`.
+- Las transiciones son una función pura `transition(estado, evento) → { estado, efectos }`, probada con una tabla en Vitest.
+- `run_events` es un log en el que solo se añaden filas y es la línea de tiempo de la UI (D4).
+
+## D22 · Pasos con compare-and-swap, lease y sweep, sin cron
+**Fecha:** 24/11/2026 · **Estado:** aceptada
+
+**Contexto:** en Hobby, el cron de Vercel solo se ejecuta una vez al día (comprobado 24/11/2026), así que no sirve para recuperar pasos que se caen.
+
+**Decisión:**
+- Cada transición es un `UPDATE … WHERE id = $1 AND version = $2` más el insert en `run_events`, en una `sql.transaction([...])` no interactiva de Neon. Si no cambia ninguna fila, otro proceso ya avanzó el run y el paso no hace nada.
+- Los pasos con LLM se ejecutan en `after()` y reservan el run con `lease_until`.
+- Recuperación: el polling de la UI (cada 5 s) llama a un `sweep()` barato que relanza los pasos con el lease caducado. También hay un botón para reintentar.
+- Efectos que se pueden repetir:
+  - Antes de crear el PR se busca uno abierto para la rama.
+  - Solo se hace commit si la ref sigue en el sha esperado.
+  - La salida de cada llamada al LLM se guarda en `agent_steps` por (run, tarea, iteración, agente), así que un reintento no vuelve a llamar al LLM.
+- El procesamiento de H2 avisa al run que tenga esa rama **y el mismo sha**; los informes de commits anteriores se ignoran.
+- Un `deployment_status` en `failure` o `error` cuenta como build roto y vuelve a Develop (D13).
+- Si en 15 minutos no llega la vista previa, el run pasa a `blocked`.
+
+**Consecuencias:** un doble clic en «Aprobar» o un webhook reenviado no duplican nada.
+
+## D23 · Cola y límites en la base de datos
+**Fecha:** 24/11/2026 · **Estado:** aceptada
+
+**Decisión:**
+- Un índice único parcial sobre los runs que no están en `queued` ni en un estado final garantiza un solo run activo (D11). Al terminar un run se arranca el más antiguo de la cola.
+- Los runs que esperan aprobación cuentan como activos. El `sweep` los cancela tras 24 h, y hay un botón para cancelar, para que un run abandonado no bloquee la cola.
+- Límites: N runs al día (D10) y un máximo de llamadas al LLM por run (D8). Al llegar a cualquiera de los dos, el run pasa a `blocked`.
+
+## D24 · `MockProvider` con escenarios sobre GitHub real
+**Fecha:** 24/11/2026 · **Estado:** aceptada
+
+**Decisión:**
+- En H3 todo es real (rama, commits, PR, vista previa, Actions y merge) salvo el LLM.
+- El escenario se elige en el formulario, que solo lo muestra cuando el proveedor es el mock: `ok`, `fail-once`, `blocked` y `forbidden`.
+- El Develop simulado escribe `agent-runs/<run>/<tarea>.md`, que no afecta a la app. Los runs `ok` hacen merge real en `master` de `crm-demo`.
+- El Testing simulado sigue el escenario, pero si el E2E real falla, marca fallo igualmente.
+- Los contratos Zod se definen ya: plan, salida de Develop (archivos completos y mensaje de commit por tarea) y veredicto de Testing. En H4–H6 solo cambian el proveedor y los prompts.
+- La regla de D16 se aplica ya en la capa que hace los commits: se rechaza cualquier ruta bajo `.github/**` o en los helpers de `e2e/`. El escenario `forbidden` lo comprueba.
+
+**Consecuencias:** `master` de `crm-demo` acumula archivos `agent-runs/`, inofensivos.
+
+## D25 · UI mínima de runs
+**Fecha:** 24/11/2026 · **Estado:** aceptada
+
+**Decisión:**
+- `/runs`: formulario de petición nueva, cola y runs recientes.
+- `/runs/[id]`: línea de tiempo por agente, tareas con su estado e iteración, enlaces al PR y a la vista previa, y botones de aprobar o rechazar con feedback, reintentar y cancelar. Polling cada 5 s, como `/pipeline`.
+- `/pipeline` se queda como vista de depuración. La UI completa llega en H7.
