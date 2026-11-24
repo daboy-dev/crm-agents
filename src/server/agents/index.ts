@@ -1,7 +1,11 @@
 import type { CallHooks, Generated, LLMProvider } from "@/server/llm/provider";
 import {
+  ORCHESTRATOR_SYSTEM,
+  orchestratorPrompt,
+} from "./prompts/orchestrator";
+import {
   developOutputSchema,
-  planSchema,
+  planSchemaFor,
   verdictSchema,
   type DevelopInput,
   type DevelopOutput,
@@ -11,7 +15,8 @@ import {
   type TestingVerdict,
 } from "./contracts";
 
-// Prompts are placeholders until H4–H6; the mock reads `input` instead.
+// Develop and Testing prompts are placeholders until H5 and H6; the mock
+// reads `input` instead.
 
 export function runOrchestrator(
   llm: LLMProvider,
@@ -20,12 +25,12 @@ export function runOrchestrator(
 ): Promise<Generated<Plan>> {
   return llm.generateObject({
     agent: "orchestrator",
-    system:
-      "Eres el orquestador. Divide la petición en tareas con criterios de aceptación.",
-    prompt: JSON.stringify(input),
+    system: ORCHESTRATOR_SYSTEM,
+    prompt: orchestratorPrompt(input),
     input,
     hooks,
-    schema: planSchema,
+    // With the tree: a new page must be added to e2e/pages.ts (D28).
+    schema: planSchemaFor(input.context.tree),
   });
 }
 
