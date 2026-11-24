@@ -5,6 +5,8 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { Nav } from "@/app/nav";
 import { getDb } from "@/server/db/client";
+import type { CallMeta } from "@/server/llm/provider";
+import { runProviders } from "@/server/llm";
 import { DEMO_REPO, runBranch } from "@/server/github/config";
 import { isFinal, type RunStatus } from "@/server/runs/machine";
 import { getRunDetail, type RunDetail } from "@/server/runs/queries";
@@ -30,6 +32,31 @@ const time = new Intl.DateTimeFormat("es-ES", {
 const commitUrl = (sha: string) =>
   `https://github.com/${DEMO_REPO}/commit/${sha}`;
 
+const fileUrl = (sha: string, path: string) =>
+  `https://github.com/${DEMO_REPO}/blob/${sha}/${path}`;
+
+const CRITERION_TYPE: Record<string, string> = {
+  e2e: "E2E",
+  visual: "Visual",
+};
+
+const CALL_KIND: Record<string, string> = {
+  first: "llamada",
+  repair: "reparación",
+};
+
+const tokens = new Intl.NumberFormat("es-ES");
+const seconds = new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 });
+
+/** Calls stored in an event's data by the engine (D26), if any. */
+function eventCalls(data: unknown): { calls: CallMeta[]; cached: boolean } {
+  const d = data as { calls?: unknown; cached?: unknown } | null;
+  return {
+    calls: Array.isArray(d?.calls) ? (d.calls as CallMeta[]) : [],
+    cached: d?.cached === true,
+  };
+}
+
 function Summary({ detail }: { detail: RunDetail }) {
   const { run, preview, report } = detail;
   return (
@@ -43,6 +70,11 @@ function Summary({ detail }: { detail: RunDetail }) {
           {RUN_STATUS[run.status] ?? run.status}
         </span>
         <span className="muted">versión {run.version}</span>
+        <span className="muted" data-testid="run-providers">
+          {Object.entries(runProviders(run))
+            .map(([agent, name]) => `${ACTOR[agent] ?? agent}: ${name}`)
+            .join(" · ")}
+        </span>
         {run.scenario && <code>{SCENARIO[run.scenario] ?? run.scenario}</code>}
         {run.simulateCrash && (
           <code>caída simulada{run.crashedAt ? " (hecha)" : ""}</code>
@@ -51,6 +83,11 @@ function Summary({ detail }: { detail: RunDetail }) {
       <p className="run-request">{run.request}</p>
       {run.blockedReason && run.status === "blocked" && (
         <p className="error">{run.blockedReason}</p>
+      )}
+      {run.rejectedReason && run.status === "rejected" && (
+        <p className="error" data-testid="rejection-reason">
+          El Orquestador no puede hacer esta petición: {run.rejectedReason}
+        </p>
       )}
       <p className="row">
         {(run.headSha || run.prNumber) && <code>{runBranch(run.id)}</code>}
@@ -94,58 +131,139 @@ function Summary({ detail }: { detail: RunDetail }) {
           </span>
         )}
       </p>
-      <p className="muted">
+      <p className="muted" data-testid="llm-calls">
         Plan revisión {run.planRevision} · {run.llmCalls} llamadas al LLM
       </p>
-      {run.planSummary && <p>{run.planSummary}</p>}
     </section>
   );
 }
 
-function Tasks({ detail }: { detail: RunDetail }) {
-  if (detail.tasks.length === 0) return null;
+function Plan({ detail }: { detail: RunDetail }) {
+  const { run, tasks } = detail;
+  if (!run.planSummary && tasks.length === 0) return null;
+  const assumptions = run.planAssumptions ?? [];
   return (
-    <section className="card" data-testid="run-tasks">
-      <h2>Tareas</h2>
-      <ol className="task-list">
-        {detail.tasks.map((t) => (
-          <li
-            key={t.id}
-            data-testid="task"
-            data-status={t.status}
-            data-iteration={t.iteration}
-          >
-            <p className="row">
-              <strong>{t.title}</strong>
-              <span className={`badge badge-${statusTone(t.status)}`}>
-                {TASK_STATUS[t.status] ?? t.status}
-              </span>
-              <span className="muted">
-                iteración {t.iteration} de {t.maxIterations}
-              </span>
-              {t.commitSha && (
-                <a
-                  href={commitUrl(t.commitSha)}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <code>{t.commitSha.slice(0, 7)}</code>
-                </a>
+    <section className="card stack" data-testid="run-plan">
+      <h2>Plan · revisión {run.planRevision}</h2>
+      {run.planSummary && <p data-testid="plan-summary">{run.planSummary}</p>}
+      {assumptions.length > 0 && (
+        <div>
+          <strong>Supuestos</strong>
+          <ul data-testid="plan-assumptions">
+            {assumptions.map((a, i) => (
+              <li key={i}>{a}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {tasks.length > 0 && (
+        <ol className="task-list" data-testid="run-tasks">
+          {tasks.map((t) => (
+            <li
+              key={t.id}
+              data-testid="task"
+              data-status={t.status}
+              data-iteration={t.iteration}
+            >
+              <p className="row">
+                <strong>
+                  {t.position}. {t.title}
+                </strong>
+                <span className={`badge badge-${statusTone(t.status)}`}>
+                  {TASK_STATUS[t.status] ?? t.status}
+                </span>
+                <span className="muted">
+                  iteración {t.iteration} de {t.maxIterations}
+                </span>
+                {t.commitSha && (
+                  <a
+                    href={commitUrl(t.commitSha)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <code>{t.commitSha.slice(0, 7)}</code>
+                  </a>
+                )}
+              </p>
+              <p className="muted">{t.description}</p>
+              {t.files.length > 0 && (
+                <p className="files" data-testid="task-files">
+                  {t.files.map((f) => (
+                    <code key={f}>{f}</code>
+                  ))}
+                </p>
               )}
-            </p>
-            <p className="muted">{t.description}</p>
-            <ul>
-              {t.acceptanceCriteria.map((c) => (
-                <li key={c.id}>
-                  <code>{c.type}</code> {c.text}
-                </li>
-              ))}
-            </ul>
-            {t.lastFeedback && <p className="error">{t.lastFeedback}</p>}
+              <ul className="criteria">
+                {t.acceptanceCriteria.map((c) => (
+                  <li key={c.id} data-testid="criterion" data-type={c.type}>
+                    <span
+                      className={`badge badge-${c.type === "e2e" ? "info" : "neutral"}`}
+                    >
+                      {c.id} · {CRITERION_TYPE[c.type] ?? c.type}
+                    </span>{" "}
+                    {c.text}
+                  </li>
+                ))}
+              </ul>
+              {t.lastFeedback && <p className="error">{t.lastFeedback}</p>}
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  );
+}
+
+/** What the orchestrator read from crm-demo (D27). */
+function Context({ detail }: { detail: RunDetail }) {
+  const { run } = detail;
+  if (!run.baseSha) return null;
+  const paths = run.contextPaths ?? [];
+  return (
+    <section className="card" data-testid="run-context">
+      <h2>Archivos leídos por el Orquestador</h2>
+      <p className="muted">
+        crm-demo en{" "}
+        <a href={commitUrl(run.baseSha)} target="_blank" rel="noreferrer">
+          <code>{run.baseSha.slice(0, 7)}</code>
+        </a>{" "}
+        (base de la rama {runBranch(run.id)}), además del árbol de rutas del
+        repositorio.
+      </p>
+      <ul data-testid="context-files">
+        {paths.map((p) => (
+          <li key={p}>
+            <a href={fileUrl(run.baseSha!, p)} target="_blank" rel="noreferrer">
+              <code>{p}</code>
+            </a>
           </li>
         ))}
-      </ol>
+      </ul>
     </section>
+  );
+}
+
+/** Model, tokens and latency of each LLM call of an event (D26). */
+function Calls({ data }: { data: unknown }) {
+  const { calls, cached } = eventCalls(data);
+  if (calls.length === 0) return null;
+  return (
+    <ul className="calls">
+      {calls.map((c, i) => (
+        <li
+          key={i}
+          data-testid="llm-call"
+          data-model={c.model}
+          data-cached={cached}
+        >
+          <code>{c.model}</code> · {CALL_KIND[c.kind] ?? c.kind}
+          {c.valid ? "" : " (no válida)"} · {tokens.format(c.inputTokens)} →{" "}
+          {tokens.format(c.outputTokens)} tokens ·{" "}
+          {seconds.format(c.latencyMs / 1000)} s
+          {cached && " · de la caché, sin llamar de nuevo"}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -165,7 +283,10 @@ function Timeline({ detail }: { detail: RunDetail }) {
             <span className={`actor actor-${e.actor}`}>
               {ACTOR[e.actor] ?? e.actor}
             </span>
-            <span>{e.message}</span>
+            <span>
+              {e.message}
+              <Calls data={e.data} />
+            </span>
           </li>
         ))}
       </ol>
@@ -191,7 +312,8 @@ async function RunView({ params }: { params: Promise<{ id: string }> }) {
           status={detail.run.status}
         />
       )}
-      <Tasks detail={detail} />
+      <Plan detail={detail} />
+      <Context detail={detail} />
       <Timeline detail={detail} />
     </>
   );

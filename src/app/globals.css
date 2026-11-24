@@ -346,3 +346,24 @@ select {
     grid-column: 1 / -1;
   }
 }
+
+.files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+}
+
+.criteria {
+  margin: 0.25rem 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.calls {
+  margin: 0.2rem 0 0;
+  padding-left: 1rem;
+  font-size: 0.8rem;
+  color: color-mix(in srgb, var(--foreground) 70%, transparent);
+}
