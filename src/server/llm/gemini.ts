@@ -162,6 +162,22 @@ export function classifyQuotaError(error: unknown): QuotaError | null {
   };
 }
 
+// --- Thinking level ---
+
+/**
+ * Reasoning at the minimum the model takes (D26). Some models refuse
+ * MINIMAL with a 400 that costs no quota; then LOW is their minimum.
+ */
+const THINKING_LEVELS = [ThinkingLevel.MINIMAL, ThinkingLevel.LOW];
+
+/** Lowest level each model accepted, for the life of the instance. */
+const thinkingFloor = new Map<string, number>();
+
+export function isThinkingLevelRejected(error: unknown): boolean {
+  const e = error as { status?: unknown; message?: unknown } | null;
+  return e?.status === 400 && /thinking level/i.test(String(e.message ?? ""));
+}
+
 // --- Provider ---
 
 const responseText = (r: GeminiResponse) =>
@@ -292,20 +308,33 @@ export class GeminiProvider implements LLMProvider {
     await request.hooks?.beforeCall?.();
     const timeout = this.options.timeoutMs ?? GEMINI_TIMEOUT_MS;
     const started = Date.now();
-    const response = await this.options.generate({
-      model,
-      contents,
-      config: {
-        systemInstruction: request.system,
-        responseMimeType: "application/json",
-        responseJsonSchema: jsonSchema,
-        // Planning needs no long reasoning, and it keeps latency down (D26).
-        thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
-        // A 429 must never wait inside the function: no SDK retries.
-        httpOptions: { timeout, retryOptions: { attempts: 1 } },
-        abortSignal: AbortSignal.timeout(timeout),
-      },
-    });
+    let response: GeminiResponse | undefined;
+    for (let i = thinkingFloor.get(model) ?? 0; !response; i++) {
+      try {
+        response = await this.options.generate({
+          model,
+          contents,
+          config: {
+            systemInstruction: request.system,
+            responseMimeType: "application/json",
+            responseJsonSchema: jsonSchema,
+            // Planning needs no long reasoning, and it keeps latency down (D26).
+            thinkingConfig: { thinkingLevel: THINKING_LEVELS[i] },
+            // A 429 must never wait inside the function: no SDK retries.
+            httpOptions: { timeout, retryOptions: { attempts: 1 } },
+            abortSignal: AbortSignal.timeout(timeout),
+          },
+        });
+        thinkingFloor.set(model, i);
+      } catch (error) {
+        if (
+          !isThinkingLevelRejected(error) ||
+          i + 1 >= THINKING_LEVELS.length
+        ) {
+          throw error;
+        }
+      }
+    }
     const usage = response.usageMetadata ?? {};
     return {
       text: responseText(response),

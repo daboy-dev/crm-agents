@@ -10,6 +10,7 @@ import {
 } from "./gemini";
 import daily429 from "./fixtures/gemini/error-429-daily.json";
 import minute429 from "./fixtures/gemini/error-429-minute.json";
+import thinking400 from "./fixtures/gemini/error-400-thinking.json";
 import planInfeasible from "./fixtures/gemini/plan-infeasible.json";
 import planInvalid from "./fixtures/gemini/plan-invalid.json";
 import planOk from "./fixtures/gemini/plan-ok.json";
@@ -195,6 +196,23 @@ describe("GeminiProvider", () => {
       "Cuota de Gemini agotada; se renueva a las 9:00",
     );
     expect([...t.marked]).toEqual(["flash-a", "flash-b", "lite"]);
+  });
+
+  it("falls back to LOW when the model refuses MINIMAL thinking", async () => {
+    const t = setup([
+      new ApiError({ message: JSON.stringify(thinking400), status: 400 }),
+      planOk,
+      planOk,
+    ]);
+    const { calls } = await t.run();
+    expect(calls).toHaveLength(1);
+    expect(t.counted).toHaveLength(1);
+    expect(
+      t.requests.map((r) => r.config?.thinkingConfig?.thinkingLevel),
+    ).toEqual(["MINIMAL", "LOW"]);
+    // Remembered for the model: the next call goes straight to LOW.
+    await t.run();
+    expect(t.requests[2]!.config?.thinkingConfig?.thinkingLevel).toBe("LOW");
   });
 
   it("does not call the model when the budget hook refuses", async () => {
