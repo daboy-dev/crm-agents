@@ -122,6 +122,11 @@ Registro de decisiones de arquitectura (formato ADR corto). Se toman en el Proje
 - Nunca se pasa de unas pocas ramas a la vez, lejos del tope de 10.
 - Las peticiones simultáneas se encolan; la UI debe mostrar la cola.
 
+**Extra (24/11/2026, sesión 03):**
+- **Comprobado en H1:** la integración no borra la rama de Neon cuando se borra la de Git. Solo la marca como obsoleta, y la borra en el **siguiente despliegue de vista previa**. Mientras no haya vistas previas nuevas, las ramas obsoletas se acumulan con su compute activo.
+- **Workflow nuevo:** `crm-demo` tiene `.github/workflows/neon-cleanup.yml`. Al cerrarse un PR, con merge o sin él, borra la rama `preview/<rama>` con `neondatabase/delete-branch-action`. Usa los secrets `NEON_API_KEY` y `NEON_PROJECT_ID` y no falla si la rama ya no existe. La limpieza automática de la integración se mantiene como respaldo.
+- **Para el panel:** basta con cerrar el PR o borrar su rama de Git (GitHub cierra el PR y se dispara el workflow).
+
 ## D12 · `crm-demo` con el mismo stack y una estructura pensada para un LLM
 **Fecha:** 23/11/2026 · **Estado:** aceptada
 

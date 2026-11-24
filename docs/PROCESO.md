@@ -16,7 +16,7 @@ Cómo se ha construido este proyecto, sesión a sesión.
 | Hito | Se da por verificado cuando… | Estado |
 |---|---|---|
 | H0 · Plan y base del repo | Plan validado, documentos en el repo, esqueleto desplegado en Vercel con CI en verde | Hecho |
-| H1 · CRM demo | `crm-demo` en producción con clientes, presupuestos y facturas, CI en verde, y un PR de prueba que crea su vista previa con su propia rama de Neon y la borra al cerrarse | En curso |
+| H1 · CRM demo | `crm-demo` en producción con clientes, presupuestos y facturas, CI en verde, y un PR de prueba que crea su vista previa con su propia rama de Neon y la borra al cerrarse | Hecho |
 | H2 · Tubería sin IA | Un commit de prueba genera vista previa, webhook y capturas de Actions que llegan al panel | Pendiente |
 | H3 · Panel y motor de runs | Login y un run completo con `MockProvider` | Pendiente |
 | H4 · Orquestador | Plan con criterios de aceptación que el cliente aprueba o rechaza | Pendiente |
@@ -85,3 +85,52 @@ Cómo se ha construido este proyecto, sesión a sesión.
 **Resultado:** decisiones D11–D14 aceptadas (limpieza de ramas, stack y estructura de `crm-demo`, migraciones en el build, datos de prueba con huecos a propósito).
 
 **Siguiente paso:** sesión 03 de Claude Code (H1) en el repo `crm-demo`.
+
+## Sesión 03 · H1 · CRM demo (Claude Code) · 24/11/2026
+
+**Objetivo:** poner `crm-demo` en producción en Vercel, con clientes, presupuestos y facturas, CI en verde y una vista previa por PR con su propia rama de Neon (D11–D14).
+
+**Cómo fue:**
+- Claude propuso primero un plan de commits y diez decisiones de detalle. Empezó a generar el proyecto tras el visto bueno.
+- Configuración copiada de `crm-agents`: Next.js 16.4, pnpm, TypeScript estricto con `noUncheckedIndexedAccess`, ESLint, Prettier (sin Markdown), Vitest y la misma CI. Se añadieron Tailwind 4 y Playwright.
+- Modelo de datos en `src/db/schema.ts`:
+  - Ids enteros, importes en céntimos e IVA como porcentaje entero.
+  - Fechas de calendario guardadas como `YYYY-MM-DD`.
+  - Estados como enums de Postgres y relaciones de Drizzle.
+  - Índices únicos en `clients.email`, en los números `P-2026-NNN` / `F-2026-NNN` y en `invoices.quote_id` (como mucho una factura por presupuesto).
+- El driver HTTP de Neon no tiene transacciones interactivas. Por eso un presupuesto con sus líneas, y una factura que copia las líneas del presupuesto, se insertan en una sola sentencia SQL con CTE. Si dos peticiones chocan en el número, se reintenta.
+- Login de demo:
+  - Cookie firmada con HMAC-SHA256 usando Web Crypto, comparaciones en tiempo constante.
+  - `src/proxy.ts` protege todo salvo `/login` y `/api/health`. En Next 16 el middleware se llama proxy.
+- Lógica de dominio en `src/lib` con tests: moneda en EUR, fechas `es-ES`, totales con IVA, numeración, ids y la sesión. En total, 51 tests.
+- `pnpm db:seed` es idempotente y puede reanudarse si se corta. Crea 15 clientes, 14 presupuestos en los cuatro estados y 5 facturas (2 pagadas y 3 pendientes, 2 de ellas vencidas y sin marcar).
+- `AGENTS.md` está escrito para Develop: dónde va cada cosa, cómo añadir un campo, la convención de `data-testid` y qué no tocar.
+- Verificación:
+  - CI en verde.
+  - Producción migrada en el build (`vercel-build`) y seed aplicado una vez. Al repetirlo insertó 0 filas.
+  - Smoke de Playwright contra producción: 12/12 en escritorio y a 390 px.
+- PR de prueba ([crm-demo#1](https://github.com/daboy-dev/crm-demo/pull/1)):
+  - La vista previa se desplegó sin la autenticación de Vercel y la rama `preview/chore/preview-smoke-test` apareció en Neon.
+  - Contra esa vista previa pasó, en escritorio y a 390 px, un flujo de escritura completo: crear y editar un cliente, presupuesto con dos líneas y totales, aceptarlo, generar la factura y marcarla como pagada.
+  - Producción siguió con los mismos datos, así que la vista previa usaba su propia rama de Neon.
+  - Al cerrar el PR y borrar la rama de Git, Neon marcó su rama como obsoleta, pero no la borró.
+
+**Qué salió mal y qué se corrigió:**
+- `pnpm add -D typescript` instaló TypeScript 7. Se fijó `^5`, como en `crm-agents`.
+- **Build:** con `cacheComponents`, `next build` intentaba leer la base de datos al prerenderizar las listas y fallaba sin `DATABASE_URL`. Cada componente que lee la base de datos va dentro de `<Suspense>` y las listas llaman a `await connection()`. Está documentado en `AGENTS.md`.
+- **Commits:** el layout de la app importaba la acción de logout antes de que existiera el commit de auth. Se reordenaron los commits para que todos compilen. Presupuestos y facturas se juntaron en uno porque el detalle del presupuesto genera la factura.
+- **Login:** tras un error se vaciaba el campo de usuario. Ahora lo conserva.
+- **Páginas ocultas de Next 16.** Con `cacheComponents`, las páginas visitadas siguen montadas aunque ocultas (React `<Activity>`). Lo destapó el test de escritura en la vista previa, que se quedaba colgado:
+  - Un mismo `data-testid` aparecía dos veces en el DOM.
+  - Los formularios de alta conservaban lo escrito y los errores, y el login, la contraseña oculta.
+  - Arreglo: `ResetOnHide` reinicia los formularios al ocultarse, y `e2e/helpers.ts` aporta `byTestId()`, que filtra los elementos visibles. Está documentado en `AGENTS.md` para el agente de Testing (H2).
+- **Credenciales en la sesión:** al depurar, una traza de Playwright mostró en claro las credenciales de demo de producción. Se borró la traza y la transcripción las oculta.
+- **Variables de entorno:** no había CLI de Vercel en local. El humano ejecutó `vercel link` y `vercel env pull` para traer las variables de producción, y Claude nunca recibió claves por el chat.
+- **Ramas de Neon obsoletas:** la integración gestionada por Neon no borra la rama `preview/...` al borrar la rama de Git. La marca como obsoleta y solo la borra en el **siguiente despliegue de vista previa**. Sin vistas previas nuevas, las ramas se acumulan con su compute activo, un riesgo para el límite de 10 ramas (D11).
+  - Se añadió `.github/workflows/neon-cleanup.yml` en un segundo PR ([crm-demo#2](https://github.com/daboy-dev/crm-demo/pull/2)). Al cerrarse un PR, comprueba que su rama existe y la borra con `neondatabase/delete-branch-action`. Usa los secrets `NEON_API_KEY` y `NEON_PROJECT_ID`.
+  - Verificado: la vista previa del PR 2 hizo que Neon borrara la rama obsoleta del PR 1 (su health pasó de 200 a 503). Al fusionar el PR 2, el workflow borró su propia rama en segundos.
+- **Copia de `DECISIONES.md`:** apareció una copia en `crm-demo/docs/`. No se subió; las decisiones solo viven en `crm-agents`.
+
+**Resultado:** H1 hecho. Cada PR tiene su vista previa con rama propia de Neon, y la rama se borra al cerrar el PR. El test de escritura, que no se subió porque escribe datos, queda como base para el E2E contra vistas previas de H2. Transcripción en [`sesiones/03-h1-crm-demo.md`](./sesiones/03-h1-crm-demo.md).
+
+**Siguiente paso:** H2 · tubería sin IA. Un commit de prueba en `crm-demo` genera vista previa, webhook y capturas de Actions que llegan al panel.
