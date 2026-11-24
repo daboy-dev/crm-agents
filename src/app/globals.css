@@ -38,3 +38,66 @@ a {
   margin: 0 auto;
   padding: 4rem 1rem;
 }
+
+.muted {
+  color: color-mix(in srgb, var(--foreground) 60%, transparent);
+}
+
+.error {
+  color: #c5221f;
+  margin: 0;
+}
+
+.stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+input,
+button {
+  font: inherit;
+}
+
+.field input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--foreground) 25%, transparent);
+  border-radius: 6px;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+button {
+  padding: 0.5rem 0.9rem;
+  border: 0;
+  border-radius: 6px;
+  background: var(--foreground);
+  color: var(--background);
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--foreground);
+  border: 1px solid color-mix(in srgb, var(--foreground) 25%, transparent);
+}
+
+.login {
+  max-width: 22rem;
+  margin: 0 auto;
+  padding: 6rem 1rem;
+}
+
+.login h1 {
+  margin: 0;
+}
