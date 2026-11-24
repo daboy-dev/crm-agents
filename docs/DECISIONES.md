@@ -316,3 +316,71 @@ Registro de decisiones de arquitectura (formato ADR corto). Se toman en el Proje
 - `/runs`: formulario de petición nueva, cola y runs recientes.
 - `/runs/[id]`: línea de tiempo por agente, tareas con su estado e iteración, enlaces al PR y a la vista previa, y botones de aprobar o rechazar con feedback, reintentar y cancelar. Polling cada 5 s, como `/pipeline`.
 - `/pipeline` se queda como vista de depuración. La UI completa llega en H7.
+
+## D26 · `GeminiProvider` con una lista de modelos por agente
+**Fecha:** 24/11/2026 · **Estado:** aceptada
+
+**Contexto:** Google ya no publica las cuotas gratuitas y remite a AI Studio. Comprobado el 24/11/2026 en el proyecto de la clave:
+
+| Modelo | RPM | TPM | RPD |
+|---|---|---|---|
+| `gemini-3.8-flash` | 5 | 250K | 20 |
+| `gemini-3.6-flash` | 5 | 250K | 20 |
+| `gemini-3.5-flash-lite` | 15 | 250K | 500 |
+
+Las cuotas son por modelo y por proyecto (no por clave), y las diarias se reinician a medianoche del Pacífico (las 9:00 en Madrid). Un run real gasta entre 5 y 10 llamadas, así que con un solo modelo Flash caben 2–4 runs al día, contando los de los evaluadores.
+
+**Opciones:**
+- A. Solo Flash. Mejor calidad, pero la cuota se agota en pocos runs.
+- B. Solo Flash-Lite. Cuota de sobra, peor calidad.
+- C. Una lista de modelos por agente: cuando uno agota su cuota diaria, se pasa al siguiente.
+
+**Decisión:** C.
+- SDK `@google/genai` con `generateContent`, `responseMimeType: "application/json"` y un JSON Schema generado desde el contrato Zod. La respuesta se valida con Zod; si no valida, se hace **una** llamada de reparación con el error, que cuenta en el presupuesto. La doc de Google tiene ejemplos que no coinciden con los tipos del SDK actual: se siguen los tipos instalados.
+- Orquestador: `GEMINI_MODELS_ORCHESTRATOR=gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite`. Develop y Testing tendrán su lista en H5 y H6.
+- Proveedor por agente: `LLM_PROVIDER_ORCHESTRATOR=gemini`; Develop y Testing siguen en `mock` hasta H5 y H6. El selector de escenario del formulario se muestra mientras alguno de los dos sea el mock.
+- **429 por minuto:** el paso no espera dentro de la función. Aplaza el lease hasta el `retryDelay` de la respuesta y el sweep lo retoma. No cuenta como fallo para los 3 de D22.
+- **429 diario:** se pasa al siguiente modelo de la lista. Si no queda ninguno, el run pasa a `blocked` con «Cuota de Gemini agotada; se renueva a las 9:00» y el botón de reintentar.
+- Timeout de 60 s por llamada y razonamiento al mínimo en el Orquestador.
+- `agent_steps` guarda el modelo, los tokens y la latencia de cada llamada, y la línea de tiempo los muestra.
+- Límites nuevos (D23): `RUNS_PER_DAY` = 5 y `LLM_CALLS_PER_RUN` = 12.
+- `GEMINI_API_KEY` es de un proyecto de Google **sin facturación**, para no salir de la capa gratuita. En esa capa Google puede usar los prompts; es aceptable porque los datos son ficticios.
+
+**Consecuencias:**
+- 40 llamadas al día con Flash entre los dos modelos, y 500 con Flash-Lite de respaldo.
+- Plan B si todo se agota: `LLM_PROVIDER=mock` (D8).
+
+## D27 · Qué ve el Orquestador
+**Fecha:** 24/11/2026 · **Estado:** aceptada
+
+**Decisión:**
+- Recibe la petición, el `AGENTS.md` de `crm-demo`, el árbol de rutas del repo (Git Trees API), `src/db/schema.ts` y `e2e/pages.ts`.
+- Todo se lee en el sha de `master` al empezar el run, y ese sha se guarda en el run como base de la rama `run/<id>`.
+- No lee el código completo: planifica, no programa. Así el prompt es pequeño y estable.
+- La UI muestra qué archivos ha leído el agente.
+
+## D28 · Contrato del plan
+**Fecha:** 24/11/2026 · **Estado:** aceptada
+
+**Decisión:** el contrato Zod de H3 se amplía:
+- `feasible: false` y un motivo: el Orquestador rechaza peticiones fuera del CRM, que toquen `.github/**` o los helpers de `e2e/`, o que necesiten claves o servicios de pago. El run pasa a `rejected` sin crear rama ni PR (transición nueva `planning → rejected`).
+- `summary` para el cliente y `assumptions`, en español.
+- De 1 a 4 tareas, cada una con:
+  - título y descripción para Develop;
+  - archivos previstos, comprobados ya contra `paths.ts` (D16);
+  - criterios de aceptación con id y tipo: `e2e` (se comprueba en el DOM con `data-testid`) o `visual` (se comprueba con las capturas).
+- Si la petición crea una página, la tarea incluye añadirla a `e2e/pages.ts` para que salga en las capturas.
+
+## D29 · Replanificación con feedback
+**Fecha:** 24/11/2026 · **Estado:** aceptada
+
+**Decisión:**
+- **Feedback en el plan** (aún no hay código): el Orquestador hace un plan completo que sustituye al anterior.
+- **Feedback en la vista previa final:** el plan solo añade tareas nuevas o correctivas sobre la misma rama. El Orquestador recibe el plan anterior, el estado de cada tarea y el feedback.
+
+## D30 · Probar el Orquestador sin gastar cuota
+**Fecha:** 24/11/2026 · **Estado:** aceptada
+
+**Decisión:**
+- CI solo usa el mock y respuestas de Gemini grabadas (fixtures) para probar el parseo, la reparación, la lista de modelos y los dos tipos de 429.
+- `pnpm eval:plan`, a mano: lanza las cuatro peticiones de D14 contra Gemini y guarda los planes en `docs/evals/` como prueba para los evaluadores.

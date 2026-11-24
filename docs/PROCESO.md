@@ -263,3 +263,27 @@ Cómo se ha construido este proyecto, sesión a sesión.
 **Resultado:** H3 hecho. Transcripción en [`sesiones/07-h3-motor-runs.md`](./sesiones/07-h3-motor-runs.md).
 
 **Siguiente paso:** H4 · Orquestador con `GeminiProvider`.
+
+## Sesión 08 · Planificación de H4 (Project de Claude) · 24/11/2026
+
+**Objetivo:** decidir cómo se conecta Gemini al Orquestador, qué contexto recibe y qué devuelve, antes de abrir Claude Code.
+
+**Cómo fue:**
+- Se comprobó la cuota gratuita de Gemini. Google ya no la publica; en AI Studio, el proyecto de la clave muestra 5 RPM y 20 peticiones al día para `gemini-3.8-flash` y `gemini-3.6-flash`, y 15 RPM y 500 al día para `gemini-3.5-flash-lite`, con reinicio a las 9:00 de Madrid.
+- Se definieron el contexto del Orquestador (D27), el contrato del plan (D28) y cómo se replanifica con feedback (D29).
+
+**Qué cambió por el camino:**
+- Con 20 peticiones al día por modelo Flash, un run real (5–10 llamadas) dejaba sitio para 2–4 runs diarios, y el tope de 30 llamadas por run superaba la cuota entera. Se pasa a una lista de modelos por agente que salta al siguiente al agotar la cuota diaria, y se bajan los límites a 5 runs al día y 12 llamadas por run (D26).
+- Un 429 por minuto no espera dentro de la función: aplaza el lease y lo retoma el sweep, sin contar como fallo (D26).
+- El Orquestador puede rechazar una petición fuera de alcance; el run termina en `rejected` sin crear rama (D28).
+
+**Resultado:** decisiones D26–D30 aceptadas. Criterio de H4:
+1. En producción, las cuatro peticiones de D14 (NIF, buscador, facturas vencidas y página de contacto) dan planes válidos de 1 a 4 tareas con criterios comprobables.
+2. Un plan rechazado con feedback da una revisión 2 que lo recoge; al aprobarlo, el run sigue con Develop y Testing simulados hasta `done`.
+3. Una petición fuera de alcance acaba en `rejected` con su motivo, sin rama ni PR.
+4. Repetir un paso no vuelve a llamar a Gemini, y las llamadas cuentan en `LLM_CALLS_PER_RUN`.
+5. Modelo, tokens y latencia de cada llamada visibles en la línea de tiempo.
+
+**Hecho por el humano:** clave de Gemini en un proyecto de Google sin facturación y `GEMINI_API_KEY` en Vercel.
+
+**Siguiente paso:** sesión 09 de Claude Code (H4), en `crm-agents`.
