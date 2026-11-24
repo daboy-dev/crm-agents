@@ -248,3 +248,101 @@ details {
   margin-top: 0.75rem;
   padding-top: 0.25rem;
 }
+
+/* --- /runs --- */
+
+textarea,
+select {
+  font: inherit;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--foreground) 25%, transparent);
+  border-radius: 6px;
+  background: var(--background);
+  color: var(--foreground);
+  width: 100%;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.875rem;
+}
+
+.badge-work {
+  background: #e8f0fe;
+  color: #1a4fb0;
+}
+
+.run-list,
+.task-list,
+.timeline {
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.run-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.6rem;
+}
+
+.run-request {
+  overflow-wrap: anywhere;
+  margin: 0;
+}
+
+.task-list > li {
+  border-top: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+  padding-top: 0.5rem;
+}
+
+.task-list p {
+  margin: 0.25rem 0;
+}
+
+.timeline li {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 0.6rem;
+  font-size: 0.875rem;
+  align-items: baseline;
+}
+
+.timeline li > span:last-child {
+  overflow-wrap: anywhere;
+}
+
+.actor {
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.actor-orchestrator {
+  color: #681da8;
+}
+.actor-develop {
+  color: #1a4fb0;
+}
+.actor-testing {
+  color: #137333;
+}
+.actor-human {
+  color: #b06000;
+}
+.actor-github {
+  color: inherit;
+}
+
+@media (max-width: 480px) {
+  .timeline li {
+    grid-template-columns: auto 1fr;
+  }
+  .timeline li > span:last-child {
+    grid-column: 1 / -1;
+  }
+}

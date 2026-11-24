@@ -108,7 +108,9 @@ export async function notifyRuns(db: Db, c: Classified): Promise<void> {
   }
 
   if (notice.event) {
-    await applyEvent(runId, notice.event, [notice.note], version);
+    await applyEvent(runId, notice.event, [notice.note], {
+      expectedVersion: version,
+    });
   } else if (version !== undefined) {
     await appendEvent(db, { id: runId, version }, notice.note);
   }

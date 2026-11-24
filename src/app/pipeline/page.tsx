@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { logout } from "@/app/login/actions";
+import { Nav } from "@/app/nav";
 import { getDb } from "@/server/db/client";
 import { getPendingEvents, getPipeline } from "@/server/pipeline/queries";
 import { reprocessEvents } from "./actions";
@@ -52,18 +52,7 @@ async function PullRequests() {
 export default function PipelinePage() {
   return (
     <main className="page">
-      <header className="page-header">
-        <h1>Pipeline</h1>
-        <form action={logout}>
-          <button
-            type="submit"
-            className="secondary"
-            data-testid="logout-button"
-          >
-            Salir
-          </button>
-        </form>
-      </header>
+      <Nav title="Pipeline" />
       <p className="muted">
         Vista previa, tests E2E y capturas de cada PR de crm-demo. Se actualiza
         sola cada 5 s.

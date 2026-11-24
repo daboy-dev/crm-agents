@@ -589,16 +589,22 @@ export async function applyEvent(
   runId: number,
   event: RunEvent,
   events: EventDraft[],
-  expectedVersion?: number,
+  options: {
+    /** Compare-and-swap against the version the caller saw (D22). */
+    expectedVersion?: number;
+    /** false: the caller runs the effects later (in after()). */
+    runEffects?: boolean;
+  } = {},
 ): Promise<Committed> {
   const db = getDb();
   const run = await loadRun(db, runId);
   if (!run) return { applied: false };
-  if (expectedVersion !== undefined && run.version !== expectedVersion) {
-    return { applied: false };
-  }
+  const version = options.expectedVersion ?? run.version;
+  if (run.version !== version) return { applied: false };
   const committed = await commitTransition(db, run, event, { events });
-  if (committed.applied) await executeEffects(runId, committed.effects);
+  if (committed.applied && options.runEffects !== false) {
+    await executeEffects(runId, committed.effects);
+  }
   return committed;
 }
 
@@ -675,7 +681,7 @@ async function sweepRun(db: Db, run: typeof runs.$inferSelect) {
             message: `Informe E2E de ${short(run.headSha)} recibido.`,
           },
         ],
-        run.version,
+        { expectedVersion: run.version },
       );
       return;
     }
@@ -694,7 +700,7 @@ async function sweepRun(db: Db, run: typeof runs.$inferSelect) {
             message: `El build de ${short(run.headSha)} ha fallado.`,
           },
         ],
-        run.version,
+        { expectedVersion: run.version },
       );
       return;
     }
@@ -709,7 +715,7 @@ async function sweepRun(db: Db, run: typeof runs.$inferSelect) {
             message: `La vista previa no ha llegado en ${PREVIEW_TIMEOUT_MINUTES} minutos.`,
           },
         ],
-        run.version,
+        { expectedVersion: run.version },
       );
     }
     return;
@@ -728,7 +734,7 @@ async function sweepRun(db: Db, run: typeof runs.$inferSelect) {
           message: `Sin respuesta en ${APPROVAL_TIMEOUT_HOURS} h: se cancela el run.`,
         },
       ],
-      run.version,
+      { expectedVersion: run.version },
     );
   }
 }
