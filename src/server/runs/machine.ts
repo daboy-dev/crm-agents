@@ -97,7 +97,12 @@ export type Effect =
   /** Close the PR and delete the branch (D11). */
   | { type: "cleanup" }
   /** The active slot is free: start the oldest queued run (D23). */
-  | { type: "start_next" };
+  | { type: "start_next" }
+  /**
+   * The preview or its report may have arrived before the run was waiting
+   * for it (the webhook found no run): look for them now.
+   */
+  | { type: "check_preview" };
 
 export type Transition = {
   status: RunStatus;
@@ -116,6 +121,7 @@ export const isStep = (s: RunStatus) => STEP_STATUSES.includes(s);
 /** Effects implied by entering a status. */
 function effectsFor(to: RunStatus, from: RunState): Effect[] {
   if (isStep(to)) return [{ type: "run_step" }];
+  if (to === "awaiting_preview") return [{ type: "check_preview" }];
   if (isFinal(to)) {
     const effects: Effect[] = [{ type: "start_next" }];
     if (to !== "done" && from.hasBranch) effects.unshift({ type: "cleanup" });

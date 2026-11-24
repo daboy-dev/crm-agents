@@ -65,7 +65,7 @@ const table: Row[] = [
     from: run("developing"),
     event: { type: "develop_done" },
     to: "awaiting_preview",
-    effects: [],
+    effects: ["check_preview"],
   },
   {
     name: "report ready",
@@ -249,7 +249,7 @@ const table: Row[] = [
     from: run("blocked", { blockedFrom: "awaiting_preview", tasks: testing() }),
     event: { type: "retry" },
     to: "awaiting_preview",
-    effects: [],
+    effects: ["check_preview"],
   },
 
   // Events that do not apply are no-ops (double click, redelivery)

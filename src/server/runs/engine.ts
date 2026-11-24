@@ -523,6 +523,12 @@ export async function executeEffects(runId: number, effects: Effect[]) {
       case "start_next":
         await startNext();
         break;
+      case "check_preview": {
+        const db = getDb();
+        const [run] = await db.select().from(runs).where(eq(runs.id, runId));
+        if (run) await checkPreview(db, run, { timeout: false });
+        break;
+      }
     }
   }
 }
@@ -653,6 +659,72 @@ export async function sweep(): Promise<void> {
   await startNext();
 }
 
+/**
+ * For a run waiting on its preview: moves it on if the E2E report or a
+ * broken build for its head sha is already stored, and applies the
+ * 15-minute timeout (D22). Covers webhooks that arrived before the run was
+ * waiting for them.
+ */
+async function checkPreview(
+  db: Db,
+  run: typeof runs.$inferSelect,
+  options: { timeout: boolean },
+) {
+  if (run.status !== "awaiting_preview" || !run.headSha) return;
+  const report = await latestReport(db, run.headSha);
+  if (report) {
+    await applyEvent(
+      run.id,
+      { type: "report_ready" },
+      [
+        {
+          actor: "github",
+          kind: "report",
+          message: `Informe E2E de ${short(run.headSha)} recibido.`,
+        },
+      ],
+      { expectedVersion: run.version },
+    );
+    return;
+  }
+  const [preview] = await db
+    .select({ state: previews.deployState })
+    .from(previews)
+    .where(eq(previews.sha, run.headSha));
+  if (preview && ["failure", "error"].includes(preview.state ?? "")) {
+    await applyEvent(
+      run.id,
+      { type: "build_failed" },
+      [
+        {
+          actor: "github",
+          kind: "build_failed",
+          message: `El build de ${short(run.headSha)} ha fallado.`,
+        },
+      ],
+      { expectedVersion: run.version },
+    );
+    return;
+  }
+  if (
+    options.timeout &&
+    olderThan(run.statusChangedAt, PREVIEW_TIMEOUT_MINUTES * 60)
+  ) {
+    await applyEvent(
+      run.id,
+      { type: "preview_timeout" },
+      [
+        {
+          actor: "system",
+          kind: "timeout",
+          message: `La vista previa no ha llegado en ${PREVIEW_TIMEOUT_MINUTES} minutos.`,
+        },
+      ],
+      { expectedVersion: run.version },
+    );
+  }
+}
+
 async function sweepRun(db: Db, run: typeof runs.$inferSelect) {
   const status = run.status as RunStatus;
   if (isFinal(status)) {
@@ -668,56 +740,8 @@ async function sweepRun(db: Db, run: typeof runs.$inferSelect) {
     if (expired || dropped) await runStep(run.id);
     return;
   }
-  if (status === "awaiting_preview" && run.headSha) {
-    const report = await latestReport(db, run.headSha);
-    if (report) {
-      await applyEvent(
-        run.id,
-        { type: "report_ready" },
-        [
-          {
-            actor: "github",
-            kind: "report",
-            message: `Informe E2E de ${short(run.headSha)} recibido.`,
-          },
-        ],
-        { expectedVersion: run.version },
-      );
-      return;
-    }
-    const [preview] = await db
-      .select({ state: previews.deployState })
-      .from(previews)
-      .where(eq(previews.sha, run.headSha));
-    if (preview && ["failure", "error"].includes(preview.state ?? "")) {
-      await applyEvent(
-        run.id,
-        { type: "build_failed" },
-        [
-          {
-            actor: "github",
-            kind: "build_failed",
-            message: `El build de ${short(run.headSha)} ha fallado.`,
-          },
-        ],
-        { expectedVersion: run.version },
-      );
-      return;
-    }
-    if (olderThan(run.statusChangedAt, PREVIEW_TIMEOUT_MINUTES * 60)) {
-      await applyEvent(
-        run.id,
-        { type: "preview_timeout" },
-        [
-          {
-            actor: "system",
-            kind: "timeout",
-            message: `La vista previa no ha llegado en ${PREVIEW_TIMEOUT_MINUTES} minutos.`,
-          },
-        ],
-        { expectedVersion: run.version },
-      );
-    }
+  if (status === "awaiting_preview") {
+    await checkPreview(db, run, { timeout: true });
     return;
   }
   if (

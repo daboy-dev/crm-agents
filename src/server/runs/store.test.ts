@@ -35,9 +35,12 @@ describe("transitionStatement", () => {
   });
 
   it("only writes events and tasks when the run row was updated", () => {
-    expect(text).toContain('ev0 as (insert into "run_events"');
-    expect(text).toContain('ev1 as (insert into "run_events"');
-    expect(text.match(/::jsonb from upd\)/g)).toHaveLength(2);
+    expect(text).toContain(
+      'ev as (insert into "run_events" (run_id, run_version, actor, kind, message, data) select upd.id, upd.version',
+    );
+    expect(text).toMatch(
+      /from upd, \(values \(\$\d+::int, .*\), \(\$\d+::int, .*\)\) as v\(ord, actor, kind, message, data\) order by v\.ord\)/,
+    );
     expect(text).toMatch(
       /tk0 as \(update "tasks" set "status" = \$\d+ where \("tasks"\."id" = \$\d+ and "tasks"\."run_id" in \(select id from upd\)\)\)/,
     );

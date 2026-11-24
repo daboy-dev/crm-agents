@@ -107,12 +107,16 @@ export function transitionStatement(
     .returning({ id: runs.id, version: runs.version });
 
   const ctes: SQL[] = [sql`upd as (${update.getSQL()})`];
-  input.events.forEach((e, i) => {
-    const data = e.data === undefined ? null : JSON.stringify(e.data);
+  if (input.events.length > 0) {
+    // One insert, so the ids follow the order of the events.
+    const rows = input.events.map((e, i) => {
+      const data = e.data === undefined ? null : JSON.stringify(e.data);
+      return sql`(${i}::int, ${e.actor}::text, ${e.kind}::text, ${e.message}::text, ${data}::jsonb)`;
+    });
     ctes.push(
-      sql`${sql.raw(`ev${i}`)} as (insert into ${runEvents} (run_id, run_version, actor, kind, message, data) select id, version, ${e.actor}::text, ${e.kind}::text, ${e.message}::text, ${data}::jsonb from upd)`,
+      sql`ev as (insert into ${runEvents} (run_id, run_version, actor, kind, message, data) select upd.id, upd.version, v.actor, v.kind, v.message, v.data from upd, (values ${sql.join(rows, sql`, `)}) as v(ord, actor, kind, message, data) order by v.ord)`,
     );
-  });
+  }
   input.tasks.forEach((t, i) => {
     const taskUpdate = db
       .update(tasks)
