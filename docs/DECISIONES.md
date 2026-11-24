@@ -273,6 +273,14 @@ Registro de decisiones de arquitectura (formato ADR corto). Se toman en el Proje
 
 **Consecuencias:** un doble clic en «Aprobar» o un webhook reenviado no duplican nada.
 
+**Extra (24/11/2026, sesión 07):**
+- **CAS en una sola sentencia.** En lugar de un `sql.transaction([...])` de varias sentencias, cada transición es un `WITH upd AS (UPDATE runs … WHERE id AND version [AND lease_token] RETURNING …)` del que cuelgan el insert de eventos (uno solo, para que conserven el orden) y los cambios de `tasks`. Así los eventos y las tareas solo se escriben si el run cambió; con varias sentencias, un insert «condicionado a la versión nueva» se colaría cuando otro proceso hubiera ganado esa versión.
+- **Lease:** 90 s en el propio run (`lease_until`, `lease_token`). Un paso que falla conserva el lease y el sweep lo reintenta cuando caduca; a los 3 fallos seguidos el run pasa a `failed`.
+- **Commits que se pueden repetir:** antes de mover la rama se guarda en el run el sha objetivo de la cadena de commits; un reintento lo reutiliza si la rama sigue en el sha esperado.
+- **Comprobado en H3:** Vercel publica `failure` (o `inactive`) en el primer despliegue de una rama nueva y, en el mismo GitHub Deployment, `success` segundos después. Un `deployment_status` en `failure` ya no vuelve a Develop al momento: queda como nota y el sweep lo da por build roto si a los 3 minutos no lo ha sustituido un `success`.
+- **Comprobado en H3:** el informe de una vista previa puede llegar antes de que el run la espere (pasó con la caída simulada). Al entrar en `awaiting_preview` el motor busca ya el informe o el build roto de su sha, sin esperar al sweep.
+- El polling (y con él el sweep) solo corre con la pestaña visible; la recuperación sin cron necesita el panel abierto.
+
 ## D23 · Cola y límites en la base de datos
 **Fecha:** 24/11/2026 · **Estado:** aceptada
 
@@ -280,6 +288,8 @@ Registro de decisiones de arquitectura (formato ADR corto). Se toman en el Proje
 - Un índice único parcial sobre los runs que no están en `queued` ni en un estado final garantiza un solo run activo (D11). Al terminar un run se arranca el más antiguo de la cola.
 - Los runs que esperan aprobación cuentan como activos. El `sweep` los cancela tras 24 h, y hay un botón para cancelar, para que un run abandonado no bloquee la cola.
 - Límites: N runs al día (D10) y un máximo de llamadas al LLM por run (D8). Al llegar a cualquiera de los dos, el run pasa a `blocked`.
+
+**Extra (24/11/2026, sesión 07):** el límite diario (`RUNS_PER_DAY`, 10 por defecto, día UTC) lo aplica el formulario: no se crea el run, porque un run bloqueado ocuparía la cola. El de llamadas al LLM (`LLM_CALLS_PER_RUN`, 30) sí bloquea el run.
 
 ## D24 · `MockProvider` con escenarios sobre GitHub real
 **Fecha:** 24/11/2026 · **Estado:** aceptada
@@ -293,6 +303,11 @@ Registro de decisiones de arquitectura (formato ADR corto). Se toman en el Proje
 - La regla de D16 se aplica ya en la capa que hace los commits: se rechaza cualquier ruta bajo `.github/**` o en los helpers de `e2e/`. El escenario `forbidden` lo comprueba.
 
 **Consecuencias:** `master` de `crm-demo` acumula archivos `agent-runs/`, inofensivos.
+
+**Extra (24/11/2026, sesión 07):**
+- El escenario `forbidden` hace que la tarea 2 escriba `.github/workflows/agent.yml`. La tarea y el run pasan a `blocked` al momento, sin commit ni build: una violación de seguridad no se reintenta.
+- Rutas prohibidas: `.github/**`, `e2e/helpers.ts` y `e2e/screenshots.spec.ts` (las que lista el `AGENTS.md` de `crm-demo`), además de rutas absolutas o con `..`.
+- El formulario del mock tiene la casilla «Simular caída tras el commit»: el paso de Develop falla una vez justo después de mover la rama, para comprobar en producción que un lease caducado se reanuda sin repetir commits.
 
 ## D25 · UI mínima de runs
 **Fecha:** 24/11/2026 · **Estado:** aceptada

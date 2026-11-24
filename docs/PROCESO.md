@@ -18,7 +18,7 @@ Cómo se ha construido este proyecto, sesión a sesión.
 | H0 · Plan y base del repo | Plan validado, documentos en el repo, esqueleto desplegado en Vercel con CI en verde | Hecho |
 | H1 · CRM demo | `crm-demo` en producción con clientes, presupuestos y facturas, CI en verde, y un PR de prueba que crea su vista previa con su propia rama de Neon y la borra al cerrarse | Hecho |
 | H2 · Tubería sin IA | Un PR de prueba en `crm-demo` aparece en `/pipeline` (con login) con su vista previa, el resultado de los tests y las capturas a 1280 px y 390 px; un test roto a propósito aparece como fallo; reenviar un webhook no duplica nada | Hecho |
-| H3 · Motor de runs | Un run completo con `MockProvider` | Pendiente |
+| H3 · Motor de runs | Un run completo con `MockProvider` | Hecho |
 | H4 · Orquestador | Plan con criterios de aceptación que el cliente aprueba o rechaza | Pendiente |
 | H5 · Develop | PR real que compila en su vista previa | Pendiente |
 | H6 · Testing | Un fallo provocado vuelve a Develop y se corrige o se bloquea | Pendiente |
@@ -228,3 +228,38 @@ Cómo se ha construido este proyecto, sesión a sesión.
 **Pendiente:** el Whiteboard del plan no se pudo editar desde esta sesión. Se actualizará al día cuando esté todo terminado.
 
 **Siguiente paso:** sesión 07 de Claude Code (H3), en `crm-agents`.
+
+## Sesión 07 · H3 · Motor de runs (Claude Code) · 24/11/2026
+
+**Objetivo:** motor de runs con `MockProvider` sobre GitHub real (D20–D25), verificado en producción con los 6 criterios de la sesión 06.
+
+**Cómo fue:**
+- Claude propuso 10 commits y 16 decisiones de detalle; empezó tras el visto bueno. Todo directo a `master`.
+- Esquema: `runs` (versión, lease, sha de cabeza y sha objetivo, PR, limpieza pendiente), `tasks` (por revisión del plan), `run_events` (solo se añaden filas) y `agent_steps` (único por run, tarea, iteración y agente, con `NULLS NOT DISTINCT`). Un índice único parcial sobre `(true)` impide dos runs activos.
+- `machine.ts`: `transition(estado, evento) → { estado, tareas, efectos }` pura, con una tabla de 32 transiciones y 41 tests en total. Los efectos son `run_step`, `check_preview`, `cleanup` y `start_next`.
+- `store.ts`: cada transición es una sola sentencia con CTE (ver el extra de D22). `engine.ts`: pasos `planning`, `developing`, `testing` y `merging` bajo lease, salida del LLM cacheada en `agent_steps`, cadena de commits con la Git Data API y una sola actualización de la rama, PR reutilizado, merge squash fijado al sha, limpieza (cerrar el PR y borrar la rama), cola y `sweep()` limitado a uno cada 4 s.
+- Contratos Zod de los tres agentes y `MockProvider` con los escenarios `ok`, `fail-once`, `blocked` y `forbidden`. La regla de D16 se comprueba antes de escribir nada en GitHub.
+- El procesamiento de H2 avisa al run que espera ese sha (`notify.ts`); el PR de `run/<id>` cerrado o fusionado desde GitHub también mueve el run.
+- UI: `/runs` (formulario, activo, cola y terminados) y `/runs/[id]` (resumen, decisión, tareas y línea de tiempo). Las acciones llevan la versión del run. El login lleva ahora a `/runs`.
+- 154 tests de Vitest. El CAS, el lease y el índice de un run activo se probaron además contra Neon con un test temporal que no se subió.
+
+**Verificación en producción:**
+1. **`ok`** (run #4): plan aprobado, PR [crm-demo#5](https://github.com/daboy-dev/crm-demo/pull/5) con 2 commits y una sola vista previa (24/24 E2E), aprobación final, merge squash, `done`; GitHub borró `run/4` y `neon-cleanup` su rama de Neon.
+2. **`fail-once`** (run #8, PR [crm-demo#7](https://github.com/daboy-dev/crm-demo/pull/7)): la tarea 2 falla en la iteración 1 y pasa en la 2, con un solo commit nuevo; todo avanzó por webhooks.
+3. **`blocked`** (run #9, PR [crm-demo#8](https://github.com/daboy-dev/crm-demo/pull/8)): tras 3 iteraciones la tarea 2 queda bloqueada; «Abandonar» cerró el PR y borró la rama (y `neon-cleanup` la de Neon).
+4. **Plan rechazado con feedback** (run #5): vuelve a `planning` y el plan de la revisión 2 recoge el feedback.
+5. **Cola:** el run #5 se creó con el #4 activo, esperó en cola y arrancó en el mismo segundo en que el #4 terminó; igual el #9 tras el #8.
+6. **Sin duplicados:** doble clic en «Aprobar plan» y en «Aprobar y fusionar», con un solo evento cada vez. Cinco entregas reenviadas desde GitHub recibieron 200 y siguieron con 1 fila y 1 intento, sin eventos, informes ni capturas nuevas. Con la caída simulada (run #4), el sweep reanudó el paso al caducar el lease y la rama siguió con los mismos 2 commits.
+- Además: `forbidden` (run #10) bloqueó al intentar escribir `.github/workflows/agent.yml`, sin commit ni rama; un rechazo sin feedback (run #5) cerró el PR [crm-demo#6](https://github.com/daboy-dev/crm-demo/pull/6) y borró la rama; un run con un paso que falla 3 veces (run #3) pasó a `failed`.
+- Al final no quedan ramas `run/*` ni PRs abiertos en `crm-demo`; `master` tiene los `agent-runs/` de los runs #4 y #8.
+
+**Qué salió mal y qué se corrigió:**
+- **PAT sin escritura:** el primer run (#3) falló con `403 Resource not accessible by personal access token` al crear el árbol. El humano dio al PAT *Contents* y *Pull requests* de lectura y escritura (el valor no cambia, así que no hubo que tocar Vercel). El run #3 acabó en `failed` tras 3 intentos, lo que de paso probó ese camino.
+- **Informe antes de tiempo:** con la caída simulada, Vercel y Playwright terminaron antes de que el run pasara a `awaiting_preview`; el webhook se ignoró y el run esperó al sweep, que no corría porque la pestaña estaba oculta. Ahora, al entrar en `awaiting_preview`, el motor busca el informe de su sha (efecto `check_preview`).
+- **Falsos builds rotos:** Vercel publica `failure` en el primer despliegue de una rama y `success` después en el mismo deployment. El run #5 gastó sus 3 iteraciones en esos falsos fallos. Ahora el fallo es provisional durante 3 minutos (extra de D22); en el run #9 se vio la nota y no se gastó ninguna iteración. El run #5 se rechazó y el criterio 2 se repitió con el #8.
+- **Orden de la línea de tiempo:** los eventos de una transición se insertaban en CTE distintas y salían desordenados. Ahora van en un solo insert con su orden.
+- **SQL de Drizzle:** al meter el `UPDATE` de Drizzle dentro de `sql` salía entre dobles paréntesis, que Postgres no acepta en un CTE. Se usa `.getSQL()`.
+
+**Resultado:** H3 hecho. Transcripción en [`sesiones/07-h3-motor-runs.md`](./sesiones/07-h3-motor-runs.md).
+
+**Siguiente paso:** H4 · Orquestador con `GeminiProvider`.

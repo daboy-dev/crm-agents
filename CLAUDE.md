@@ -32,18 +32,22 @@ Decisiones: `docs/DECISIONES.md` · Proceso e hitos: `docs/PROCESO.md`.
 
 ## Estructura
 - `src/app`: UI y rutas API.
-  - `/login` (sesión HMAC, D19) y `/pipeline` (PRs de `crm-demo`, vista previa, tests y capturas; polling cada 5 s).
+  - `/login` (sesión HMAC, D19; lleva a `/runs`) y `/pipeline` (PRs de `crm-demo`, vista previa, tests y capturas; polling cada 5 s, vista de depuración).
+  - `/runs` (petición nueva, activo, cola y terminados) y `/runs/[id]` (decisión, tareas y línea de tiempo). Su polling llama a `sweep()` (D22) y solo corre con la pestaña visible.
   - `/api/health`, `/api/webhooks/github` (D17) y `/api/screenshots/[id]` (D18).
 - `src/proxy.ts`: protege todo salvo `/login`, `/api/health` y `/api/webhooks/github`.
 - `src/server/auth.ts` (copia de `crm-demo`) y `src/server/session.ts`.
 - `src/server/db`: esquema y cliente de Drizzle. Migraciones en `drizzle/`.
 - `src/server/github`: firma de webhooks, registro idempotente de eventos, cliente de artifacts y configuración (`DEMO_REPO`, `preview-e2e.yml`).
 - `src/server/pipeline`: clasificación de eventos, upserts de `previews`, lectura del artifact, informes y capturas en Blob, consultas de `/pipeline` y reprocesado.
-- `src/server/runs`, `src/server/agents`, `src/server/llm`: reservadas para H3–H6.
+- `src/server/runs`: `machine.ts` (transiciones puras, D21), `store.ts` (CAS en una sentencia con CTE y lease, D22), `engine.ts` (pasos, efectos, cola, limpieza y `sweep()`), `notify.ts` (eventos de GitHub → run por sha o por rama `run/<id>`), `queries.ts` y `limits.ts`.
+- `src/server/agents`: contratos Zod (`contracts.ts`), llamadas a los agentes (`index.ts`) y rutas prohibidas para Develop (`paths.ts`, D16).
+- `src/server/llm`: `LLMProvider`, `MockProvider` con escenarios (D24) y `getProvider()`.
+- `src/server/github/repo.ts`: Git Data API y PRs de `crm-demo` (ramas `run/<id>`, merge squash fijado al sha).
 - Next.js 16: la doc de la versión instalada está en `node_modules/next/dist/docs/` (ver `AGENTS.md`). `cacheComponents` está activo: los route handlers que deban ejecutarse en cada petición llaman a `connection()`, y los componentes que leen la base de datos van dentro de `<Suspense>`.
 
 ## Variables
-Ver `.env.example`. En Vercel y en `.env.local` (`vercel env pull`): `DATABASE_URL`, `AUTH_SECRET`, `DEMO_USER`, `DEMO_PASSWORD`, `GH_TOKEN` (PAT de `crm-demo` con Actions: lectura), `GH_WEBHOOK_SECRET`, `BLOB_STORE_ID` y `VERCEL_OIDC_TOKEN` (caduca en local; el store solo tiene OIDC fuera de `development`, así que Blob se prueba en producción).
+Ver `.env.example`. En Vercel y en `.env.local` (`vercel env pull`): `DATABASE_URL`, `AUTH_SECRET`, `DEMO_USER`, `DEMO_PASSWORD`, `GH_TOKEN` (PAT de `crm-demo` con Actions: lectura), `GH_WEBHOOK_SECRET`, `BLOB_STORE_ID` y `VERCEL_OIDC_TOKEN` (caduca en local; el store solo tiene OIDC fuera de `development`, así que Blob se prueba en producción). Opcionales de H3: `LLM_PROVIDER` (`mock`), `RUNS_PER_DAY` (10) y `LLM_CALLS_PER_RUN` (30). El PAT necesita *Contents* y *Pull requests* de lectura y escritura y *Actions* de lectura.
 
 ## Comandos
 - `pnpm dev` · servidor de desarrollo.
@@ -59,4 +63,5 @@ Ver `.env.example`. En Vercel y en `.env.local` (`vercel env pull`): `DATABASE_U
 - H0 hecho (23/11/2026).
 - H1 hecho (24/11/2026): `crm-demo` en producción, con vista previa y rama de Neon por PR, borrada al cerrar el PR (`neon-cleanup.yml`).
 - H2 hecho (24/11/2026): cada vista previa de `crm-demo` pasa Playwright en Actions; el panel recibe `workflow_run`, descarga el artifact `e2e-results` y muestra tests y capturas en `/pipeline` tras el login.
-- Siguiente: H3 · motor de runs con `MockProvider`.
+- H3 hecho (24/11/2026): runs con `MockProvider` sobre GitHub real (rama `run/<id>`, un commit por tarea, PR, vista previa, E2E y merge), con cola, lease, sweep y los 6 criterios comprobados en producción.
+- Siguiente: H4 · Orquestador con `GeminiProvider`.
