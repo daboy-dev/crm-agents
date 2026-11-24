@@ -19,7 +19,7 @@ Cómo se ha construido este proyecto, sesión a sesión.
 | H1 · CRM demo | `crm-demo` en producción con clientes, presupuestos y facturas, CI en verde, y un PR de prueba que crea su vista previa con su propia rama de Neon y la borra al cerrarse | Hecho |
 | H2 · Tubería sin IA | Un PR de prueba en `crm-demo` aparece en `/pipeline` (con login) con su vista previa, el resultado de los tests y las capturas a 1280 px y 390 px; un test roto a propósito aparece como fallo; reenviar un webhook no duplica nada | Hecho |
 | H3 · Motor de runs | Un run completo con `MockProvider` | Hecho |
-| H4 · Orquestador | Plan con criterios de aceptación que el cliente aprueba o rechaza | Pendiente |
+| H4 · Orquestador | Plan con criterios de aceptación que el cliente aprueba o rechaza | Hecho |
 | H5 · Develop | PR real que compila en su vista previa | Pendiente |
 | H6 · Testing | Un fallo provocado vuelve a Develop y se corrige o se bloquea | Pendiente |
 | H7 · Panel completo | Run real de principio a fin en móvil y escritorio | Pendiente |
@@ -287,3 +287,42 @@ Cómo se ha construido este proyecto, sesión a sesión.
 **Hecho por el humano:** clave de Gemini en un proyecto de Google sin facturación y `GEMINI_API_KEY` en Vercel.
 
 **Siguiente paso:** sesión 09 de Claude Code (H4), en `crm-agents`.
+
+## Sesión 09 · H4 · Orquestador con `GeminiProvider` (Claude Code) · 24/11/2026
+
+**Objetivo:** el Orquestador planifica con Gemini de verdad (D26–D30). Develop y Testing siguen con el mock, así que un run con plan real llega hasta el merge escribiendo `agent-runs/`.
+
+**Cómo fue:**
+- Claude propuso 12 commits y las decisiones de detalle y empezó tras el visto bueno. Todo directo a `master`.
+- **Contrato (D28):** `feasible`, `rejectionReason`, `summary`, `assumptions` y de 1 a 4 tareas con `files` y criterios `{ id, type: e2e | visual, text }`. Las comprobaciones que un JSON Schema no expresa (motivo obligatorio, rutas de `paths.ts`, ids únicos y una página nueva que no está en `e2e/pages.ts`) van en un `superRefine`; la del árbol solo cuando se conoce el árbol. Migración 0003: columnas nuevas y conversión de los criterios de H3.
+- **Máquina:** transición `planning → rejected` (`plan_infeasible`), con limpieza si ya había rama.
+- **`GeminiProvider` (D26):** `@google/genai` 3.6.1, `responseJsonSchema` generado con `z.toJSONSchema` y podado al subconjunto que acepta Gemini, una llamada de reparación con los errores de Zod, la lista de modelos con salto ante el 429 diario (recordado en `app_meta` hasta las 9:00) y `RateLimited` ante el 429 por minuto, sin reintentos del SDK. `LLMProvider` devuelve el detalle de cada llamada y recibe ganchos para contarlas y renovar el lease.
+- **Proveedor por agente:** `LLM_PROVIDER_<AGENTE>` y `LLM_PROVIDER=mock` como plan B; se guarda en `runs.providers`.
+- **Contexto (D27):** árbol con la Git Trees API (sin `agent-runs/`) y `AGENTS.md`, `src/db/schema.ts` y `e2e/pages.ts` leídos en `runs.base_sha`, que es también la base de `run/<id>`.
+- **Prompt** en `src/server/agents/prompts/orchestrator.ts`, con las rutas prohibidas importadas de `paths.ts` y los modos `replace` y `amend` (D29). El modo lo decide `head_sha`.
+- **Motor:** caché de `agent_steps` extraída a `cache.ts` y probada en memoria; cada petición respondida suma en `llm_calls` y renueva el lease; el 429 por minuto aplaza el lease sin contar como fallo; la cuota agotada y el tope de llamadas bloquean el run. `agent_steps` guarda modelo, tokens, latencia y el detalle de las llamadas, y los eventos las llevan para la línea de tiempo.
+- **UI:** plan con resumen, supuestos, archivos y criterios con su tipo; motivo del rechazo; archivos leídos; modelo, tokens y latencia de cada llamada en la línea de tiempo. El selector de escenario solo sale si Develop o Testing son el mock, y hay una casilla nueva, «Simular caída tras planificar».
+- **Pruebas (D30):** 199 tests de Vitest con el mock, respuestas grabadas y cuerpos de error con el formato de Google. `pnpm eval:plan` lanzó las 4 peticiones de D14 contra Gemini: los planes están en [`evals/`](./evals/README.md) y las respuestas en bruto en `src/server/llm/fixtures/gemini/recorded/`.
+
+**Verificación en producción** (con `RUNS_PER_DAY=15` temporal, porque ya había 6 runs del día):
+1. **Peticiones de D14:** `pnpm eval:plan` con el contexto real de `crm-demo`: NIF (2 tareas), buscador (2), facturas vencidas (1) y contacto (2, con `e2e/pages.ts`). Todas viables, válidas a la primera y con criterios que se comprueban en la vista previa. El run #11 planificó además el NIF en producción.
+2. **Feedback en el plan** (run #11): «El NIF debe ser obligatorio y validarse con el formato español: 8 dígitos y una letra». La revisión 2 lo hace obligatorio, con la regex `^[0-9]{8}[A-Za-z]$` y NIF válidos en el seed. Aprobada, siguió con el mock: PR [crm-demo#9](https://github.com/daboy-dev/crm-demo/pull/9), 2 commits, vista previa con 24/24 E2E, aprobación final, merge y `done`.
+3. **Fuera de alcance** (run #12): «Cambia el workflow de GitHub Actions…» acabó en `rejected` con el motivo «requiere modificar los workflows de GitHub Actions (`.github/workflows/**`)…», sin rama `run/12` ni PR.
+4. **Sin repetir llamadas:** con «Simular caída tras planificar», el paso cayó después de guardar el plan; el sweep lo reanudó al caducar el lease y el evento muestra «de la caché, sin llamar de nuevo», con `llm_calls` aún en 1. El run #11 terminó con 6 llamadas contadas (2 de Gemini y 4 del mock) en `LLM_CALLS_PER_RUN`.
+5. **Línea de tiempo:** cada llamada muestra modelo, tokens y latencia, por ejemplo `gemini-3.6-flash · llamada · 5303 → 983 tokens · 27,3 s` ([captura](./evals/h4-run-11-timeline.jpg)).
+
+**Cuota de Gemini gastada:** 11 peticiones respondidas, todas de `gemini-3.6-flash` (8 del eval y 3 de producción), de las 40 diarias de Flash. Unas 8 más no llegaron a generar respuesta (400, 503 y 504).
+
+**Qué salió mal y qué se corrigió:**
+- **`thinkingLevel: MINIMAL`:** `gemini-3.8-flash` lo rechaza con un 400 (los tipos del SDK lo aceptan). El proveedor prueba MINIMAL y, ante ese 400 concreto, repite con LOW y lo recuerda para el modelo.
+- **Gemini saturado:** `gemini-3.8-flash` respondió 503 («high demand») y otro modelo 504 (DEADLINE_EXCEEDED). Ahora 500, 503 y 504 pasan al siguiente modelo de la lista sin marcarlo como agotado; si todos fallan, el paso falla y el sweep lo reintenta. Por eso todas las respuestas vinieron de `gemini-3.6-flash`.
+- **Criterios que no se pueden comprobar:** en la primera ronda del eval, tres planes tenían un criterio sobre el código (una columna del esquema, una consulta, una función de `dates.ts`) marcado como `e2e`. El prompt dice ahora que Testing solo ve el DOM y las capturas; en la segunda ronda todos los criterios se ven en la vista previa.
+- **Plan antiguo durante la replanificación:** mientras se preparaba la revisión 2, la tarjeta del plan mostraba el resumen de la 1. Ahora muestra «El Orquestador está preparando la revisión N».
+- **Sweep con la pestaña oculta:** como en H3, la caída simulada esperó a que la pestaña volviera a estar visible para reanudarse (D22).
+- **Pendiente para H5:** la revisión 2 del NIF pide a Develop que ejecute `pnpm db:generate`, algo que Develop no puede hacer (solo escribe archivos). El prompt de Develop tendrá que pedir la migración SQL y el snapshot escritos a mano, o el Orquestador no debe pedir comandos.
+
+**Hecho por el humano:** `LLM_PROVIDER_ORCHESTRATOR=gemini` en Vercel, `vercel env pull` en local y `RUNS_PER_DAY=15` temporal (hay que quitarlo para volver a 5).
+
+**Resultado:** H4 hecho. Transcripción en [`sesiones/09-h4-orquestador.md`](./sesiones/09-h4-orquestador.md).
+
+**Siguiente paso:** H5 · Develop con `GeminiProvider`.

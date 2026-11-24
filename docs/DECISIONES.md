@@ -350,6 +350,14 @@ Las cuotas son por modelo y por proyecto (no por clave), y las diarias se reinic
 - 40 llamadas al día con Flash entre los dos modelos, y 500 con Flash-Lite de respaldo.
 - Plan B si todo se agota: `LLM_PROVIDER=mock` (D8).
 
+**Extra (24/11/2026, sesión 09):**
+- **Qué cuenta en `LLM_CALLS_PER_RUN`:** cada petición que el modelo responde, reparación incluida, y se suma en el momento. Los 429 y los errores del servidor no cuentan. El tope se comprueba antes de cada petición.
+- **Lease:** antes de cada petición se renueva a 90 s, porque una llamada y su reparación pueden pasar de un minuto cada una.
+- **Modelos agotados:** se apuntan en `app_meta` con la fecha del Pacífico, y el resto del día se saltan sin gastar una petición.
+- **Razonamiento:** `gemini-3.8-flash` rechaza `thinkingLevel: MINIMAL` con un 400 (comprobado). Se prueba MINIMAL y, si el modelo lo rechaza, LOW, y se recuerda por modelo.
+- **Modelo saturado:** un 500, 503 («high demand») o 504 pasa al siguiente modelo de la lista sin marcar el anterior como agotado. Si todos fallan, el paso falla y lo reintenta el sweep (cuenta para los 3 fallos de D22). Comprobado en H4: `gemini-3.8-flash` dio 503 varias veces y todas las respuestas llegaron de `gemini-3.6-flash`.
+- El 429 por minuto añade 2 s de margen al `retryDelay`. Si la respuesta no trae `retryDelay`, se espera un minuto.
+
 ## D27 · Qué ve el Orquestador
 **Fecha:** 24/11/2026 · **Estado:** aceptada
 
@@ -358,6 +366,8 @@ Las cuotas son por modelo y por proyecto (no por clave), y las diarias se reinic
 - Todo se lee en el sha de `master` al empezar el run, y ese sha se guarda en el run como base de la rama `run/<id>`.
 - No lee el código completo: planifica, no programa. Así el prompt es pequeño y estable.
 - La UI muestra qué archivos ha leído el agente.
+
+**Extra (24/11/2026, sesión 09):** el árbol excluye `agent-runs/`, que crece con cada run simulado. El sha se guarda en `runs.base_sha` la primera vez que se planifica y todas las revisiones lo reutilizan. El contexto solo se lee si `agent_steps` no tiene ya el plan.
 
 ## D28 · Contrato del plan
 **Fecha:** 24/11/2026 · **Estado:** aceptada
@@ -371,12 +381,19 @@ Las cuotas son por modelo y por proyecto (no por clave), y las diarias se reinic
   - criterios de aceptación con id y tipo: `e2e` (se comprueba en el DOM con `data-testid`) o `visual` (se comprueba con las capturas).
 - Si la petición crea una página, la tarea incluye añadirla a `e2e/pages.ts` para que salga en las capturas.
 
+**Extra (24/11/2026, sesión 09):**
+- Es un objeto plano y no una unión discriminada, porque Gemini lo lleva mejor. Las reglas que un JSON Schema no expresa van en un `superRefine` y vuelven en la llamada de reparación: motivo obligatorio y sin tareas si no es viable, rutas de `paths.ts`, ids `c1`, `c2`… únicos en el plan y, con el árbol, una página nueva que no está en `e2e/pages.ts`.
+- Los criterios deben poder comprobarse en la vista previa: el DOM para `e2e` y las capturas para `visual`, nunca el código. Lo pide el prompt tras ver criterios sobre el esquema en el primer eval.
+- Un plan no viable en una replanificación tras la vista previa también lleva a `rejected`, y la limpieza cierra el PR.
+
 ## D29 · Replanificación con feedback
 **Fecha:** 24/11/2026 · **Estado:** aceptada
 
 **Decisión:**
 - **Feedback en el plan** (aún no hay código): el Orquestador hace un plan completo que sustituye al anterior.
 - **Feedback en la vista previa final:** el plan solo añade tareas nuevas o correctivas sobre la misma rama. El Orquestador recibe el plan anterior, el estado de cada tarea y el feedback.
+
+**Extra (24/11/2026, sesión 09):** el modo lo decide `head_sha`: sin código en la rama es `replace` y con código es `amend`. Las tareas nuevas van en la revisión n+1, y Testing solo evalúa esas.
 
 ## D30 · Probar el Orquestador sin gastar cuota
 **Fecha:** 24/11/2026 · **Estado:** aceptada
