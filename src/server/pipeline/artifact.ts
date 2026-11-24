@@ -61,10 +61,14 @@ const MAX_ERROR_LENGTH = 500;
 
 /** Strips ANSI colours and keeps the start of the message. */
 export function cleanError(message: string | undefined): string {
-  return (message ?? "")
-    .replace(/\u001b\[[0-9;]*m/g, "")
-    .trim()
-    .slice(0, MAX_ERROR_LENGTH);
+  return (
+    (message ?? "")
+      .replace(/\u001b\[[0-9;]*m/g, "")
+      // Playwright appends the call log and a code frame: keep the assertion.
+      .split(/\n\s*Call log:/)[0]!
+      .trim()
+      .slice(0, MAX_ERROR_LENGTH)
+  );
 }
 
 /** Counts results and collects the failing tests from Playwright's JSON report. */

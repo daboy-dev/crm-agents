@@ -107,6 +107,14 @@ describe("cleanError", () => {
     expect(cleanError("x".repeat(900))).toHaveLength(500);
     expect(cleanError(undefined)).toBe("");
   });
+
+  it("drops Playwright's call log and code frame", () => {
+    expect(
+      cleanError(
+        'Error: failed\n\nExpected: "A"\n\nCall log:\n  - waiting\n\n  49 | })',
+      ),
+    ).toBe('Error: failed\n\nExpected: "A"');
+  });
 });
 
 describe("readArtifactZip", () => {
