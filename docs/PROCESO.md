@@ -17,8 +17,8 @@ Cómo se ha construido este proyecto, sesión a sesión.
 |---|---|---|
 | H0 · Plan y base del repo | Plan validado, documentos en el repo, esqueleto desplegado en Vercel con CI en verde | Hecho |
 | H1 · CRM demo | `crm-demo` en producción con clientes, presupuestos y facturas, CI en verde, y un PR de prueba que crea su vista previa con su propia rama de Neon y la borra al cerrarse | Hecho |
-| H2 · Tubería sin IA | Un commit de prueba genera vista previa, webhook y capturas de Actions que llegan al panel | Pendiente |
-| H3 · Panel y motor de runs | Login y un run completo con `MockProvider` | Pendiente |
+| H2 · Tubería sin IA | Un PR de prueba en `crm-demo` aparece en `/pipeline` (con login) con su vista previa, el resultado de los tests y las capturas a 1280 px y 390 px; un test roto a propósito aparece como fallo; reenviar un webhook no duplica nada | En curso |
+| H3 · Motor de runs | Un run completo con `MockProvider` | Pendiente |
 | H4 · Orquestador | Plan con criterios de aceptación que el cliente aprueba o rechaza | Pendiente |
 | H5 · Develop | PR real que compila en su vista previa | Pendiente |
 | H6 · Testing | Un fallo provocado vuelve a Develop y se corrige o se bloquea | Pendiente |
@@ -134,3 +134,26 @@ Cómo se ha construido este proyecto, sesión a sesión.
 **Resultado:** H1 hecho. Cada PR tiene su vista previa con rama propia de Neon, y la rama se borra al cerrar el PR. El test de escritura, que no se subió porque escribe datos, queda como base para el E2E contra vistas previas de H2. Transcripción en [`sesiones/03-h1-crm-demo.md`](./sesiones/03-h1-crm-demo.md).
 
 **Siguiente paso:** H2 · tubería sin IA. Un commit de prueba en `crm-demo` genera vista previa, webhook y capturas de Actions que llegan al panel.
+
+## Sesión 04 · Planificación de H2 (Project de Claude) · 24/11/2026
+
+**Objetivo:** decidir cómo llegan los resultados de Playwright de cada vista previa de `crm-demo` al panel, sin IA todavía.
+
+**Cómo fue:**
+- Se comprobó el patrón estándar para probar vistas previas de Vercel: un workflow con `on: deployment_status` que lee la URL de `target_url` (D15).
+- Se comprobaron los límites de Vercel Blob en Hobby: 1 GB, 10 GB de transferencia y 2.000 operaciones avanzadas al mes (D18).
+- Se diseñó el webhook: idempotente por `X-GitHub-Delivery`, responde enseguida y procesa en `after()` (D17).
+
+**Qué cambió por el camino:**
+- Lo más directo era que Actions subiera las capturas a Blob y avisara al panel con un POST. Se descartó: los workflows de `deployment_status` ejecutan el código del commit desplegado, así que un PR de Develop podría leer los secretos del panel. Los resultados vuelven en un artifact que el panel descarga al recibir `workflow_run` (D16). De ahí sale una regla para H5: Develop no puede tocar `.github/**` ni los helpers de `e2e/`.
+- El login del panel se adelanta de H3 a H2 para que `/pipeline` no quede pública (D19). H3 queda solo para el motor de runs.
+
+**Resultado:** decisiones D15–D19 aceptadas y criterio de H2 concretado.
+
+**Pendiente del humano antes de la sesión de Claude Code:**
+- Webhook del repo `crm-demo` hacia `https://crm-agents.vercel.app/api/webhooks/github`, con secreto y los eventos *Pull requests*, *Deployment statuses* y *Workflow runs*.
+- PAT de permisos finos (D3) con *Actions: lectura* añadido, en las variables de entorno de `crm-agents`.
+- Store de Vercel Blob conectado a `crm-agents`.
+- Secrets de Actions en `crm-demo` con las credenciales de demo.
+
+**Siguiente paso:** sesión 05 de Claude Code (H2), en `crm-demo` y `crm-agents`.

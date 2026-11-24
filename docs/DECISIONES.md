@@ -155,3 +155,66 @@ Registro de decisiones de arquitectura (formato ADR corto). Se toman en el Proje
 - El CRM deja fuera a propósito funciones fáciles de pedir y de comprobar visualmente: NIF de clientes, buscador, facturas vencidas marcadas y página de contacto.
 
 **Consecuencias:** los evaluadores tienen peticiones de demo preparadas con resultados visibles en la vista previa.
+
+## D15 · Actions arranca con el `deployment_status` de Vercel
+**Fecha:** 24/11/2026 · **Estado:** aceptada
+
+**Contexto:** hay que lanzar Playwright cuando una vista previa de `crm-demo` está lista, sin que el panel tenga que esperar ni disparar nada.
+
+**Decisión:**
+- Workflow `preview-e2e.yml` en `crm-demo`, con `on: deployment_status`. Solo se ejecuta si el estado es `success` y el entorno empieza por `Preview`, porque Vercel a veces añade el nombre del proyecto.
+- La URL de la vista previa sale de `github.event.deployment_status.target_url`.
+- Un grupo de `concurrency` por rama cancela la ejecución anterior si llega un commit nuevo.
+
+**Consecuencias:**
+- El PAT no necesita permiso para lanzar workflows.
+- Hay que comprobar que los eventos `deployment_status` están activos en la configuración Git del proyecto de Vercel `crm-demo`.
+
+## D16 · Los resultados vuelven al panel por `workflow_run` y un artifact
+**Fecha:** 24/11/2026 · **Estado:** aceptada
+
+**Contexto:** los workflows de `deployment_status` ejecutan el código del commit desplegado, y los PRs de Develop salen del mismo repo, no de un fork. Cualquier secreto de `crm-demo` está al alcance de un workflow o un test modificado por Develop.
+
+**Opciones:**
+- A. Actions sube las capturas a Vercel Blob y hace un POST firmado al panel. Es más directo, pero guarda en `crm-demo` el token de Blob y el secreto de ingesta.
+- B. Actions deja los resultados en un artifact. El panel, al recibir el webhook `workflow_run`, descarga el artifact con el PAT y procesa los resultados.
+
+**Decisión:** B.
+- El artifact `e2e-results` contiene `results.json` (reporter JSON de Playwright), `meta.json` (sha, PR, rama, URL) y las capturas. Caduca en 1 día.
+- El PAT de D3 añade el permiso *Actions: lectura*.
+
+**Consecuencias:**
+- `crm-demo` no guarda ningún secreto del panel, y todo sigue entrando por el webhook firmado (D4).
+- Unos segundos más por descargar y descomprimir el artifact en el panel.
+- Los secretos que sí están en `crm-demo` (`NEON_API_KEY` y las credenciales de demo) siguen expuestos a código de Develop. **Regla para H5:** el panel rechaza cualquier cambio de Develop que toque `.github/**` o los helpers de `e2e/`.
+
+## D17 · Webhook idempotente que responde rápido
+**Fecha:** 24/11/2026 · **Estado:** aceptada
+
+**Contexto:** GitHub da por fallida una entrega que tarda más de 10 s en responder, y puede reenviar entregas.
+
+**Decisión:**
+- `POST /api/webhooks/github` verifica la firma HMAC, inserta el evento en `github_events` con `X-GitHub-Delivery` como clave única (`on conflict do nothing`) y responde 200. El procesamiento sigue en `after()`.
+- Los eventos sin procesar (`processed_at` nulo) se pueden reprocesar a mano.
+- Tablas mínimas: `github_events` (solo se añaden filas), `previews` (sha, PR, rama, URL y estado), `test_reports` y `screenshots`. Se relacionan por el sha del commit; en H3 los runs se enlazan por rama y PR.
+
+**Consecuencias:** reenviar una entrega desde GitHub no duplica nada.
+
+## D18 · Capturas en Vercel Blob y flujo de escritura contra vistas previas
+**Fecha:** 24/11/2026 · **Estado:** aceptada
+
+**Decisión:**
+- El panel sube las capturas a un store de Vercel Blob conectado a `crm-agents`. Hobby (comprobado 24/11/2026): 1 GB de almacenamiento, 10 GB de transferencia y 2.000 operaciones avanzadas (`put()`) al mes.
+- El store `crm-agents-blob` es **privado** y usa autenticación OIDC (`BLOB_STORE_ID` + `VERCEL_OIDC_TOKEN`), sin token estático de lectura y escritura.
+- El panel sirve las capturas con una ruta propia, `GET /api/screenshots/[id]`, protegida por el login (D19), que lee el blob en el servidor y lo devuelve con caché privada. Las URLs de Blob nunca llegan al navegador.
+- Capturas en JPEG a 1280 px y 390 px de las páginas listadas en `e2e/pages.ts`.
+- El flujo de escritura de H1 se sube al repo: escribe en la rama de Neon de la vista previa y se salta si la URL es la de producción.
+
+**Consecuencias:** con unas 6 capturas por ejecución caben más de 300 ejecuciones al mes.
+
+## D19 · El login del panel se adelanta a H2
+**Fecha:** 24/11/2026 · **Estado:** aceptada
+
+**Decisión:** el login de D10 se implementa en H2 copiando la sesión HMAC de `crm-demo`, con sus tests, para que `/pipeline` no quede pública. El proxy protege todo salvo `/login`, `/api/health` y `/api/webhooks/github`.
+
+**Consecuencias:** H3 queda solo para el motor de runs.
