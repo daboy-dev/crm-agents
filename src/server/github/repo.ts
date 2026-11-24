@@ -214,3 +214,32 @@ export async function closePr(number: number) {
   const path = `/pulls/${number}`;
   expectOk(await call("PATCH", path, { state: "closed" }), path);
 }
+
+const treeSchema = z.object({
+  truncated: z.boolean(),
+  tree: z.array(z.object({ path: z.string(), type: z.string() })),
+});
+
+/** Every file path of the repo at a commit (Git Trees API, recursive; D27). */
+export async function getFilePaths(sha: string): Promise<string[]> {
+  const path = `/git/trees/${sha}?recursive=1`;
+  const tree = treeSchema.parse(expectOk(await call("GET", path), path));
+  return tree.tree.filter((e) => e.type === "blob").map((e) => e.path);
+}
+
+const contentSchema = z.object({
+  encoding: z.literal("base64"),
+  content: z.string(),
+});
+
+/** Text of a file at a commit, or null when it does not exist there. */
+export async function getFileText(
+  file: string,
+  sha: string,
+): Promise<string | null> {
+  const path = `/contents/${file.split("/").map(encodeURIComponent).join("/")}?ref=${sha}`;
+  const r = await call("GET", path);
+  if (r.status === 404) return null;
+  const { content } = contentSchema.parse(expectOk(r, path));
+  return Buffer.from(content, "base64").toString("utf8");
+}
