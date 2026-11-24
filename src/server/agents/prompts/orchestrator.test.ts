@@ -44,6 +44,9 @@ describe("orchestrator prompt", () => {
     }
     expect(ORCHESTRATOR_SYSTEM).toContain("feasible: false");
     expect(ORCHESTRATOR_SYSTEM).toContain("De 1 a 4 tareas");
+    expect(ORCHESTRATOR_SYSTEM).toContain(
+      "Nunca escribas criterios sobre el código",
+    );
   });
 
   it("a first plan has the request and the context", () => {

@@ -4,9 +4,9 @@
       "alt-svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000",
       "content-encoding": "gzip",
       "content-type": "application/json; charset=UTF-8",
-      "date": "Tue, 24 Nov 2026 19:39:29 GMT",
+      "date": "Tue, 24 Nov 2026 19:44:15 GMT",
       "server": "scaffolding on HTTPServer2",
-      "server-timing": "gfet4t7; dur=19413",
+      "server-timing": "gfet4t7; dur=4925",
       "transfer-encoding": "chunked",
       "vary": "Origin, X-Origin, Referer",
       "x-content-type-options": "nosniff",
@@ -20,8 +20,8 @@
       "content": {
         "parts": [
           {
-            "text": "{\n  \"feasible\": true,\n  \"summary\": \"Se añadirá el campo NIF a la entidad de clientes. Se actualizará la base de datos, los esquemas de validación, las consultas y los componentes de UI para permitir introducir y editar el NIF, así como visualizarlo en la lista y en la página de detalle del cliente.\",\n  \"assumptions\": [\n    \"El campo NIF es opcional para mantener compatibilidad con clientes existentes sin NIF.\",\n    \"No se requiere una validación de formato estricta del NIF/CIF más allá de ser una cadena de texto estándar.\"\n  ],\n  \"tasks\": [\n    {\n      \"title\": \"Añadir columna nif a la base de datos y actualizar datos de prueba\",\n      \"description\": \"Añade la columna opcional `nif: text()` al modelo `clients` en `src/db/schema.ts`. Genera una nueva migración en `drizzle/0001_add_nif_to_clients.sql` y actualiza el journal/meta correspondientes. Actualiza `src/db/seed.ts` para asignar valores de NIF de prueba a los clientes de ejemplo.\",\n      \"files\": [\n        \"src/db/schema.ts\",\n        \"drizzle/0001_add_nif_to_clients.sql\",\n        \"drizzle/meta/_journal.json\",\n        \"src/db/seed.ts\"\n      ],\n      \"acceptanceCriteria\": [\n        {\n          \"id\": \"c1\",\n          \"type\": \"e2e\",\n          \"text\": \"La tabla `clients` en el esquema de base de datos incluye la columna opcional `nif`.\"\n        }\n      ]\n    },\n    {\n      \"title\": \"Actualizar esquemas de validación, consultas y acciones de clientes\",\n      \"description\": \"En `src/app/(crm)/clientes/validation.ts`, añade `nif: z.string().optional()` al esquema Zod y a `clientFields`. Actualiza `src/app/(crm)/clientes/queries.ts` si selecciona columnas explícitas para asegurar que `nif` está incluido en el retorno de clientes.\",\n      \"files\": [\n        \"src/app/(crm)/clientes/validation.ts\",\n        \"src/app/(crm)/clientes/queries.ts\"\n      ],\n      \"acceptanceCriteria\": [\n        {\n          \"id\": \"c2\",\n          \"type\": \"e2e\",\n          \"text\": \"El esquema de validación de clientes acepta el campo opcional `nif`.\"\n        }\n      ]\n    },\n    {\n      \"title\": \"Integrar el campo NIF en formulario, detalle y lista de clientes\",\n      \"description\": \"En `src/app/(crm)/clientes/client-form.tsx`, añade el campo `Field` para el NIF con el `name=\\\"nif\\\"` (que genera automáticamente `data-testid=\\\"field-nif\\\"`). En `src/app/(crm)/clientes/page.tsx`, muestra la columna NIF en la tabla `clients-table`. En `src/app/(crm)/clientes/[id]/page.tsx`, muestra el NIF del cliente en la sección de información general.\",\n      \"files\": [\n        \"src/app/(crm)/clientes/client-form.tsx\",\n        \"src/app/(crm)/clientes/page.tsx\",\n        \"src/app/(crm)/clientes/[id]/page.tsx\"\n      ],\n      \"acceptanceCriteria\": [\n        {\n          \"id\": \"c3\",\n          \"type\": \"e2e\",\n          \"text\": \"El campo de entrada para NIF está presente en el formulario con data-testid field-nif.\"\n        },\n        {\n          \"id\": \"c4\",\n          \"type\": \"visual\",\n          \"text\": \"El NIF introducido se muestra correctamente en las capturas visuales de clientes y cliente-detalle.\"\n        }\n      ]\n    }\n  ]\n}",
-            "thoughtSignature": "Ep8BCpwBAWkUfRPu6QqNR4L9jcfumvXnnenCsfowNSp8pZDIz1IYZY/SL0UiNvMviMf7O7PUpH2GPKQQtt+yrj269+4nwSk53UII7hDQNxQyKe8+AxtesRwRWpL8+qklAiVvPHgCviSKfZoFEnkulVSsil2wUnZ/J8AnmOF+vSB+Yy3ksqefhN8lDfj0d6e8Kojppcx7VpcfWyzlN2njWZqz"
+            "text": "{\n  \"feasible\": true,\n  \"summary\": \"Se añadirá el campo NIF (nif) a la entidad de clientes. Estará disponible en el formulario de alta y edición, en la vista de detalle del cliente y en la tabla del listado de clientes.\",\n  \"assumptions\": [\n    \"El campo NIF será opcional (texto) para permitir clientes sin NIF asignado o con datos incompletos.\",\n    \"El campo se colocará visible en el formulario como field-nif y en el listado/detalle como data-testid client-nif o dentro de las columnas existentes.\"\n  ],\n  \"tasks\": [\n    {\n      \"title\": \"Añadir columna NIF al esquema de base de datos y migración\",\n      \"description\": \"Añade la columna opcional `nif: text()` a la tabla `clients` en `src/db/schema.ts`. Genera una nueva migración SQL en `drizzle/0001_add_client_nif.sql` (o la secuencia equivalente) y actualiza `src/db/seed.ts` para asignar NIFs de prueba a los clientes del seed.\",\n      \"files\": [\n        \"src/db/schema.ts\",\n        \"drizzle/0001_add_client_nif.sql\",\n        \"drizzle/meta/_journal.json\",\n        \"drizzle/meta/0001_snapshot.json\",\n        \"src/db/seed.ts\"\n      ],\n      \"acceptanceCriteria\": [\n        {\n          \"id\": \"c1\",\n          \"type\": \"e2e\",\n          \"text\": \"La vista previa compila y la ruta /clientes carga correctamente mostrando la tabla clients-table.\"\n        }\n      ]\n    },\n    {\n      \"title\": \"Actualizar validación, consultas y UI del cliente con NIF\",\n      \"description\": \"En `src/app/(crm)/clientes/validation.ts`, añade el campo `nif` (opcional/string) al esquema de Zod y a la lista de campos `clientFields`. En `src/app/(crm)/clientes/queries.ts`, asegúrate de incluir el campo `nif` en las lecturas si se especifican columnas. En `client-form.tsx`, añade un campo `Field` con `name=\\\"nif\\\"` y la etiqueta correspondiente. En `src/app/(crm)/clientes/page.tsx` (lista) y `src/app/(crm)/clientes/[id]/page.tsx` (detalle), muestra la columna o dato NIF del cliente usando los componentes y data-testid existentes.\",\n      \"files\": [\n        \"src/app/(crm)/clientes/validation.ts\",\n        \"src/app/(crm)/clientes/queries.ts\",\n        \"src/app/(crm)/clientes/client-form.tsx\",\n        \"src/app/(crm)/clientes/page.tsx\",\n        \"src/app/(crm)/clientes/[id]/page.tsx\",\n        \"src/app/(crm)/clientes/[id]/editar/page.tsx\"\n      ],\n      \"acceptanceCriteria\": [\n        {\n          \"id\": \"c2\",\n          \"type\": \"e2e\",\n          \"text\": \"En /clientes/nuevo, el formulario client-form contiene el campo con data-testid field-nif.\"\n        },\n        {\n          \"id\": \"c3\",\n          \"type\": \"e2e\",\n          \"text\": \"En /clientes, la tabla clients-table incluye el encabezado NIF.\"\n        },\n        {\n          \"id\": \"c4\",\n          \"type\": \"visual\",\n          \"text\": \"En las capturas de clientes y cliente-detalle, el campo NIF se visualiza correctamente formateado.\"\n        }\n      ]\n    }\n  ]\n}",
+            "thoughtSignature": "Ep8BCpwBAWkUfRP5zmbKL2Uwbrgd+FuRQ3VhsYdrP69tNQuoFkVz2brd/iM2zMUblk/a4lGBlME1Tm2RZbTsB1yV7/4KXCnxp1z087/pE+FDgRyObJZs8eIUq9cW3fFQNoo7jXx/qW+fUmENhNCYEq1lhr98WOgOVQW50aSLu+qp5WKSr747W2NSeulupcxXDDteBOKaPSiF09jG1JvVJFwd"
           }
         ],
         "role": "model"
@@ -31,15 +31,15 @@
     }
   ],
   "modelVersion": "gemini-3.6-flash",
-  "responseId": "3ecFa8joM5j8vdIP2a_HwA8",
+  "responseId": "CukFa9KNGJbikdUPxoq02Ac",
   "usageMetadata": {
-    "promptTokenCount": 5057,
-    "candidatesTokenCount": 907,
-    "totalTokenCount": 5964,
+    "promptTokenCount": 5144,
+    "candidatesTokenCount": 865,
+    "totalTokenCount": 6009,
     "promptTokensDetails": [
       {
         "modality": "TEXT",
-        "tokenCount": 5057
+        "tokenCount": 5144
       }
     ],
     "serviceTier": "standard"

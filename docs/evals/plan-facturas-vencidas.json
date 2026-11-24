@@ -1,0 +1,46 @@
+{
+  "request": "Marca las facturas vencidas: las que siguen pendientes de pago con la fecha de vencimiento ya pasada deben destacarse en la lista de facturas.",
+  "baseSha": "fa884d7c22a43c5e545ef987c478b5df6dce9abe",
+  "plan": {
+    "feasible": true,
+    "summary": "Se añadirá una utilidad para comprobar si una factura está vencida (estado pendiente y fecha de vencimiento previa a la fecha actual) y se actualizará la lista de facturas para marcar visualmente las facturas vencidas con un distintivo o texto de aviso.",
+    "assumptions": [
+      "Una factura se considera vencida cuando su estado es 'pending' y su fecha 'dueAt' es estrictamente anterior a la fecha actual (YYYY-MM-DD en la zona horaria local/servidor).",
+      "Las facturas con estado 'paid' nunca se marcarán como vencidas.",
+      "El distintivo o etiqueta de vencida aparecerá junto al estado o fecha en la tabla de la lista de facturas sin alterar la estructura básica de los elementos existentes."
+    ],
+    "tasks": [
+      {
+        "title": "Añadir función para calcular estado de vencimiento e integrarla en la interfaz de facturas",
+        "description": "Crea o amplía una función en `src/lib/dates.ts` (o `src/lib/status.ts`) que determine si una fecha `YYYY-MM-DD` está vencida respecto a hoy cuando la factura está en estado `pending`. Luego modifica `src/app/(crm)/facturas/page.tsx` para mostrar un distintivo o indicador 'Vencida' (usando `<StatusBadge>` o un badge de advertencia rojo/naranja) en las filas de la tabla `invoices-table` cuyas facturas cumplan dicha condición. Añade los tests unitarios correspondientes en `src/lib/dates.test.ts` si aplica.",
+        "files": [
+          "src/lib/dates.ts",
+          "src/lib/dates.test.ts",
+          "src/app/(crm)/facturas/page.tsx"
+        ],
+        "acceptanceCriteria": [
+          {
+            "id": "c1",
+            "type": "e2e",
+            "text": "La vista de facturas en /facturas carga correctamente la tabla invoices-table."
+          },
+          {
+            "id": "c2",
+            "type": "visual",
+            "text": "En la lista de facturas (/facturas), las facturas pendientes con fecha de vencimiento anterior a la fecha actual muestran una marca o badge indicando 'Vencida'."
+          }
+        ]
+      }
+    ]
+  },
+  "calls": [
+    {
+      "model": "gemini-3.6-flash",
+      "kind": "first",
+      "inputTokens": 5145,
+      "outputTokens": 547,
+      "latencyMs": 9253,
+      "valid": true
+    }
+  ]
+}

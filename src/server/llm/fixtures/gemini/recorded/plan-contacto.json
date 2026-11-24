@@ -1,0 +1,47 @@
+{
+  "sdkHttpResponse": {
+    "headers": {
+      "alt-svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000",
+      "content-encoding": "gzip",
+      "content-type": "application/json; charset=UTF-8",
+      "date": "Tue, 24 Nov 2026 19:46:49 GMT",
+      "server": "scaffolding on HTTPServer2",
+      "server-timing": "gfet4t7; dur=18017",
+      "transfer-encoding": "chunked",
+      "vary": "Origin, X-Origin, Referer",
+      "x-content-type-options": "nosniff",
+      "x-frame-options": "SAMEORIGIN",
+      "x-gemini-service-tier": "standard",
+      "x-xss-protection": "0"
+    }
+  },
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "{\n  \"feasible\": true,\n  \"summary\": \"Se creará una nueva página de contacto accesible desde el menú principal de navegación con la información de contacto (email y teléfono) de la empresa. Se actualizarán los enlaces de navegación del CRM y la lista de capturas para las pruebas de UI.\",\n  \"assumptions\": [\n    \"La información de contacto mostrará valores descriptivos estándar como contacto@ejemplo.com y +34 900 000 000.\",\n    \"La nueva página se ubicará en la ruta /contacto dentro del layout principal del CRM.\"\n  ],\n  \"tasks\": [\n    {\n      \"title\": \"Añadir enlace de contacto a la barra de navegación\",\n      \"description\": \"Modifica `src/components/nav-links.tsx` para incluir una opción de navegación nueva etiquetada como 'Contacto' hacia la ruta `/contacto`.\",\n      \"files\": [\n        \"src/components/nav-links.tsx\"\n      ],\n      \"acceptanceCriteria\": [\n        {\n          \"id\": \"c1\",\n          \"type\": \"e2e\",\n          \"text\": \"En la barra de navegación de `/clientes` se visualiza el enlace 'Contacto' que apunta a `/contacto`.\"\n        }\n      ]\n    },\n    {\n      \"title\": \"Crear página de contacto y registrar en capturas e2e\",\n      \"description\": \"Crea la página `src/app/(crm)/contacto/page.tsx` utilizando `PageHeader` con el título `page-title` 'Contacto' y muestra los datos de email (`contact-email`) y teléfono (`contact-phone`). Registra la ruta en `e2e/pages.ts` para capturas de pantalla.\",\n      \"files\": [\n        \"src/app/(crm)/contacto/page.tsx\",\n        \"e2e/pages.ts\"\n      ],\n      \"acceptanceCriteria\": [\n        {\n          \"id\": \"c2\",\n          \"type\": \"e2e\",\n          \"text\": \"La página `/contacto` carga correctamente y muestra el título con data-testid 'page-title' que contiene el texto 'Contacto'.\"\n        },\n        {\n          \"id\": \"c3\",\n          \"type\": \"e2e\",\n          \"text\": \"En `/contacto` existen los elementos con data-testid 'contact-email' y 'contact-phone' con la información de contacto de la empresa.\"\n        },\n        {\n          \"id\": \"c4\",\n          \"type\": \"visual\",\n          \"text\": \"La página `/contacto` se renderiza correctamente tanto a 1280 px como a 390 px de ancho.\"\n        }\n      ]\n    }\n  ]\n}",
+            "thoughtSignature": "Ep8BCpwBAWkUfRMPiUdcF/018x6FPTGibZpxBzSAQoIaN/lwFkqi/Baxxv2D9394OgQXzYaXujLw9g2FdfJoQv0N6oNh10PaCqY7mYcXJUNqUx4w2MlG7dBSi84Qm0hWznMf0NbLCvs8LiIFq8u4HLuElgXdENuEz2DAp7dp7ebKExrJV2AdEVgx0OyVqw6XuV0kUgjuPLP1YAyuJHF86Z3w"
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "modelVersion": "gemini-3.6-flash",
+  "responseId": "l-kFa8eBHfSHxs0PhaXu6QI",
+  "usageMetadata": {
+    "promptTokenCount": 5138,
+    "candidatesTokenCount": 619,
+    "totalTokenCount": 5757,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 5138
+      }
+    ],
+    "serviceTier": "standard"
+  }
+}

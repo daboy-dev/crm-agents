@@ -234,3 +234,21 @@ describe("GeminiProvider", () => {
     expect(t.requests).toHaveLength(0);
   });
 });
+
+describe("recorded answers of pnpm eval:plan (D30)", () => {
+  const recorded = import.meta.glob<GeminiResponse>(
+    "./fixtures/gemini/recorded/*.json",
+    { eager: true, import: "default" },
+  );
+
+  it.each(Object.entries(recorded))(
+    "%s parses as a feasible plan",
+    async (_, r) => {
+      const t = setup([r]);
+      const { output } = await t.run();
+      expect(output.feasible).toBe(true);
+      expect(output.tasks.length).toBeGreaterThanOrEqual(1);
+      expect(output.tasks.length).toBeLessThanOrEqual(4);
+    },
+  );
+});

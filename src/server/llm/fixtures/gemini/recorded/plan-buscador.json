@@ -1,0 +1,47 @@
+{
+  "sdkHttpResponse": {
+    "headers": {
+      "alt-svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000",
+      "content-encoding": "gzip",
+      "content-type": "application/json; charset=UTF-8",
+      "date": "Tue, 24 Nov 2026 19:44:50 GMT",
+      "server": "scaffolding on HTTPServer2",
+      "server-timing": "gfet4t7; dur=20520",
+      "transfer-encoding": "chunked",
+      "vary": "Origin, X-Origin, Referer",
+      "x-content-type-options": "nosniff",
+      "x-frame-options": "SAMEORIGIN",
+      "x-gemini-service-tier": "standard",
+      "x-xss-protection": "0"
+    }
+  },
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "{\n  \"feasible\": true,\n  \"summary\": \"Se añadirá un campo de búsqueda en la página principal de clientes (`/clientes`) que permitirá filtrar en tiempo real o mediante query string por el nombre o el correo electrónico del cliente.\",\n  \"assumptions\": [\n    \"El término de búsqueda se pasará a través del parámetro de consulta `q` en la URL de `/clientes` para permitir navegación por SSR y refresco adecuado bajo React Server Components y Suspense.\",\n    \"El filtro buscará coincidencias parciales sin distinción entre mayúsculas y minúsculas (ilike/or) tanto en el nombre como en el email del cliente.\",\n    \"Se usará un input con `data-testid=\\\"search-input\\\"` para permitir la introducción de texto en la vista de clientes.\"\n  ],\n  \"tasks\": [\n    {\n      \"title\": \"Añadir filtrado por término de búsqueda en la consulta de clientes\",\n      \"description\": \"Actualizar `src/app/(crm)/clientes/queries.ts` para aceptar un parámetro opcional de búsqueda `query?: string`. Si `query` existe y no está vacío, filtrar con Drizzle utilizando `or(ilike(clients.name, `%${query}%`), ilike(clients.email, `%${query}%`))`. En `src/app/(crm)/clientes/page.tsx`, recibir `searchParams`, obtener el parámetro `q` dentro de Suspense y pasarlo a `getClients(query)`.\",\n      \"files\": [\n        \"src/app/(crm)/clientes/queries.ts\",\n        \"src/app/(crm)/clientes/page.tsx\"\n      ],\n      \"acceptanceCriteria\": [\n        {\n          \"id\": \"c1\",\n          \"type\": \"e2e\",\n          \"text\": \"La vista de clientes `/clientes` carga correctamente y muestra la tabla con `data-testid=\\\"clients-table\\\"`.\"\n        }\n      ]\n    },\n    {\n      \"title\": \"Añadir componente input de búsqueda en la lista de clientes\",\n      \"description\": \"Crear o actualizar la interfaz en `src/app/(crm)/clientes/page.tsx` (o mediante un componente cliente auxiliar si fuera necesario) para incluir un formulario o input de búsqueda con `data-testid=\\\"search-input\\\"` y `name=\\\"q\\\"`. Al cambiar el valor o enviar, debe actualizar la URL `/clientes?q=...` para filtrar los resultados de la tabla.\",\n      \"files\": [\n        \"src/app/(crm)/clientes/page.tsx\"\n      ],\n      \"acceptanceCriteria\": [\n        {\n          \"id\": \"c2\",\n          \"type\": \"e2e\",\n          \"text\": \"En `/clientes`, el elemento con `data-testid=\\\"search-input\\\"` está presente en el DOM.\"\n        },\n        {\n          \"id\": \"c3\",\n          \"type\": \"visual\",\n          \"text\": \"En la captura de la página de clientes `/clientes`, el campo de búsqueda se muestra correctamente integrado junto al encabezado o sobre la tabla.\"\n        }\n      ]\n    }\n  ]\n}",
+            "thoughtSignature": "Ep8BCpwBAWkUfROeBVThS+4MZxpA9mxBz6rZPysBO0Vml30DA+0Yup5MblpS5l3S82anQRNUNQFLEijBHebBXLYsX9Be7i6Z7Odur3RHAfvETWltmlqQ5rB6WFgRdy+yBHkaUHZpdPZuSv+mR3cEE5sfURQYFZ+FcpnFw9//FPAyPGwkhRn5nPhZaUBy5+qL/tT9cYgCQTHlrlFCwXXTk87F"
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "modelVersion": "gemini-3.6-flash",
+  "responseId": "HukFa8r5EJHYkdUP7oTfsAc",
+  "usageMetadata": {
+    "promptTokenCount": 5132,
+    "candidatesTokenCount": 694,
+    "totalTokenCount": 5826,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 5132
+      }
+    ],
+    "serviceTier": "standard"
+  }
+}

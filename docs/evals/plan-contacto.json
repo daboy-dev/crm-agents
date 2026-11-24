@@ -1,0 +1,58 @@
+{
+  "request": "Añade una página de contacto con el email y el teléfono de la empresa, enlazada desde el menú.",
+  "baseSha": "fa884d7c22a43c5e545ef987c478b5df6dce9abe",
+  "plan": {
+    "feasible": true,
+    "summary": "Se creará una nueva página de contacto accesible desde el menú principal de navegación con la información de contacto (email y teléfono) de la empresa. Se actualizarán los enlaces de navegación del CRM y la lista de capturas para las pruebas de UI.",
+    "assumptions": [
+      "La información de contacto mostrará valores descriptivos estándar como contacto@ejemplo.com y +34 900 000 000.",
+      "La nueva página se ubicará en la ruta /contacto dentro del layout principal del CRM."
+    ],
+    "tasks": [
+      {
+        "title": "Añadir enlace de contacto a la barra de navegación",
+        "description": "Modifica `src/components/nav-links.tsx` para incluir una opción de navegación nueva etiquetada como 'Contacto' hacia la ruta `/contacto`.",
+        "files": ["src/components/nav-links.tsx"],
+        "acceptanceCriteria": [
+          {
+            "id": "c1",
+            "type": "e2e",
+            "text": "En la barra de navegación de `/clientes` se visualiza el enlace 'Contacto' que apunta a `/contacto`."
+          }
+        ]
+      },
+      {
+        "title": "Crear página de contacto y registrar en capturas e2e",
+        "description": "Crea la página `src/app/(crm)/contacto/page.tsx` utilizando `PageHeader` con el título `page-title` 'Contacto' y muestra los datos de email (`contact-email`) y teléfono (`contact-phone`). Registra la ruta en `e2e/pages.ts` para capturas de pantalla.",
+        "files": ["src/app/(crm)/contacto/page.tsx", "e2e/pages.ts"],
+        "acceptanceCriteria": [
+          {
+            "id": "c2",
+            "type": "e2e",
+            "text": "La página `/contacto` carga correctamente y muestra el título con data-testid 'page-title' que contiene el texto 'Contacto'."
+          },
+          {
+            "id": "c3",
+            "type": "e2e",
+            "text": "En `/contacto` existen los elementos con data-testid 'contact-email' y 'contact-phone' con la información de contacto de la empresa."
+          },
+          {
+            "id": "c4",
+            "type": "visual",
+            "text": "La página `/contacto` se renderiza correctamente tanto a 1280 px como a 390 px de ancho."
+          }
+        ]
+      }
+    ]
+  },
+  "calls": [
+    {
+      "model": "gemini-3.6-flash",
+      "kind": "first",
+      "inputTokens": 5138,
+      "outputTokens": 619,
+      "latencyMs": 18077,
+      "valid": true
+    }
+  ]
+}

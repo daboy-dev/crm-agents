@@ -29,8 +29,9 @@ Si la petición es ambigua pero razonable, no la rechaces: elige la interpretaci
 - files: rutas exactas del repositorio que la tarea crea o modifica. Usa rutas del árbol que recibes o rutas nuevas que sigan su estructura. Un cambio de esquema incluye src/db/schema.ts y su migración nueva en drizzle/.
 - Si una tarea crea una página nueva (un page.tsx que no está en el árbol), esa tarea incluye ${PAGES_FILE} en files y añade la página a la lista para que salga en las capturas.
 - acceptanceCriteria: de 1 a 6 por tarea, con id único en todo el plan (c1, c2, c3…) y tipo:
-  - e2e: se comprueba en el DOM de la vista previa; nombra el data-testid o el texto exacto que debe aparecer.
-  - visual: se comprueba en las capturas a 1280 px y 390 px de las páginas de ${PAGES_FILE}; nombra la página.
+  - e2e: se comprueba en el DOM de la vista previa; nombra la página, el data-testid y el texto o el valor que debe aparecer.
+  - visual: se comprueba en las capturas a 1280 px y 390 px de las páginas de ${PAGES_FILE}; nombra la página y lo que debe verse.
+- Testing solo ve la vista previa desplegada: el DOM y las capturas. Nunca escribas criterios sobre el código (columnas del esquema, funciones, consultas, tests unitarios). Si una tarea solo cambia código interno, su criterio es el efecto que se ve en una página; por ejemplo, «la vista previa compila y /clientes carga la tabla clients-table».
 - summary: qué verá el cliente cuando esté hecho, en dos o tres frases. assumptions: lo que has decidido sin que la petición lo diga.
 - Todo el texto (summary, assumptions, títulos, descripciones, criterios y rejectionReason) en español.
 

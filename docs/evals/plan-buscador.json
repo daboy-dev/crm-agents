@@ -1,0 +1,57 @@
+{
+  "request": "Añade un buscador en la lista de clientes que filtre por nombre o por email.",
+  "baseSha": "fa884d7c22a43c5e545ef987c478b5df6dce9abe",
+  "plan": {
+    "feasible": true,
+    "summary": "Se añadirá un campo de búsqueda en la página principal de clientes (`/clientes`) que permitirá filtrar en tiempo real o mediante query string por el nombre o el correo electrónico del cliente.",
+    "assumptions": [
+      "El término de búsqueda se pasará a través del parámetro de consulta `q` en la URL de `/clientes` para permitir navegación por SSR y refresco adecuado bajo React Server Components y Suspense.",
+      "El filtro buscará coincidencias parciales sin distinción entre mayúsculas y minúsculas (ilike/or) tanto en el nombre como en el email del cliente.",
+      "Se usará un input con `data-testid=\"search-input\"` para permitir la introducción de texto en la vista de clientes."
+    ],
+    "tasks": [
+      {
+        "title": "Añadir filtrado por término de búsqueda en la consulta de clientes",
+        "description": "Actualizar `src/app/(crm)/clientes/queries.ts` para aceptar un parámetro opcional de búsqueda `query?: string`. Si `query` existe y no está vacío, filtrar con Drizzle utilizando `or(ilike(clients.name, `%${query}%`), ilike(clients.email, `%${query}%`))`. En `src/app/(crm)/clientes/page.tsx`, recibir `searchParams`, obtener el parámetro `q` dentro de Suspense y pasarlo a `getClients(query)`.",
+        "files": [
+          "src/app/(crm)/clientes/queries.ts",
+          "src/app/(crm)/clientes/page.tsx"
+        ],
+        "acceptanceCriteria": [
+          {
+            "id": "c1",
+            "type": "e2e",
+            "text": "La vista de clientes `/clientes` carga correctamente y muestra la tabla con `data-testid=\"clients-table\"`."
+          }
+        ]
+      },
+      {
+        "title": "Añadir componente input de búsqueda en la lista de clientes",
+        "description": "Crear o actualizar la interfaz en `src/app/(crm)/clientes/page.tsx` (o mediante un componente cliente auxiliar si fuera necesario) para incluir un formulario o input de búsqueda con `data-testid=\"search-input\"` y `name=\"q\"`. Al cambiar el valor o enviar, debe actualizar la URL `/clientes?q=...` para filtrar los resultados de la tabla.",
+        "files": ["src/app/(crm)/clientes/page.tsx"],
+        "acceptanceCriteria": [
+          {
+            "id": "c2",
+            "type": "e2e",
+            "text": "En `/clientes`, el elemento con `data-testid=\"search-input\"` está presente en el DOM."
+          },
+          {
+            "id": "c3",
+            "type": "visual",
+            "text": "En la captura de la página de clientes `/clientes`, el campo de búsqueda se muestra correctamente integrado junto al encabezado o sobre la tabla."
+          }
+        ]
+      }
+    ]
+  },
+  "calls": [
+    {
+      "model": "gemini-3.6-flash",
+      "kind": "first",
+      "inputTokens": 5132,
+      "outputTokens": 694,
+      "latencyMs": 20644,
+      "valid": true
+    }
+  ]
+}
