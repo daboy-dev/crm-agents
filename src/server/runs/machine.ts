@@ -79,7 +79,8 @@ export type RunEvent =
   | { type: "cancel" }
   | { type: "preview_timeout" }
   | { type: "approval_timeout" }
-  | { type: "limit_reached"; reason: string }
+  /** A step cannot go on (limit reached, branch moved, PR not mergeable). */
+  | { type: "block"; reason: string }
   | { type: "step_failed"; reason: string };
 
 export type TaskChange = {
@@ -315,7 +316,7 @@ export function transition(run: RunState, event: RunEvent): Transition | null {
     case "approval_timeout":
       return AWAITING_HUMAN.includes(s) ? result(run, "cancelled") : null;
 
-    case "limit_reached":
+    case "block":
       return isStep(s) ? blocked(run, event.reason) : null;
 
     case "step_failed":

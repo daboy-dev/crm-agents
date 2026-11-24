@@ -183,7 +183,7 @@ const table: Row[] = [
   {
     name: "limit blocks a step",
     from: run("planning"),
-    event: { type: "limit_reached", reason: "llm" },
+    event: { type: "block", reason: "llm" },
     to: "blocked",
     effects: [],
   },
