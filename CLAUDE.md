@@ -47,4 +47,6 @@ Decisiones: `docs/DECISIONES.md` · Proceso e hitos: `docs/PROCESO.md`.
 - `pnpm db:migrate` · aplica las migraciones (lee `DATABASE_URL` de `.env.local` o `.env`).
 
 ## Estado
-H0 hecho (23/11/2026). Siguiente: H1 · `crm-demo`.
+- H0 hecho (23/11/2026).
+- H1 hecho (24/11/2026): `crm-demo` en producción, con vista previa y rama de Neon por PR, borrada al cerrar el PR (`neon-cleanup.yml`).
+- Siguiente: H2 · tubería sin IA (vista previa → webhook → capturas de Actions → panel).
