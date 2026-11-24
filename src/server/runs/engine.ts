@@ -65,6 +65,12 @@ const MAX_STEP_ATTEMPTS = 3;
 /** A step state without a lease for this long is considered dropped. */
 const STEP_GRACE_SECONDS = 30;
 const PREVIEW_TIMEOUT_MINUTES = 15;
+/**
+ * A failed deployment only counts as a broken build if no success replaces
+ * it in this time: Vercel fails the first deployment of a new branch and
+ * then succeeds on the same deployment (seen in H3).
+ */
+const BUILD_FAILURE_GRACE_SECONDS = 180;
 const APPROVAL_TIMEOUT_HOURS = 24;
 
 class BlockRun extends Error {}
@@ -688,10 +694,14 @@ async function checkPreview(
     return;
   }
   const [preview] = await db
-    .select({ state: previews.deployState })
+    .select({ state: previews.deployState, at: previews.deployUpdatedAt })
     .from(previews)
     .where(eq(previews.sha, run.headSha));
-  if (preview && ["failure", "error"].includes(preview.state ?? "")) {
+  if (
+    preview?.at &&
+    ["failure", "error"].includes(preview.state ?? "") &&
+    olderThan(preview.at, BUILD_FAILURE_GRACE_SECONDS)
+  ) {
     await applyEvent(
       run.id,
       { type: "build_failed" },

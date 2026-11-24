@@ -59,12 +59,13 @@ describe("noticeFor", () => {
     expect(noticeFor(pr("feature/x", "closed"))).toBeNull();
   });
 
-  it("a broken build goes to the run waiting on that sha", () => {
+  it("a failed deployment is only a note: Vercel may still succeed", () => {
     expect(noticeFor(deploy("failure"))).toMatchObject({
       target: { headSha: "abc1234def" },
-      event: { type: "build_failed" },
+      event: null,
+      note: { kind: "deploy_failure" },
     });
-    expect(noticeFor(deploy("error"))?.event).toEqual({ type: "build_failed" });
+    expect(noticeFor(deploy("error"))?.event).toBeNull();
   });
 
   it("a ready preview is only a note", () => {

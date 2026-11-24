@@ -51,13 +51,16 @@ export function noticeFor(c: Classified): RunNotice | null {
         };
       }
       if (deployState !== "failure" && deployState !== "error") return null;
+      // Not final: Vercel reports failure on the first deployment of a new
+      // branch and then succeeds on the same deployment. checkPreview
+      // confirms it once BUILD_FAILURE_GRACE has passed without a success.
       return {
         target: { headSha: sha },
-        event: { type: "build_failed" },
+        event: null,
         note: {
           actor: "github",
-          kind: "build_failed",
-          message: `El build de la vista previa de ${short(sha)} ha fallado.`,
+          kind: "deploy_failure",
+          message: `Vercel informa de un fallo en la vista previa de ${short(sha)}. Si no llega otro despliegue en unos minutos, cuenta como build roto.`,
         },
       };
     }
