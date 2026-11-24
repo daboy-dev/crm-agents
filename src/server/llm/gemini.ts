@@ -178,6 +178,10 @@ export function isThinkingLevelRejected(error: unknown): boolean {
   return e?.status === 400 && /thinking level/i.test(String(e.message ?? ""));
 }
 
+/** Model overloaded ("high demand"): another model may answer now. */
+export const isOverloaded = (error: unknown) =>
+  (error as { status?: unknown } | null)?.status === 503;
+
 // --- Provider ---
 
 const responseText = (r: GeminiResponse) =>
@@ -237,6 +241,7 @@ export class GeminiProvider implements LLMProvider {
   async generateObject<T>(request: GenerateRequest<T>): Promise<Generated<T>> {
     const jsonSchema = toGeminiSchema(request.schema);
     const skipped: string[] = [];
+    let overloaded: unknown = null;
     for (const model of this.options.models) {
       if (await this.options.quota.isExhausted(model)) {
         skipped.push(model);
@@ -255,9 +260,16 @@ export class GeminiProvider implements LLMProvider {
         if (quota?.kind === "minute") {
           throw new RateLimited(model, quota.retryAfterMs);
         }
+        if (isOverloaded(error) && model !== this.options.models.at(-1)) {
+          // Not a quota: try the next model now, without marking this one.
+          overloaded = error;
+          continue;
+        }
         throw error;
       }
     }
+    // The last models were out of quota but an earlier one was only busy.
+    if (overloaded) throw overloaded;
     throw new QuotaExhausted(skipped);
   }
 

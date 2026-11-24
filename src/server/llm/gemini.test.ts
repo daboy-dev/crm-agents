@@ -182,6 +182,18 @@ describe("GeminiProvider", () => {
     expect([...t.marked]).toEqual(["flash-a"]);
   });
 
+  it("a 503 tries the next model without marking it exhausted", async () => {
+    const busy = new ApiError({ message: "high demand", status: 503 });
+    const t = setup([busy, planOk]);
+    const { calls } = await t.run();
+    expect(calls.map((c) => c.model)).toEqual(["flash-b"]);
+    expect(t.marked.size).toBe(0);
+
+    // Every model busy: the step fails and the sweep retries it later.
+    const all = setup([busy, busy, busy]);
+    await expect(all.run()).rejects.toBe(busy);
+  });
+
   it("skips models already exhausted today", async () => {
     const t = setup([planOk], ["flash-a", "flash-b"]);
     await t.run();
