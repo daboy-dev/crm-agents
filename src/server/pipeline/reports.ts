@@ -55,7 +55,7 @@ export function screenshotPathname(
 export async function handlePreviewRun(db: Db, run: PreviewRun) {
   await linkRunToPreview(db, run);
 
-  if (run.conclusion === "cancelled" || run.conclusion === "skipped") {
+  if (run.conclusion === "cancelled") {
     await saveReport(db, run, { status: "cancelled" });
     return;
   }

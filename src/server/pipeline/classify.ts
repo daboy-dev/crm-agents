@@ -154,6 +154,8 @@ export function classifyEvent(event: string, payload: unknown): Classified {
         return ignored(`workflow ${run.path}`);
       }
       if (action !== "completed") return ignored(`workflow_run ${action}`);
+      // Production deployments also start the workflow; its jobs are skipped.
+      if (run.conclusion === "skipped") return ignored("workflow_run skipped");
       return {
         kind: "workflow_run",
         run: {

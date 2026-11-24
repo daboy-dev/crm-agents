@@ -160,6 +160,15 @@ describe("classifyEvent · workflow_run filter", () => {
     );
   });
 
+  it("ignores a run whose jobs were skipped (production deployment)", () => {
+    const payload = workflowRun();
+    payload.workflow_run.conclusion = "skipped";
+    expect(classifyEvent("workflow_run", payload)).toEqual({
+      kind: "ignored",
+      reason: "workflow_run skipped",
+    });
+  });
+
   it.each(["requested", "in_progress"])("ignores action %s", (action) => {
     expect(
       classifyEvent(
