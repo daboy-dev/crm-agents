@@ -401,3 +401,37 @@ Las cuotas son por modelo y por proyecto (no por clave), y las diarias se reinic
 **Decisión:**
 - CI solo usa el mock y respuestas de Gemini grabadas (fixtures) para probar el parseo, la reparación, la lista de modelos y los dos tipos de 429.
 - `pnpm eval:plan`, a mano: lanza las cuatro peticiones de D14 contra Gemini y guarda los planes en `docs/evals/` como prueba para los evaluadores.
+
+## D31 · Develop cambia el esquema y una action de `crm-demo` genera la migración
+**Fecha:** 24/11/2026 · **Estado:** aceptada
+
+**Contexto:** en H4, la revisión 2 del plan del NIF pedía a Develop que ejecutara `pnpm db:generate`. Develop solo escribe archivos y no puede ejecutar comandos, y las migraciones de Drizzle (el SQL, el snapshot y el journal de `drizzle/`) las genera `drizzle-kit` a partir de `src/db/schema.ts`.
+
+**Opciones:**
+- A. Develop escribe a mano el SQL de la migración, el snapshot y la entrada del journal. *Propuesta inicial de Claude.*
+- B. El Orquestador no pide nada que necesite comandos. *Propuesta inicial de Claude.*
+- C. El Orquestador nunca pide comandos. Develop cambia el código y `src/db/schema.ts`, y una action del PR ejecuta `drizzle-kit generate` y, si hay cambios, sube un commit con la migración. *Propuesta del humano.*
+
+**Decisión:** C. Develop solo toca el esquema, la migración la genera la herramienta y no el LLM, y el Orquestador vuelve a hablar solo de lo que se ve en la vista previa. A obligaba a Gemini a escribir a mano un snapshot de Drizzle, que es frágil. B dejaba fuera peticiones de D14 como el NIF.
+
+**Cómo se aplica** (Claude lo detalló a partir de C y el humano lo aprobó):
+1. **El run espera al commit de la migración.** Tras mover `run/<id>` a un sha X, el run no espera la vista previa hasta que llega el `workflow_run` de la action para X. El panel lee entonces la rama:
+   - Si se ha movido a un hijo de X (el commit de la migración, Y), adopta Y como `head_sha` con un CAS.
+   - Si no se ha movido, se queda con X.
+   - Los informes de X se ignoran cuando hay Y: la app de X usa una columna que su rama de Neon todavía no tiene.
+2. **Doble build cuando cambia el esquema.** Vercel compila X y después Y, así que esa iteración cuesta dos builds y no uno (D20). Se acepta en H5 porque solo pasa cuando cambia el esquema. Mejora futura: un *Ignored Build Step* que se salte el build si la migración está pendiente, después de comprobar qué `deployment_status` publica Vercel en ese caso.
+3. **Seguridad de la action** (como en D16, el job ejecuta código de la rama de Develop, y aquí además con permiso de escritura):
+   - El job no tiene ningún secret y solo tiene el permiso `contents: write`.
+   - Instala con `pnpm install --frozen-lockfile --ignore-scripts` y llama a `drizzle-kit` directamente, no a un script de `package.json`.
+   - `paths.ts` añade a las rutas prohibidas para Develop `drizzle/**` (las migraciones solo las escribe la action), `drizzle.config.ts`, `package.json` y `pnpm-lock.yaml`.
+4. **`drizzle-kit generate` hace preguntas.** Ante un cambio ambiguo (renombrar una columna o borrarla y crear otra) pide una respuesta por consola, y en CI se quedaría colgado.
+   - `AGENTS.md` de `crm-demo`: solo cambios de esquema que añaden; nada de renombrar ni borrar columnas.
+   - Timeout corto en el job.
+   - Si el job falla, el motor lo trata como build roto, con el mensaje del job, y la tarea vuelve a Develop.
+
+**Consecuencias:**
+- Develop no puede añadir dependencias, porque tampoco podría actualizar el lockfile. Para las peticiones de D14 no hace falta.
+- El historial del PR muestra un commit por tarea y, si el esquema cambió, un commit de la migración de `github-actions[bot]`.
+- Sin bucles: los commits hechos con `GITHUB_TOKEN` no lanzan otros workflows. Vercel sí despliega Y, porque despliega con su propia app de GitHub y no con Actions.
+- Con un solo run activo (D11), `master` solo avanza con los merges de los runs, así que el journal de `drizzle/` no choca entre ramas.
+- El prompt del Orquestador deja de pedir comandos; el de Develop explica que basta con cambiar `src/db/schema.ts`.

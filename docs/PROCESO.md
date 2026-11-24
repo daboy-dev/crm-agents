@@ -326,3 +326,24 @@ Cómo se ha construido este proyecto, sesión a sesión.
 **Resultado:** H4 hecho. Transcripción en [`sesiones/09-h4-orquestador.md`](./sesiones/09-h4-orquestador.md).
 
 **Siguiente paso:** H5 · Develop con `GeminiProvider`.
+
+## Sesión 10 · Planificación de H5 (Project de Claude) · 24/11/2026
+
+**Objetivo:** decidir cómo trabaja Develop con Gemini antes de abrir Claude Code, empezando por lo pendiente de H4: la revisión 2 del NIF pedía a Develop ejecutar `pnpm db:generate`, algo que Develop no puede hacer.
+
+**Cómo fue:**
+- Se actualizaron en el Project las copias de `CLAUDE.md`, `PROCESO.md` y `DECISIONES.md` con las del repo tras H4.
+- Se trató primero cómo llegan al repo las migraciones cuando Develop cambia el esquema.
+
+**Qué cambió por el camino:**
+- Claude propuso dos salidas: que Develop escribiera a mano la migración SQL y el snapshot de Drizzle, o que el Orquestador no pidiera nada que necesitara comandos.
+- El humano descartó las dos: el Orquestador nunca debe pedir comandos; Develop cambia el código y `src/db/schema.ts`, y una action del PR ejecuta `drizzle-kit generate` y sube un commit con la migración si hay cambios.
+- Claude detalló lo que eso implica y el humano lo aprobó:
+  - El run espera a la action y adopta el commit de la migración como cabeza.
+  - Cuando cambia el esquema, la iteración cuesta dos builds.
+  - La action no tiene secrets, instala sin scripts y Develop no puede tocar `drizzle/**`, `drizzle.config.ts`, `package.json` ni `pnpm-lock.yaml`.
+  - Solo hay cambios de esquema que añaden, para que `drizzle-kit` no haga preguntas en CI.
+
+**Resultado:** D31 aceptada.
+
+**Siguiente paso:** seguir con la planificación de H5 (contexto, contrato y prompt de Develop, y su lista de modelos).
