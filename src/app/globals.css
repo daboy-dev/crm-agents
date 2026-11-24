@@ -101,3 +101,150 @@ button.secondary {
 .login h1 {
   margin: 0;
 }
+
+/* --- /pipeline --- */
+
+.page {
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 4rem;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.page-header h1 {
+  margin: 0;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin: 0.5rem 0;
+}
+
+.pending {
+  font-size: 0.875rem;
+  margin-bottom: 1.25rem;
+}
+
+.card {
+  border: 1px solid color-mix(in srgb, var(--foreground) 15%, transparent);
+  border-radius: 10px;
+  padding: 1rem;
+  min-width: 0;
+}
+
+.card h2 {
+  font-size: 1.1rem;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+code {
+  font-size: 0.85em;
+  overflow-wrap: anywhere;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge-ok {
+  background: #e6f4ea;
+  color: #137333;
+}
+
+.badge-bad {
+  background: #fce8e6;
+  color: #a50e0e;
+}
+
+.badge-info {
+  background: #f3e8fd;
+  color: #681da8;
+}
+
+.badge-neutral {
+  background: color-mix(in srgb, var(--foreground) 10%, transparent);
+}
+
+.failures {
+  margin: 0.5rem 0;
+  padding-left: 1.1rem;
+  font-size: 0.875rem;
+}
+
+.failures pre {
+  margin: 0.25rem 0 0.5rem;
+  padding: 0.5rem;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--foreground) 6%, transparent);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+}
+
+.shots h4 {
+  margin: 1rem 0 0.5rem;
+  font-size: 0.875rem;
+}
+
+.shot-grid {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shot-grid-1280 {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+}
+
+.shot-grid-390 {
+  grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+}
+
+.shot-grid a {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  text-decoration: none;
+}
+
+.shot-grid img {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  object-position: top;
+  border: 1px solid color-mix(in srgb, var(--foreground) 15%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--foreground) 5%, transparent);
+}
+
+.shot-grid-390 img {
+  aspect-ratio: 390 / 700;
+}
+
+details {
+  margin-top: 1rem;
+  font-size: 0.9rem;
+}
+
+.older {
+  border-top: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+  margin-top: 0.75rem;
+  padding-top: 0.25rem;
+}
