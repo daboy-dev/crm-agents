@@ -1,0 +1,22 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "{\"feasible\": true, \"summary\": \"Plan"
+          }
+        ]
+      },
+      "finishReason": "STOP"
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 1800,
+    "candidatesTokenCount": 420,
+    "thoughtsTokenCount": 0,
+    "totalTokenCount": 2220
+  },
+  "modelVersion": "gemini-3.8-flash"
+}

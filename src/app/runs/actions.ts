@@ -6,7 +6,11 @@ import { refresh } from "next/cache";
 import { z } from "zod";
 import { getDb } from "@/server/db/client";
 import { runs } from "@/server/db/schema";
-import { defaultProviderName } from "@/server/llm";
+import {
+  providersForNewRun,
+  providerSummary,
+  usesMockScenario,
+} from "@/server/llm";
 import { MOCK_SCENARIOS } from "@/server/llm/mock";
 import {
   applyEvent,
@@ -36,6 +40,7 @@ const newRunSchema = z.object({
     .max(2000),
   scenario: z.enum(MOCK_SCENARIOS).optional(),
   simulateCrash: z.literal("on").optional(),
+  simulatePlanCrash: z.literal("on").optional(),
 });
 
 /** New request from the client (D25). It waits in the queue if a run is active. */
@@ -44,12 +49,13 @@ export async function createRun(
   formData: FormData,
 ): Promise<FormState> {
   await requireUser();
-  const provider = defaultProviderName();
+  const providers = providersForNewRun();
+  const mock = usesMockScenario(providers);
   const parsed = newRunSchema.safeParse({
     request: formData.get("request") ?? "",
-    scenario:
-      provider === "mock" ? (formData.get("scenario") ?? "ok") : undefined,
+    scenario: mock ? (formData.get("scenario") ?? "ok") : undefined,
     simulateCrash: formData.get("simulateCrash") ?? undefined,
+    simulatePlanCrash: formData.get("simulatePlanCrash") ?? undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos no válidos." };
@@ -64,9 +70,11 @@ export async function createRun(
     .insert(runs)
     .values({
       request: parsed.data.request,
-      provider,
+      provider: providerSummary(providers),
+      providers,
       scenario: parsed.data.scenario ?? null,
-      simulateCrash: provider === "mock" && parsed.data.simulateCrash === "on",
+      simulateCrash: mock && parsed.data.simulateCrash === "on",
+      simulatePlanCrash: parsed.data.simulatePlanCrash === "on",
     })
     .returning();
   if (!run) return { error: "No se ha podido crear el run." };
@@ -75,9 +83,10 @@ export async function createRun(
     kind: "request",
     message: `Petición: ${run.request}`,
     data: {
-      provider,
+      providers,
       scenario: run.scenario,
       simulateCrash: run.simulateCrash,
+      simulatePlanCrash: run.simulatePlanCrash,
     },
   });
   after(() => startNext());

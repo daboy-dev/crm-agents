@@ -33,7 +33,10 @@ const planInput = (over: Partial<PlanInput> = {}): PlanInput => ({
 });
 
 async function brief(n: number): Promise<TaskBrief> {
-  const plan = await runOrchestrator(new MockProvider("ok"), planInput());
+  const { output: plan } = await runOrchestrator(
+    new MockProvider("ok"),
+    planInput(),
+  );
   const t = plan.tasks[n - 1]!;
   return { position: n, ...t };
 }
@@ -44,17 +47,18 @@ async function verdict(
   iteration: number,
   report = passed,
 ) {
-  return runTesting(new MockProvider(scenario), {
+  const { output } = await runTesting(new MockProvider(scenario), {
     runId: 7,
     task: await brief(n),
     iteration,
     report,
   });
+  return output;
 }
 
 describe("MockProvider", () => {
   it("plans two tasks and carries the feedback", async () => {
-    const plan = await runOrchestrator(
+    const { output: plan } = await runOrchestrator(
       new MockProvider("ok"),
       planInput({ planRevision: 2, feedback: "Hazlo obligatorio" }),
     );
@@ -64,7 +68,7 @@ describe("MockProvider", () => {
   });
 
   it("an amend replan adds a single corrective task (D29)", async () => {
-    const plan = await runOrchestrator(
+    const { output: plan } = await runOrchestrator(
       new MockProvider("ok"),
       planInput({ planRevision: 2, mode: "amend", feedback: "Más grande" }),
     );
@@ -72,7 +76,7 @@ describe("MockProvider", () => {
   });
 
   it("develops one file per task under agent-runs", async () => {
-    const out = await runDevelop(new MockProvider("ok"), {
+    const { output: out } = await runDevelop(new MockProvider("ok"), {
       runId: 7,
       request: "r",
       task: await brief(1),
@@ -84,7 +88,7 @@ describe("MockProvider", () => {
   });
 
   it("forbidden writes a workflow in task 2, which the guard rejects", async () => {
-    const out = await runDevelop(new MockProvider("forbidden"), {
+    const { output: out } = await runDevelop(new MockProvider("forbidden"), {
       runId: 7,
       request: "r",
       task: await brief(2),

@@ -1,0 +1,22 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "{\"feasible\": false, \"rejectionReason\": \"La petición pide cambiar un workflow de GitHub Actions (.github/**), que Develop no puede tocar.\", \"summary\": \"No se puede hacer dentro del CRM.\", \"assumptions\": [], \"tasks\": []}"
+          }
+        ]
+      },
+      "finishReason": "STOP"
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 1800,
+    "candidatesTokenCount": 90,
+    "thoughtsTokenCount": 0,
+    "totalTokenCount": 1890
+  },
+  "modelVersion": "gemini-3.8-flash"
+}

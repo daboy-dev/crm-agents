@@ -1,4 +1,4 @@
-import type { LLMProvider } from "@/server/llm/provider";
+import type { CallHooks, Generated, LLMProvider } from "@/server/llm/provider";
 import {
   developOutputSchema,
   planSchema,
@@ -16,13 +16,15 @@ import {
 export function runOrchestrator(
   llm: LLMProvider,
   input: PlanInput,
-): Promise<Plan> {
+  hooks?: CallHooks,
+): Promise<Generated<Plan>> {
   return llm.generateObject({
     agent: "orchestrator",
     system:
       "Eres el orquestador. Divide la petición en tareas con criterios de aceptación.",
     prompt: JSON.stringify(input),
     input,
+    hooks,
     schema: planSchema,
   });
 }
@@ -30,13 +32,15 @@ export function runOrchestrator(
 export function runDevelop(
   llm: LLMProvider,
   input: DevelopInput,
-): Promise<DevelopOutput> {
+  hooks?: CallHooks,
+): Promise<Generated<DevelopOutput>> {
   return llm.generateObject({
     agent: "develop",
     system:
       "Eres Develop. Devuelve los archivos completos de la tarea y el mensaje de commit.",
     prompt: JSON.stringify(input),
     input,
+    hooks,
     schema: developOutputSchema,
   });
 }
@@ -44,13 +48,15 @@ export function runDevelop(
 export function runTesting(
   llm: LLMProvider,
   input: TestingInput,
-): Promise<TestingVerdict> {
+  hooks?: CallHooks,
+): Promise<Generated<TestingVerdict>> {
   return llm.generateObject({
     agent: "testing",
     system:
       "Eres Testing. Evalúa los criterios de aceptación con el informe E2E.",
     prompt: JSON.stringify(input),
     input,
+    hooks,
     schema: verdictSchema,
   });
 }

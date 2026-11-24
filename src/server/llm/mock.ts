@@ -6,7 +6,12 @@ import type {
   TestingInput,
   TestingVerdict,
 } from "@/server/agents/contracts";
-import type { GenerateRequest, LLMProvider } from "./provider";
+import type {
+  CallMeta,
+  GenerateRequest,
+  Generated,
+  LLMProvider,
+} from "./provider";
 
 /** Scenarios of the simulated agents (D24). */
 export const MOCK_SCENARIOS = [
@@ -134,8 +139,10 @@ export class MockProvider implements LLMProvider {
   readonly name = "mock";
   constructor(private readonly scenario: MockScenario) {}
 
-  async generateObject<T>(request: GenerateRequest<T>): Promise<T> {
-    const output = (() => {
+  async generateObject<T>(request: GenerateRequest<T>): Promise<Generated<T>> {
+    await request.hooks?.beforeCall?.();
+    const started = Date.now();
+    const raw = (() => {
       switch (request.agent) {
         case "orchestrator":
           return mockPlan(request.input as PlanInput);
@@ -146,6 +153,16 @@ export class MockProvider implements LLMProvider {
       }
     })();
     // Same validation path as a real provider.
-    return request.schema.parse(output);
+    const output = request.schema.parse(raw);
+    const call: CallMeta = {
+      model: "mock",
+      kind: "first",
+      inputTokens: 0,
+      outputTokens: 0,
+      latencyMs: Date.now() - started,
+      valid: true,
+    };
+    await request.hooks?.onCall?.(call);
+    return { output, calls: [call] };
   }
 }

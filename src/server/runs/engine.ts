@@ -34,8 +34,8 @@ import {
   mergePr,
   moveBranch,
 } from "@/server/github/repo";
-import { getProvider } from "@/server/llm";
-import type { LLMProvider } from "@/server/llm/provider";
+import { getProvider, runProviders } from "@/server/llm";
+import type { Generated, LLMProvider } from "@/server/llm/provider";
 import { llmCallsPerRun } from "./limits";
 import {
   AWAITING_HUMAN,
@@ -80,7 +80,7 @@ type StepContext = {
   db: Db;
   run: LoadedRun;
   token: string;
-  llm: LLMProvider;
+  llm: (agent: AgentName) => Promise<LLMProvider>;
 };
 
 const short = (sha: string) => sha.slice(0, 7);
@@ -101,7 +101,7 @@ async function cachedCall<T>(
   ctx: StepContext,
   key: { agent: AgentName; taskId: number | null; iteration: number },
   schema: z.ZodType<T>,
-  call: () => Promise<T>,
+  call: () => Promise<Generated<T>>,
 ): Promise<T> {
   const where = and(
     eq(agentSteps.runId, ctx.run.id),
@@ -119,7 +119,7 @@ async function cachedCall<T>(
       `Se ha llegado al máximo de ${llmCallsPerRun()} llamadas al LLM del run`,
     );
   }
-  const output = await call();
+  const { output } = await call();
   const [inserted] = await ctx.db
     .insert(agentSteps)
     .values({ runId: ctx.run.id, ...key, output })
@@ -144,8 +144,8 @@ async function stepPlanning(ctx: StepContext): Promise<Committed> {
     ctx,
     { agent: "orchestrator", taskId: null, iteration: run.planRevision },
     planSchema,
-    () =>
-      runOrchestrator(ctx.llm, {
+    async () =>
+      runOrchestrator(await ctx.llm("orchestrator"), {
         runId: run.id,
         request: run.request,
         planRevision: run.planRevision,
@@ -199,8 +199,8 @@ async function stepDeveloping(ctx: StepContext): Promise<Committed> {
       ctx,
       { agent: "develop", taskId: task.id, iteration: task.iteration },
       developOutputSchema,
-      () =>
-        runDevelop(ctx.llm, {
+      async () =>
+        runDevelop(await ctx.llm("develop"), {
           runId: run.id,
           request: run.request,
           task: brief(task),
@@ -357,8 +357,8 @@ async function stepTesting(ctx: StepContext): Promise<Committed> {
       ctx,
       { agent: "testing", taskId: task.id, iteration: task.iteration },
       verdictSchema,
-      () =>
-        runTesting(ctx.llm, {
+      async () =>
+        runTesting(await ctx.llm("testing"), {
           runId: run.id,
           task: brief(task),
           iteration: task.iteration,
@@ -446,7 +446,7 @@ export async function runStep(runId: number): Promise<void> {
     db,
     run,
     token,
-    llm: getProvider(run.provider, run.scenario),
+    llm: (agent) => getProvider(runProviders(run)[agent], agent, run.scenario),
   };
 
   let committed: Committed;

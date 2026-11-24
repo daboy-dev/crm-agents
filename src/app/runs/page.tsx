@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { Nav } from "@/app/nav";
 import { getDb } from "@/server/db/client";
-import { defaultProviderName } from "@/server/llm";
+import { providersForNewRun } from "@/server/llm";
 import { isFinal, type RunStatus } from "@/server/runs/machine";
 import { listRuns, type RunListItem } from "@/server/runs/queries";
 import { RUN_STATUS, statusTone } from "./labels";
@@ -92,7 +92,7 @@ async function RunLists() {
 
 async function Form() {
   await connection();
-  return <NewRunForm provider={defaultProviderName()} />;
+  return <NewRunForm providers={providersForNewRun()} />;
 }
 
 export default function RunsPage() {

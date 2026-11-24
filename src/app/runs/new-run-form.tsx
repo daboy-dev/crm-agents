@@ -1,10 +1,14 @@
 "use client";
 
 import { useActionState } from "react";
+import type { AgentProviders } from "@/server/llm";
 import { createRun, type FormState } from "./actions";
-import { SCENARIO } from "./labels";
+import { ACTOR, SCENARIO } from "./labels";
 
-export function NewRunForm({ provider }: { provider: string }) {
+export function NewRunForm({ providers }: { providers: AgentProviders }) {
+  // Same rule as usesMockScenario(), which is server-only.
+  const mockScenario =
+    providers.develop === "mock" || providers.testing === "mock";
   const [state, action, pending] = useActionState<FormState, FormData>(
     createRun,
     {
@@ -26,8 +30,8 @@ export function NewRunForm({ provider }: { provider: string }) {
           data-testid="request-input"
         />
       </label>
-      {provider === "mock" && (
-        <div className="row">
+      <div className="row">
+        {mockScenario && (
           <label className="field">
             Escenario de MockProvider
             <select
@@ -42,6 +46,8 @@ export function NewRunForm({ provider }: { provider: string }) {
               ))}
             </select>
           </label>
+        )}
+        {mockScenario && (
           <label className="check">
             <input
               type="checkbox"
@@ -50,8 +56,16 @@ export function NewRunForm({ provider }: { provider: string }) {
             />
             Simular caída tras el commit
           </label>
-        </div>
-      )}
+        )}
+        <label className="check">
+          <input
+            type="checkbox"
+            name="simulatePlanCrash"
+            data-testid="plan-crash-checkbox"
+          />
+          Simular caída tras planificar
+        </label>
+      </div>
       {state.error && <p className="error">{state.error}</p>}
       <div className="row">
         <button
@@ -61,7 +75,11 @@ export function NewRunForm({ provider }: { provider: string }) {
         >
           {pending ? "Creando…" : "Crear run"}
         </button>
-        <span className="muted">Proveedor: {provider}</span>
+        <span className="muted" data-testid="providers">
+          {Object.entries(providers)
+            .map(([agent, name]) => `${ACTOR[agent] ?? agent}: ${name}`)
+            .join(" · ")}
+        </span>
       </div>
     </form>
   );
