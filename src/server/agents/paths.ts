@@ -2,8 +2,11 @@
  * Paths Develop may never write (D16, D24): the workflows and the e2e helpers
  * run with crm-demo's secrets. Listed in crm-demo's AGENTS.md.
  */
-const FORBIDDEN_PREFIXES = [".github/"];
-const FORBIDDEN_FILES = ["e2e/helpers.ts", "e2e/screenshots.spec.ts"];
+export const FORBIDDEN_PREFIXES = [".github/"];
+export const FORBIDDEN_FILES = ["e2e/helpers.ts", "e2e/screenshots.spec.ts"];
+
+/** List of captured pages: a task that creates a page adds it here (D28). */
+export const PAGES_FILE = "e2e/pages.ts";
 
 export type PathCheck =
   { ok: true } | { ok: false; path: string; reason: string };

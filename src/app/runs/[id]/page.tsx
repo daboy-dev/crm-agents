@@ -135,8 +135,10 @@ function Tasks({ detail }: { detail: RunDetail }) {
             </p>
             <p className="muted">{t.description}</p>
             <ul>
-              {t.acceptanceCriteria.map((c, i) => (
-                <li key={i}>{c}</li>
+              {t.acceptanceCriteria.map((c) => (
+                <li key={c.id}>
+                  <code>{c.type}</code> {c.text}
+                </li>
               ))}
             </ul>
             {t.lastFeedback && <p className="error">{t.lastFeedback}</p>}

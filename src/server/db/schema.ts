@@ -13,6 +13,8 @@ import {
   unique,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import type { AgentName, Criterion } from "@/server/agents/contracts";
+import type { CallMeta, ProviderName } from "@/server/llm/provider";
 
 /** Key/value metadata about the app itself. Used by the health check. */
 export const appMeta = pgTable("app_meta", {
@@ -123,13 +125,18 @@ export const runs = pgTable(
   {
     id: serial().primaryKey(),
     request: text().notNull(),
-    /** LLM provider name: mock | gemini */
+    /** Summary of the providers, e.g. "gemini+mock" (see `providers`). */
     provider: text().notNull(),
+    /** Provider of each agent, fixed when the run is created (D26). */
+    providers: jsonb().$type<Record<AgentName, ProviderName>>(),
     /** MockProvider scenario (D24): ok | fail-once | blocked | forbidden */
     scenario: text(),
     /** Mock only: the develop step crashes once right after moving the ref. */
     simulateCrash: boolean("simulate_crash").notNull().default(false),
     crashedAt: timestamp("crashed_at", { withTimezone: true }),
+    /** The planning step crashes once right after storing the plan (H4). */
+    simulatePlanCrash: boolean("simulate_plan_crash").notNull().default(false),
+    planCrashedAt: timestamp("plan_crashed_at", { withTimezone: true }),
     /** See RunStatus in src/server/runs/machine.ts. */
     status: text().notNull().default("queued"),
     version: integer().notNull().default(0),
@@ -143,6 +150,13 @@ export const runs = pgTable(
     planRevision: integer("plan_revision").notNull().default(1),
     feedback: text(),
     planSummary: text("plan_summary"),
+    planAssumptions: jsonb("plan_assumptions").$type<string[]>(),
+    /** Why the orchestrator found the request not feasible (D28). */
+    rejectedReason: text("rejected_reason"),
+    /** master sha the orchestrator read; base of run/<id> (D27). */
+    baseSha: text("base_sha"),
+    /** crm-demo files the orchestrator read, shown in the UI (D27). */
+    contextPaths: jsonb("context_paths").$type<string[]>(),
     /** Branch head the panel last pushed; previews and reports must match it. */
     headSha: text("head_sha"),
     /** Commit chain built but not yet pointed to by the ref (D22). */
@@ -188,8 +202,10 @@ export const tasks = pgTable(
     position: integer().notNull(),
     title: text().notNull(),
     description: text().notNull(),
+    /** Files the task expects to touch, checked against paths.ts (D28). */
+    files: jsonb().$type<string[]>().notNull().default([]),
     acceptanceCriteria: jsonb("acceptance_criteria")
-      .$type<string[]>()
+      .$type<Criterion[]>()
       .notNull(),
     /** pending | developing | testing | passed | failed | blocked */
     status: text().notNull().default("pending"),
@@ -240,6 +256,13 @@ export const agentSteps = pgTable(
     /** orchestrator | develop | testing */
     agent: text().notNull(),
     output: jsonb().notNull(),
+    /** Model of the call that produced the output (D26). */
+    model: text(),
+    /** Totals over every call of the step, repair included. */
+    inputTokens: integer("input_tokens"),
+    outputTokens: integer("output_tokens"),
+    latencyMs: integer("latency_ms"),
+    calls: jsonb().$type<CallMeta[]>(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

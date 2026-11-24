@@ -29,14 +29,28 @@ export function mockPlan(input: PlanInput): Plan {
   const feedback = input.feedback
     ? ` Tiene en cuenta el feedback: «${input.feedback}».`
     : "";
+  // An amend replan (D29) only adds one corrective task.
+  const amend = input.mode === "amend";
+  const positions = amend ? [1] : [1, 2];
   return {
+    feasible: true,
     summary: `Plan simulado${revision} para: ${input.request}.${feedback}`,
-    tasks: [1, 2].map((n) => ({
-      title: `Tarea simulada ${n}`,
+    assumptions: ["MockProvider no cambia la app: solo escribe agent-runs/."],
+    tasks: positions.map((n) => ({
+      title: amend ? `Tarea correctiva ${n}` : `Tarea simulada ${n}`,
       description: `Escribe agent-runs/${input.runId}/task-${n}.md. No cambia la app.`,
+      files: [`agent-runs/${input.runId}/task-${n}.md`],
       acceptanceCriteria: [
-        `Existe agent-runs/${input.runId}/task-${n}.md`,
-        "Los tests E2E de la vista previa pasan",
+        {
+          id: `c${2 * n - 1}`,
+          type: "e2e" as const,
+          text: `Existe agent-runs/${input.runId}/task-${n}.md`,
+        },
+        {
+          id: `c${2 * n}`,
+          type: "e2e" as const,
+          text: "Los tests E2E de la vista previa pasan",
+        },
       ],
     })),
   };
@@ -84,22 +98,23 @@ export function mockVerdict(
       scenario === "blocked");
   const e2eFailed = input.report.status !== "passed";
 
-  const criteria = input.task.acceptanceCriteria.map((criterion, i) => {
+  const criteria = input.task.acceptanceCriteria.map((c, i) => {
+    const base = { id: c.id, criterion: c.text };
     if (e2eFailed && i === input.task.acceptanceCriteria.length - 1) {
       return {
-        criterion,
+        ...base,
         passed: false,
         note: `El E2E real ha fallado: ${input.report.failed} tests con fallos`,
       };
     }
     if (scripted && i === 0) {
       return {
-        criterion,
+        ...base,
         passed: false,
         note: `Fallo simulado por el escenario ${scenario}`,
       };
     }
-    return { criterion, passed: true, note: "Cumplido" };
+    return { ...base, passed: true, note: "Cumplido" };
   });
   const passed = criteria.every((c) => c.passed);
   return {

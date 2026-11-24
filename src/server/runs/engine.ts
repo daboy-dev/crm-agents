@@ -89,6 +89,7 @@ const brief = (t: TaskRow): TaskBrief => ({
   position: t.position,
   title: t.title,
   description: t.description,
+  files: t.files,
   acceptanceCriteria: t.acceptanceCriteria,
 });
 
@@ -148,8 +149,11 @@ async function stepPlanning(ctx: StepContext): Promise<Committed> {
         runId: run.id,
         request: run.request,
         planRevision: run.planRevision,
+        mode: "replace",
         feedback: run.feedback,
-        previousSummary: run.planSummary,
+        previous: null,
+        // Read from crm-demo once the engine wires the context in (D27).
+        context: { baseSha: "", tree: [], files: [] },
       }),
   );
   await db

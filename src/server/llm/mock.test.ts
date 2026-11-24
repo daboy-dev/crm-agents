@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { runDevelop, runOrchestrator, runTesting } from "@/server/agents";
-import type { E2eSummary, TaskBrief } from "@/server/agents/contracts";
+import type {
+  E2eSummary,
+  PlanInput,
+  TaskBrief,
+} from "@/server/agents/contracts";
 import { checkPaths } from "@/server/agents/paths";
 import { MockProvider, type MockScenario } from "./mock";
 
@@ -17,14 +21,19 @@ const failed: E2eSummary = {
   failures: [],
 };
 
+const planInput = (over: Partial<PlanInput> = {}): PlanInput => ({
+  runId: 7,
+  request: "Añadir el NIF",
+  planRevision: 1,
+  mode: "replace",
+  feedback: null,
+  previous: null,
+  context: { baseSha: "abc", tree: [], files: [] },
+  ...over,
+});
+
 async function brief(n: number): Promise<TaskBrief> {
-  const plan = await runOrchestrator(new MockProvider("ok"), {
-    runId: 7,
-    request: "Añadir el NIF",
-    planRevision: 1,
-    feedback: null,
-    previousSummary: null,
-  });
+  const plan = await runOrchestrator(new MockProvider("ok"), planInput());
   const t = plan.tasks[n - 1]!;
   return { position: n, ...t };
 }
@@ -45,16 +54,21 @@ async function verdict(
 
 describe("MockProvider", () => {
   it("plans two tasks and carries the feedback", async () => {
-    const plan = await runOrchestrator(new MockProvider("ok"), {
-      runId: 7,
-      request: "Añadir el NIF",
-      planRevision: 2,
-      feedback: "Hazlo obligatorio",
-      previousSummary: "x",
-    });
+    const plan = await runOrchestrator(
+      new MockProvider("ok"),
+      planInput({ planRevision: 2, feedback: "Hazlo obligatorio" }),
+    );
     expect(plan.tasks).toHaveLength(2);
     expect(plan.summary).toContain("revisión 2");
     expect(plan.summary).toContain("Hazlo obligatorio");
+  });
+
+  it("an amend replan adds a single corrective task (D29)", async () => {
+    const plan = await runOrchestrator(
+      new MockProvider("ok"),
+      planInput({ planRevision: 2, mode: "amend", feedback: "Más grande" }),
+    );
+    expect(plan.tasks.map((t) => t.title)).toEqual(["Tarea correctiva 1"]);
   });
 
   it("develops one file per task under agent-runs", async () => {
