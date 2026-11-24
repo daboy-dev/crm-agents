@@ -102,6 +102,28 @@ const table: Row[] = [
     effects: ["start_next"],
   },
 
+  // Request out of scope (D28)
+  {
+    name: "infeasible plan rejects without a branch",
+    from: run("planning"),
+    event: { type: "plan_infeasible", reason: "Toca .github/" },
+    to: "rejected",
+    effects: ["start_next"],
+  },
+  {
+    name: "infeasible replan after a preview cleans the branch",
+    from: run("planning", { hasBranch: true }),
+    event: { type: "plan_infeasible", reason: "Fuera del CRM" },
+    to: "rejected",
+    effects: ["cleanup", "start_next"],
+  },
+  {
+    name: "infeasible only applies while planning",
+    from: run("awaiting_plan_approval"),
+    event: { type: "plan_infeasible", reason: "x" },
+    to: null,
+  },
+
   // Feedback and rejection (D9)
   {
     name: "plan feedback replans",

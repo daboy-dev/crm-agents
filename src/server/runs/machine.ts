@@ -65,6 +65,8 @@ export type Verdict = { taskId: number; passed: boolean; feedback: string };
 export type RunEvent =
   | { type: "start" }
   | { type: "plan_ready" }
+  /** The orchestrator found the request out of scope (D28). */
+  | { type: "plan_infeasible"; reason: string }
   | { type: "approve_plan" }
   | { type: "reject"; feedback: string | null }
   | { type: "develop_done" }
@@ -214,6 +216,10 @@ export function transition(run: RunState, event: RunEvent): Transition | null {
 
     case "plan_ready":
       return s === "planning" ? result(run, "awaiting_plan_approval") : null;
+
+    case "plan_infeasible":
+      // No branch yet on a first plan; after a preview the cleanup closes the PR.
+      return s === "planning" ? result(run, "rejected") : null;
 
     case "approve_plan":
       if (s !== "awaiting_plan_approval") return null;
