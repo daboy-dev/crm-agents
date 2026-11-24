@@ -16,6 +16,7 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
+    "@google/genai": "^3.6.1",
     "@neondatabase/serverless": "^1.2.1",
     "@vercel/blob": "^2.9.0",
     "drizzle-orm": "^0.45.4",
