@@ -140,6 +140,17 @@ function Summary({ detail }: { detail: RunDetail }) {
 
 function Plan({ detail }: { detail: RunDetail }) {
   const { run, tasks } = detail;
+  if (run.status === "planning") {
+    // The stored summary still belongs to the previous revision.
+    return (
+      <section className="card" data-testid="run-plan">
+        <h2>Plan · revisión {run.planRevision}</h2>
+        <p className="muted">
+          El Orquestador está preparando la revisión {run.planRevision}.
+        </p>
+      </section>
+    );
+  }
   if (!run.planSummary && tasks.length === 0) return null;
   const assumptions = run.planAssumptions ?? [];
   return (
