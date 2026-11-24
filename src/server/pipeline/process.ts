@@ -4,19 +4,25 @@ import { githubEvents } from "@/server/db/schema";
 import { classifyEvent } from "./classify";
 import { applyDeployment, applyPullRequest } from "./previews";
 import { handlePreviewRun } from "./reports";
+import { notifyRuns } from "@/server/runs/notify";
 
 async function runEvent(db: Db, event: string, payload: unknown) {
   const classified = classifyEvent(event, payload);
   switch (classified.kind) {
     case "pull_request":
-      return applyPullRequest(db, classified.update);
+      await applyPullRequest(db, classified.update);
+      break;
     case "deployment_status":
-      return applyDeployment(db, classified.update);
+      await applyDeployment(db, classified.update);
+      break;
     case "workflow_run":
-      return handlePreviewRun(db, classified.run);
+      await handlePreviewRun(db, classified.run);
+      break;
     case "ignored":
       return;
   }
+  // H3: the pipeline rows are stored first, then the run waiting on them moves.
+  await notifyRuns(db, classified);
 }
 
 /**

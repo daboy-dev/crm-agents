@@ -252,7 +252,11 @@ export async function checkpoint(
 }
 
 /** Timeline entry outside a transition (errors, GitHub notices). */
-export async function appendEvent(db: Db, run: RunRow, event: EventDraft) {
+export async function appendEvent(
+  db: Db,
+  run: Pick<RunRow, "id" | "version">,
+  event: EventDraft,
+) {
   await db.insert(runEvents).values({
     runId: run.id,
     runVersion: run.version,
