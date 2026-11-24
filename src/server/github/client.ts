@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { DEMO_REPO } from "./config";
 
-const API = "https://api.github.com";
+export const API = "https://api.github.com";
 const MAX_ARTIFACT_BYTES = 25 * 1024 * 1024;
 
 function token(): string {
@@ -10,7 +10,7 @@ function token(): string {
   return value;
 }
 
-function headers(): HeadersInit {
+export function headers(): HeadersInit {
   return {
     Accept: "application/vnd.github+json",
     Authorization: `Bearer ${token()}`,
