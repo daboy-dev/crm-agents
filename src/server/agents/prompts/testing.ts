@@ -20,7 +20,7 @@ Un JSON por criterio con de 1 a ${MAX_STEPS} pasos, en orden:
 - Cada criterio es un test independiente: empieza desde cero, sin depender de otro criterio ni del orden.
 - El goto abre la página donde está el primer elemento que usas; mira el mapa. Para un detalle, usa page (cliente-detalle, presupuesto-detalle) en lugar de pulsar una fila.
 - Un campo de formulario se comprueba con expectText sobre su field-<name>: el ejecutor compara su valor.
-- select elige por el value de la opción: usa los que fija la descripción de la tarea.
+- select elige por el value exacto de la opción, nunca por su texto: usa los que fija la descripción de la tarea. Si una opción tiene value vacío (value=""), el paso lleva value "": no inventes otro como all.
 - expectCount con min 0 siempre se cumple: no comprueba nada. Para un filtro, elige la opción y comprueba con expectText y all: true que todas las filas visibles (o sus status-badge) dicen lo esperado.
 - La base de datos de la vista previa ya tiene datos y otros tests añaden más: nunca compruebes cifras o textos del seed, ni des por hecho que existe un dato que no has creado (un cliente con notas, una factura pagada). Si lo necesitas, créalo en el mismo test y compruébalo después. Usa {{stamp}} en los valores para que sean únicos (por ejemplo, «Cliente {{stamp}}» o «test-{{stamp}}@example.com»).
 - Comprueba lo que dice el criterio, no más: unos pocos expect que fallarían si la funcionalidad no estuviera.
