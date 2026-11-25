@@ -1,6 +1,7 @@
 import { normalizeContent } from "@/server/agents/files";
 import type { DevelopOutput } from "@/server/agents/contracts";
 import { breakTestId } from "@/server/agents/test-ids";
+import { formatFile } from "./format";
 import type { FileWrite } from "@/server/github/repo";
 import type { EventDraft } from "./store";
 
@@ -15,8 +16,8 @@ export type Prepared = {
 };
 
 /**
- * Files of each task as they will be committed: line endings normalized and
- * a final newline (D34). Tasks whose files are all unchanged get no commit.
+ * Files of each task as they will be committed: line endings normalized, a
+ * final newline (D34) and Prettier's format (D41). Tasks whose files are all unchanged get no commit.
  * The type error of the H5 simulation goes into the first task here, so a
  * retried step builds the same chain.
  */
@@ -42,10 +43,25 @@ export async function prepareCommits<T extends Prepared>(
   const unchanged: T[] = [];
   let broken = false;
   for (const [i, result] of outputs.entries()) {
-    let files = result.output.files.map((f) => ({
-      path: f.path,
-      content: normalizeContent(f.content),
-    }));
+    // D41: formatted like crm-demo's `pnpm format`, before any simulation.
+    const formatted = await Promise.all(
+      result.output.files.map(async (f) => ({
+        path: f.path,
+        ...(await formatFile(f.path, normalizeContent(f.content))),
+      })),
+    );
+    const unparsed = formatted.filter((f) => f.error);
+    if (unparsed.length > 0) {
+      notes.push({
+        actor: "system",
+        kind: "format",
+        message: `Tarea ${result.task.position}: Prettier no puede leer ${unparsed.map((f) => f.path).join(", ")}; se suben tal cual y pr-check dirá el error.`,
+        data: {
+          errors: unparsed.map((f) => ({ path: f.path, error: f.error })),
+        },
+      });
+    }
+    let files = formatted.map((f) => ({ path: f.path, content: f.content }));
     if (options.simulateTypeError && i === 0 && result.task.iteration === 1) {
       const target = files.find((f) => /\.tsx?$/.test(f.path));
       if (target) {
