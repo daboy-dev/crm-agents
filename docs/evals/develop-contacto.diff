@@ -1,0 +1,71 @@
+diff --git a/e2e/pages.ts b/e2e/pages.ts
+index d4bbfc0..00ba61e 100644
+--- a/e2e/pages.ts
++++ b/e2e/pages.ts
+@@ -15,6 +15,7 @@ export const pages: CapturedPage[] = [
+   { name: "clientes", path: "/clientes" },
+   { name: "presupuestos", path: "/presupuestos" },
+   { name: "facturas", path: "/facturas" },
++  { name: "contacto", path: "/contacto" },
+   { name: "cliente-detalle", fromList: "/clientes", rowTestId: "client-row" },
+   {
+     name: "presupuesto-detalle",
+diff --git a/src/app/(crm)/contacto/page.tsx b/src/app/(crm)/contacto/page.tsx
+new file mode 100644
+index 0000000..7b78edb
+--- /dev/null
++++ b/src/app/(crm)/contacto/page.tsx
+@@ -0,0 +1,41 @@
++import type { Metadata } from "next";
++import { PageHeader } from "@/components/page-header";
++
++export const metadata: Metadata = { title: "Contacto · crm-demo" };
++
++export default function ContactPage() {
++  return (
++    <div data-testid="contact-page">
++      <PageHeader
++        title="Contacto"
++        description="Información de contacto de nuestra empresa."
++      />
++      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
++        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-xs">
++          <h2 className="text-xs font-semibold tracking-wider text-slate-500 uppercase">
++            Correo electrónico
++          </h2>
++          <p className="mt-2 font-medium text-slate-900" data-testid="contact-email">
++            contacto@crmdemo.es
++          </p>
++        </div>
++        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-xs">
++          <h2 className="text-xs font-semibold tracking-wider text-slate-500 uppercase">
++            Teléfono
++          </h2>
++          <p className="mt-2 font-medium text-slate-900" data-testid="contact-phone">
++            +34 912 345 678
++          </p>
++        </div>
++        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-xs">
++          <h2 className="text-xs font-semibold tracking-wider text-slate-500 uppercase">
++            Horario de atención
++          </h2>
++          <p className="mt-2 font-medium text-slate-900">
++            Lunes a Viernes: 9:00 - 18:00
++          </p>
++        </div>
++      </div>
++    </div>
++  );
++}
+diff --git a/src/components/nav-links.tsx b/src/components/nav-links.tsx
+index f9cb5a9..d09258d 100644
+--- a/src/components/nav-links.tsx
++++ b/src/components/nav-links.tsx
+@@ -7,6 +7,7 @@ export const NAV_ITEMS = [
+   { href: "/clientes", label: "Clientes" },
+   { href: "/presupuestos", label: "Presupuestos" },
+   { href: "/facturas", label: "Facturas" },
++  { href: "/contacto", label: "Contacto" },
+ ] as const;
+ 
+ const linkClass = "rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap";

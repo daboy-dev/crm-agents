@@ -1,0 +1,152 @@
+diff --git a/src/app/(crm)/clientes/page.tsx b/src/app/(crm)/clientes/page.tsx
+index b570211..778ff5c 100644
+--- a/src/app/(crm)/clientes/page.tsx
++++ b/src/app/(crm)/clientes/page.tsx
+@@ -9,7 +9,11 @@ import { listClients } from "./queries";
+ 
+ export const metadata: Metadata = { title: "Clientes · crm-demo" };
+ 
+-export default function ClientsPage() {
++interface Props {
++  searchParams: Promise<{ q?: string; query?: string }>;
++}
++
++export default function ClientsPage({ searchParams }: Props) {
+   return (
+     <>
+       <PageHeader
+@@ -21,51 +25,66 @@ export default function ClientsPage() {
+         }
+       />
+       <Suspense fallback={<Loading />}>
+-        <ClientsTable />
++        <ClientSearchAndTable searchParams={searchParams} />
+       </Suspense>
+     </>
+   );
+ }
+ 
+-async function ClientsTable() {
+-  // Read the database at request time, never at build time.
++async function ClientSearchAndTable({ searchParams }: Props) {
+   await connection();
+-  const clients = await listClients();
++  const resolvedParams = await searchParams;
++  const query = resolvedParams.q ?? resolvedParams.query ?? "";
++  const clients = await listClients(query);
++
+   return (
+-    <Table data-testid="clients-table">
+-      <thead>
+-        <tr>
+-          <Th>Nombre</Th>
+-          <Th className="hidden sm:table-cell">Empresa</Th>
+-          <Th className="hidden md:table-cell">Email</Th>
+-          <Th className="hidden md:table-cell">Teléfono</Th>
+-        </tr>
+-      </thead>
+-      <tbody className="divide-y divide-slate-100">
+-        {clients.length === 0 && (
+-          <EmptyRow colSpan={4}>Todavía no hay clientes.</EmptyRow>
+-        )}
+-        {clients.map((client) => (
+-          <Tr key={client.id} data-testid="client-row" data-id={client.id}>
+-            <Td>
+-              <Link
+-                href={`/clientes/${client.id}`}
+-                className="font-medium text-blue-700 hover:underline"
+-              >
+-                {client.name}
+-              </Link>
+-              <div className="text-xs text-slate-500 sm:hidden">
+-                {client.company ?? client.email}
+-              </div>
+-            </Td>
+-            <Td className="hidden sm:table-cell">{client.company ?? "—"}</Td>
+-            <Td className="hidden md:table-cell">{client.email}</Td>
+-            <Td className="hidden whitespace-nowrap md:table-cell">
+-              {client.phone ?? "—"}
+-            </Td>
+-          </Tr>
+-        ))}
+-      </tbody>
+-    </Table>
++    <div className="space-y-4">
++      <form method="get" className="flex max-w-sm items-center gap-2">
++        <input
++          type="search"
++          name="q"
++          defaultValue={query}
++          placeholder="Buscar cliente por nombre o email..."
++          data-testid="client-search-input"
++          className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-xs focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
++        />
++      </form>
++
++      <Table data-testid="clients-table">
++        <thead>
++          <tr>
++            <Th>Nombre</Th>
++            <Th className="hidden sm:table-cell">Empresa</Th>
++            <Th className="hidden md:table-cell">Email</Th>
++            <Th className="hidden md:table-cell">Teléfono</Th>
++          </tr>
++        </thead>
++        <tbody className="divide-y divide-slate-100">
++          {clients.length === 0 && (
++            <EmptyRow colSpan={4}>Todavía no hay clientes.</EmptyRow>
++          )}
++          {clients.map((client) => (
++            <Tr key={client.id} data-testid="client-row" data-id={client.id}>
++              <Td>
++                <Link
++                  href={`/clientes/${client.id}`}
++                  className="font-medium text-blue-700 hover:underline"
++                >
++                  {client.name}
++                </Link>
++                <div className="text-xs text-slate-500 sm:hidden">
++                  {client.company ?? client.email}
++                </div>
++              </Td>
++              <Td className="hidden sm:table-cell">{client.company ?? "—"}</Td>
++              <Td className="hidden md:table-cell">{client.email}</Td>
++              <Td className="hidden whitespace-nowrap md:table-cell">
++                {client.phone ?? "—"}
++              </Td>
++            </Tr>
++          ))}
++        </tbody>
++      </Table>
++    </div>
+   );
+ }
+diff --git a/src/app/(crm)/clientes/queries.ts b/src/app/(crm)/clientes/queries.ts
+index 080e98f..244d769 100644
+--- a/src/app/(crm)/clientes/queries.ts
++++ b/src/app/(crm)/clientes/queries.ts
+@@ -1,9 +1,21 @@
+-import { asc, desc, eq } from "drizzle-orm";
++import { asc, desc, eq, ilike, or } from "drizzle-orm";
+ import { getDb } from "@/db/client";
+ import { clients, invoices, quotes } from "@/db/schema";
+ 
+-export async function listClients() {
+-  return getDb().select().from(clients).orderBy(asc(clients.name));
++export async function listClients(query?: string) {
++  const cleanQuery = query?.trim();
++  const queryFilter = cleanQuery
++    ? or(
++        ilike(clients.name, `%${cleanQuery}%`),
++        ilike(clients.email, `%${cleanQuery}%`)
++      )
++    : undefined;
++
++  return getDb()
++    .select()
++    .from(clients)
++    .where(queryFilter)
++    .orderBy(asc(clients.name));
+ }
+ 
+ /** Clients for a <select>: id and display name only. */

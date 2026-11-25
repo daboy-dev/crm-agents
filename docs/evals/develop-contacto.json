@@ -1,0 +1,100 @@
+{
+  "slug": "contacto",
+  "request": "Añade una página de contacto con el email y el teléfono de la empresa, enlazada desde el menú.",
+  "baseSha": "b6c4a3c9c20aa9c8da8ab8b092e8ce995c239ba2",
+  "tasks": [
+    {
+      "position": 1,
+      "title": "Añadir enlace de navegación a Contacto",
+      "context": {
+        "files": [
+          "base:AGENTS.md",
+          "base:src/db/schema.ts",
+          "planned:src/components/nav-links.tsx"
+        ],
+        "trimmed": [],
+        "newFiles": []
+      },
+      "status": "committed",
+      "commitMessage": "feat(nav): add contact link to navigation",
+      "notes": "Se ha añadido el enlace de navegación hacia /contacto con el texto 'Contacto' en NAV_ITEMS. El atributo data-testid se genera automáticamente como nav-contacto respetando el patrón existente.",
+      "files": ["src/components/nav-links.tsx"],
+      "outsidePlan": [],
+      "evidence": [
+        {
+          "criterion": "c1",
+          "hint": "data-testid=\"nav-contacto\""
+        }
+      ],
+      "calls": [
+        {
+          "model": "gemini:gemini-3.8-flash",
+          "kind": "first",
+          "inputTokens": 5744,
+          "outputTokens": 551,
+          "latencyMs": 20543,
+          "valid": true
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "title": "Crear la página de contacto y registrarla en capturas E2E",
+      "context": {
+        "files": [
+          "base:AGENTS.md",
+          "base:src/db/schema.ts",
+          "planned:e2e/pages.ts",
+          "reference:src/app/(crm)/clientes/page.tsx",
+          "reference:src/components/page-header.tsx",
+          "import:src/components/button.tsx",
+          "import:src/components/table.tsx",
+          "import:src/app/(crm)/clientes/queries.ts"
+        ],
+        "trimmed": [],
+        "newFiles": ["src/app/(crm)/contacto/page.tsx"]
+      },
+      "status": "committed",
+      "commitMessage": "feat(contact): add contact page and register in E2E page list",
+      "notes": "He creado la página de contacto en src/app/(crm)/contacto/page.tsx incluyendo tarjetas estilizadas con Tailwind para email, teléfono y horario. He añadido los testids `contact-page`, `contact-email` y `contact-phone`. Además, he registrado la ruta `/contacto` en `e2e/pages.ts` para que se capturen screenshots en Playwright.",
+      "files": ["src/app/(crm)/contacto/page.tsx", "e2e/pages.ts"],
+      "outsidePlan": [],
+      "evidence": [
+        {
+          "criterion": "c2",
+          "hint": "La página /contacto incluye data-testid contact-page, contact-email y contact-phone, además de PageHeader con page-title."
+        },
+        {
+          "criterion": "c3",
+          "hint": "Añadida la entrada { name: 'contacto', path: '/contacto' } en e2e/pages.ts."
+        }
+      ],
+      "calls": [
+        {
+          "model": "gemini:gemini-3.6-flash",
+          "kind": "first",
+          "inputTokens": 8085,
+          "outputTokens": 1083,
+          "latencyMs": 6136,
+          "valid": true
+        }
+      ]
+    }
+  ],
+  "check": {
+    "ok": true,
+    "migrate": {
+      "ok": true,
+      "output": null
+    },
+    "typecheck": {
+      "ok": true,
+      "output": null
+    },
+    "lint": {
+      "ok": true,
+      "output": null
+    },
+    "migrations": []
+  }
+}

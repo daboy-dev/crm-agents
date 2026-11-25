@@ -1,0 +1,142 @@
+diff --git a/src/app/(crm)/clientes/[id]/page.tsx b/src/app/(crm)/clientes/[id]/page.tsx
+index 8acedfc..92e30ad 100644
+--- a/src/app/(crm)/clientes/[id]/page.tsx
++++ b/src/app/(crm)/clientes/[id]/page.tsx
+@@ -132,7 +132,7 @@ async function ClientDetail({
+                   </Td>
+                   <Td>{formatDate(invoice.dueAt)}</Td>
+                   <Td>
+-                    <StatusBadge kind="invoice" status={invoice.status} />
++                    <StatusBadge kind="invoice" status={invoice.status} dueAt={invoice.dueAt} />
+                   </Td>
+                 </Tr>
+               ))}
+diff --git a/src/app/(crm)/facturas/[id]/page.tsx b/src/app/(crm)/facturas/[id]/page.tsx
+index f01a006..8301052 100644
+--- a/src/app/(crm)/facturas/[id]/page.tsx
++++ b/src/app/(crm)/facturas/[id]/page.tsx
+@@ -33,7 +33,7 @@ async function InvoiceDetail({
+     <>
+       <PageHeader
+         title={`Factura ${invoice.number}`}
+-        description={<StatusBadge kind="invoice" status={invoice.status} />}
++        description={<StatusBadge kind="invoice" status={invoice.status} dueAt={invoice.dueAt} />}
+         actions={
+           invoice.status === "pending" && (
+             <form action={markInvoicePaid.bind(null, invoice.id)}>
+diff --git a/src/app/(crm)/facturas/page.tsx b/src/app/(crm)/facturas/page.tsx
+index af1b646..35cec07 100644
+--- a/src/app/(crm)/facturas/page.tsx
++++ b/src/app/(crm)/facturas/page.tsx
+@@ -67,7 +67,7 @@ async function InvoicesTable() {
+               {formatEur(documentTotals(invoice.items).total)}
+             </Td>
+             <Td>
+-              <StatusBadge kind="invoice" status={invoice.status} />
++              <StatusBadge kind="invoice" status={invoice.status} dueAt={invoice.dueAt} />
+             </Td>
+           </Tr>
+         ))}
+diff --git a/src/components/status-badge.tsx b/src/components/status-badge.tsx
+index a2e1d60..f77bf1d 100644
+--- a/src/components/status-badge.tsx
++++ b/src/components/status-badge.tsx
+@@ -1,29 +1,56 @@
+ import type { InvoiceStatus, QuoteStatus } from "@/db/schema";
+-import { invoiceStatusLabels, quoteStatusLabels } from "@/lib/status";
++import {
++  getInvoiceDisplayStatus,
++  invoiceStatusLabels,
++  quoteStatusLabels,
++  type InvoiceDisplayStatus,
++} from "@/lib/status";
+ 
+-const colors: Record<QuoteStatus | InvoiceStatus, string> = {
++const colors: Record<QuoteStatus | InvoiceDisplayStatus, string> = {
+   draft: "bg-slate-100 text-slate-700",
+   sent: "bg-blue-100 text-blue-800",
+   accepted: "bg-green-100 text-green-800",
+   rejected: "bg-red-100 text-red-800",
+   pending: "bg-amber-100 text-amber-800",
+   paid: "bg-green-100 text-green-800",
++  overdue: "bg-red-100 text-red-800",
+ };
+ 
+ type Props =
+   | { kind: "quote"; status: QuoteStatus }
+-  | { kind: "invoice"; status: InvoiceStatus };
++  | {
++      kind: "invoice";
++      status: InvoiceStatus | InvoiceDisplayStatus;
++      dueAt?: string;
++    };
+ 
+ export function StatusBadge(props: Props) {
+-  const label =
+-    props.kind === "quote"
+-      ? quoteStatusLabels[props.status]
+-      : invoiceStatusLabels[props.status];
++  if (props.kind === "quote") {
++    const label = quoteStatusLabels[props.status];
++    return (
++      <span
++        data-testid="status-badge"
++        data-status={props.status}
++        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${colors[props.status]}`}
++      >
++        {label}
++      </span>
++    );
++  }
++
++  const resolvedStatus: InvoiceDisplayStatus =
++    props.status === "overdue"
++      ? "overdue"
++      : props.dueAt
++        ? getInvoiceDisplayStatus(props.status as InvoiceStatus, props.dueAt)
++        : (props.status as InvoiceDisplayStatus);
++
++  const label = invoiceStatusLabels[resolvedStatus];
+   return (
+     <span
+       data-testid="status-badge"
+-      data-status={props.status}
+-      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${colors[props.status]}`}
++      data-status={resolvedStatus}
++      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${colors[resolvedStatus]}`}
+     >
+       {label}
+     </span>
+diff --git a/src/lib/status.ts b/src/lib/status.ts
+index 33defd8..6c30f42 100644
+--- a/src/lib/status.ts
++++ b/src/lib/status.ts
+@@ -1,4 +1,7 @@
+ import type { InvoiceStatus, QuoteStatus } from "@/db/schema";
++import { todayIso } from "@/lib/dates";
++
++export type InvoiceDisplayStatus = InvoiceStatus | "overdue";
+ 
+ export const quoteStatusLabels: Record<QuoteStatus, string> = {
+   draft: "Borrador",
+@@ -7,7 +10,19 @@ export const quoteStatusLabels: Record<QuoteStatus, string> = {
+   rejected: "Rechazado",
+ };
+ 
+-export const invoiceStatusLabels: Record<InvoiceStatus, string> = {
++export const invoiceStatusLabels: Record<InvoiceDisplayStatus, string> = {
+   pending: "Pendiente",
+   paid: "Pagada",
++  overdue: "Vencida",
+ };
++
++export function getInvoiceDisplayStatus(
++  status: InvoiceStatus,
++  dueAt: string,
++  nowIso: string = todayIso()
++): InvoiceDisplayStatus {
++  if (status === "pending" && dueAt < nowIso) {
++    return "overdue";
++  }
++  return status;
++}

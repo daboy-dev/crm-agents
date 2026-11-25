@@ -1,0 +1,47 @@
+{
+  "sdkHttpResponse": {
+    "headers": {
+      "alt-svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000",
+      "content-encoding": "gzip",
+      "content-type": "application/json; charset=UTF-8",
+      "date": "Wed, 25 Nov 2026 09:44:21 GMT",
+      "server": "scaffolding on HTTPServer2",
+      "server-timing": "gfet4t7; dur=62871",
+      "transfer-encoding": "chunked",
+      "vary": "Origin, X-Origin, Referer",
+      "x-content-type-options": "nosniff",
+      "x-frame-options": "SAMEORIGIN",
+      "x-gemini-service-tier": "standard",
+      "x-xss-protection": "0"
+    }
+  },
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "{\n  \"commitMessage\": \"feat(invoices): add overdue status support and styling in StatusBadge\",\n  \"files\": [\n    {\n      \"path\": \"src/lib/status.ts\",\n      \"content\": \"import type { InvoiceStatus, QuoteStatus } from \\\"@/db/schema\\\";\\nimport { todayIso } from \\\"@/lib/dates\\\";\\n\\nexport type InvoiceDisplayStatus = InvoiceStatus | \\\"overdue\\\";\\n\\nexport const quoteStatusLabels: Record<QuoteStatus, string> = {\\n  draft: \\\"Borrador\\\",\\n  sent: \\\"Enviado\\\",\\n  accepted: \\\"Aceptado\\\",\\n  rejected: \\\"Rechazado\\\",\\n};\\n\\nexport const invoiceStatusLabels: Record<InvoiceDisplayStatus, string> = {\\n  pending: \\\"Pendiente\\\",\\n  paid: \\\"Pagada\\\",\\n  overdue: \\\"Vencida\\\",\\n};\\n\\nexport function getInvoiceDisplayStatus(\\n  status: InvoiceStatus,\\n  dueAt: string,\\n  nowIso: string = todayIso()\\n): InvoiceDisplayStatus {\\n  if (status === \\\"pending\\\" && dueAt < nowIso) {\\n    return \\\"overdue\\\";\\n  }\\n  return status;\\n}\\n\"\n    },\n    {\n      \"path\": \"src/components/status-badge.tsx\",\n      \"content\": \"import type { InvoiceStatus, QuoteStatus } from \\\"@/db/schema\\\";\\nimport {\\n  getInvoiceDisplayStatus,\\n  invoiceStatusLabels,\\n  quoteStatusLabels,\\n  type InvoiceDisplayStatus,\\n} from \\\"@/lib/status\\\";\\n\\nconst colors: Record<QuoteStatus | InvoiceDisplayStatus, string> = {\\n  draft: \\\"bg-slate-100 text-slate-700\\\",\\n  sent: \\\"bg-blue-100 text-blue-800\\\",\\n  accepted: \\\"bg-green-100 text-green-800\\\",\\n  rejected: \\\"bg-red-100 text-red-800\\\",\\n  pending: \\\"bg-amber-100 text-amber-800\\\",\\n  paid: \\\"bg-green-100 text-green-800\\\",\\n  overdue: \\\"bg-red-100 text-red-800\\\",\\n};\\n\\ntype Props =\\n  | { kind: \\\"quote\\\"; status: QuoteStatus }\\n  | {\\n      kind: \\\"invoice\\\";\\n      status: InvoiceStatus | InvoiceDisplayStatus;\\n      dueAt?: string;\\n    };\\n\\nexport function StatusBadge(props: Props) {\\n  if (props.kind === \\\"quote\\\") {\\n    const label = quoteStatusLabels[props.status];\\n    return (\\n      <span\\n        data-testid=\\\"status-badge\\\"\\n        data-status={props.status}\\n        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${colors[props.status]}`}\\n      >\\n        {label}\\n      </span>\\n    );\\n  }\\n\\n  const resolvedStatus: InvoiceDisplayStatus =\\n    props.status === \\\"overdue\\\"\\n      ? \\\"overdue\\\"\\n      : props.dueAt\\n        ? getInvoiceDisplayStatus(props.status as InvoiceStatus, props.dueAt)\\n        : (props.status as InvoiceDisplayStatus);\\n\\n  const label = invoiceStatusLabels[resolvedStatus];\\n  return (\\n    <span\\n      data-testid=\\\"status-badge\\\"\\n      data-status={resolvedStatus}\\n      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${colors[resolvedStatus]}`}\\n    >\\n      {label}\\n    </span>\\n  );\\n}\\n\"\n    }\n  ],\n  \"notes\": \"Se ha añadido el tipo `InvoiceDisplayStatus` ('pending' | 'paid' | 'overdue') y la función `getInvoiceDisplayStatus` en `src/lib/status.ts` para determinar si una factura pendiente tiene la fecha de vencimiento superada. Además, se ha actualizado `StatusBadge` para dar soporte al estado 'overdue' con la etiqueta 'Vencida', `data-status=\\\"overdue\\\"` y estilos en rojo (`bg-red-100 text-red-800`), aceptando opcionalmente `dueAt` o directamente el estado.\",\n  \"evidence\": [\n    {\n      \"criterion\": \"c1\",\n      \"hint\": \"/facturas\"\n    }\n  ]\n}",
+            "thoughtSignature": "Ep8BCpwBAWkUfRM5s/ZOv4rQ7ST6Pu7N8Ljs0K6LMP9KdmTU7VZWIbCde6nJI9sRgJqmpJxZQlgRaashHO70fXT7Bwp2WnEuI6YkQV75ioUyDqreOYZbt21erRF4ZRYL0G/lLLS66/KVleu01cxC9DS6tL0bJL/EY22EybOzIL6+Yh+EU8/Js2QmN0nnhGSZYVMcRngiCSXJXoWmOVtam6Mz"
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "modelVersion": "gemini-3.8-flash",
+  "responseId": "t60Ga8SqA97_vdIP2NGzQA",
+  "usageMetadata": {
+    "promptTokenCount": 6258,
+    "candidatesTokenCount": 1060,
+    "totalTokenCount": 7318,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 6258
+      }
+    ],
+    "serviceTier": "standard"
+  }
+}

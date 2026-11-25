@@ -1,0 +1,47 @@
+{
+  "sdkHttpResponse": {
+    "headers": {
+      "alt-svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000",
+      "content-encoding": "gzip",
+      "content-type": "application/json; charset=UTF-8",
+      "date": "Wed, 25 Nov 2026 09:38:38 GMT",
+      "server": "scaffolding on HTTPServer2",
+      "server-timing": "gfet4t7; dur=43028",
+      "transfer-encoding": "chunked",
+      "vary": "Origin, X-Origin, Referer",
+      "x-content-type-options": "nosniff",
+      "x-frame-options": "SAMEORIGIN",
+      "x-gemini-service-tier": "standard",
+      "x-xss-protection": "0"
+    }
+  },
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "{\n  \"commitMessage\": \"feat(clients): add nif field to client form and edit page\",\n  \"files\": [\n    {\n      \"path\": \"src/app/(crm)/clientes/client-form.tsx\",\n      \"content\": \"\\\"use client\\\";\\n\\nimport { useActionState } from \\\"react\\\";\\nimport { Button, ButtonLink } from \\\"@/components/button\\\";\\nimport { Field } from \\\"@/components/field\\\";\\nimport { emptyFormState, type FormState } from \\\"@/lib/forms\\\";\\n\\ntype Action = (prev: FormState, formData: FormData) => Promise<FormState>;\\n\\nexport function ClientForm({\\n  action,\\n  initial,\\n  cancelHref,\\n}: {\\n  action: Action;\\n  initial?: Record<string, string>;\\n  cancelHref: string;\\n}) {\\n  const [state, formAction, pending] = useActionState(action, emptyFormState);\\n  const value = (name: string) => state.values[name] ?? initial?.[name] ?? \\\"\\\";\\n\\n  return (\\n    <form\\n      action={formAction}\\n      className=\\\"max-w-xl space-y-4 rounded-lg border border-slate-200 bg-white p-4\\\"\\n      data-testid=\\\"client-form\\\"\\n    >\\n      <Field\\n        label=\\\"Nombre\\\"\\n        name=\\\"name\\\"\\n        defaultValue={value(\\\"name\\\")}\\n        error={state.errors.name}\\n        required\\n      />\\n      <Field\\n        label=\\\"NIF / CIF\\\"\\n        name=\\\"nif\\\"\\n        defaultValue={value(\\\"nif\\\")}\\n        error={state.errors.nif}\\n      />\\n      <Field\\n        label=\\\"Email\\\"\\n        name=\\\"email\\\"\\n        type=\\\"email\\\"\\n        defaultValue={value(\\\"email\\\")}\\n        error={state.errors.email}\\n        required\\n      />\\n      <Field\\n        label=\\\"Teléfono\\\"\\n        name=\\\"phone\\\"\\n        type=\\\"tel\\\"\\n        defaultValue={value(\\\"phone\\\")}\\n        error={state.errors.phone}\\n      />\\n      <Field\\n        label=\\\"Empresa\\\"\\n        name=\\\"company\\\"\\n        defaultValue={value(\\\"company\\\")}\\n        error={state.errors.company}\\n      />\\n      <div className=\\\"flex gap-2\\\">\\n        <Button type=\\\"submit\\\" disabled={pending} data-testid=\\\"save-button\\\">\\n          {pending ? \\\"Guardando…\\\" : \\\"Guardar\\\"}\\n        </Button>\\n        <ButtonLink href={cancelHref} variant=\\\"secondary\\\">\\n          Cancelar\\n        </ButtonLink>\\n      </div>\\n    </form>\\n  );\\n}\\n\"\n    },\n    {\n      \"path\": \"src/app/(crm)/clientes/[id]/editar/page.tsx\",\n      \"content\": \"import { notFound } from \\\"next/navigation\\\";\\nimport { Suspense } from \\\"react\\\";\\nimport { ResetOnHide } from \\\"@/components/reset-on-hide\\\";\\nimport { Loading, PageHeader } from \\\"@/components/page-header\\\";\\nimport { parseId } from \\\"@/lib/ids\\\";\\nimport { updateClient } from \\\"../../actions\\\";\\nimport { ClientForm } from \\\"../../client-form\\\";\\nimport { getClient } from \\\"../../queries\\\";\\n\\nexport default function EditClientPage({\\n  params,\\n}: PageProps<\\\"/clientes/[id]/editar\\\">) {\\n  return (\\n    <Suspense fallback={<Loading />}>\\n      <EditClient params={params} />\\n    </Suspense>\\n  );\\n}\\n\\nasync function EditClient({\\n  params,\\n}: {\\n  params: PageProps<\\\"/clientes/[id]/editar\\\">[\\\"params\\\"];\\n}) {\\n  const id = parseId((await params).id);\\n  const client = id ? await getClient(id) : null;\\n  if (!client) notFound();\\n\\n  return (\\n    <>\\n      <PageHeader title={`Editar ${client.name}`} />\\n      <ResetOnHide>\\n        <ClientForm\\n          action={updateClient.bind(null, client.id)}\\n          cancelHref={`/clientes/${client.id}`}\\n          initial={{\\n            name: client.name,\\n            nif: client.nif ?? \\\"\\\",\\n            email: client.email,\\n            phone: client.phone ?? \\\"\\\",\\n            company: client.company ?? \\\"\\\",\\n          }}\\n        />\\n      </ResetOnHide>\\n    </>\\n  );\\n}\\n\"\n    }\n  ],\n  \"notes\": \"Se ha añadido el campo NIF al formulario de clientes (con data-testid='field-nif' generado automáticamente por Field) y se ha pasado el valor inicial en la página de edición de clientes.\",\n  \"evidence\": [\n    {\n      \"criterion\": \"c2\",\n      \"hint\": \"field-nif en /clientes/nuevo y en /clientes/[id]/editar\"\n    }\n  ]\n}",
+            "thoughtSignature": "Ep8BCpwBAWkUfROfjDNqEBVzgBoo4ECmvXCQUsaoDZ3QnIuM0MohsOvO1TGzUvlQ3kWSIHTZ9uaRem9vbXNg31pfMaVclUkFS1NWsUjAuze+c+tyNnFjHy/o4s2YRVq8cFLgNHg0IS6mgDyK6wsj3+zsDfUCvp65aWNJvevkFPHQt32wihQwevflkZ8TPZDXTnI/+Nb3XQPyQh1i9mwTBq7D"
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "modelVersion": "gemini-3.8-flash",
+  "responseId": "c6wGa_SeIuG_vdIP-ozNuAk",
+  "usageMetadata": {
+    "promptTokenCount": 9380,
+    "candidatesTokenCount": 1182,
+    "totalTokenCount": 10562,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 9380
+      }
+    ],
+    "serviceTier": "standard"
+  }
+}

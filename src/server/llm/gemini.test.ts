@@ -1,6 +1,6 @@
 import { ApiError, type GenerateContentParameters } from "@google/genai";
 import { describe, expect, it, vi } from "vitest";
-import { planSchema } from "@/server/agents/contracts";
+import { developOutputSchema, planSchema } from "@/server/agents/contracts";
 import {
   AGENT_SETTINGS,
   ChainProvider,
@@ -286,7 +286,7 @@ describe("Gemini links of the chain", () => {
 
 describe("recorded answers of pnpm eval:plan (D30)", () => {
   const recorded = import.meta.glob<GeminiResponse>(
-    "./fixtures/gemini/recorded/*.json",
+    "./fixtures/gemini/recorded/plan-*.json",
     { eager: true, import: "default" },
   );
 
@@ -298,6 +298,36 @@ describe("recorded answers of pnpm eval:plan (D30)", () => {
       expect(output.feasible).toBe(true);
       expect(output.tasks.length).toBeGreaterThanOrEqual(1);
       expect(output.tasks.length).toBeLessThanOrEqual(4);
+    },
+  );
+});
+
+describe("recorded answers of pnpm eval:develop (H5)", () => {
+  const recorded = import.meta.glob<GeminiResponse>(
+    "./fixtures/gemini/recorded/develop-*.json",
+    { eager: true, import: "default" },
+  );
+
+  it.each(Object.entries(recorded))(
+    "%s passes Develop's contract",
+    async (_, r) => {
+      const provider = new ChainProvider({
+        links: [new GeminiClient("dev", async () => r)],
+        quota: {
+          isExhausted: async () => false,
+          markExhausted: async () => {},
+        },
+        settings: AGENT_SETTINGS.develop,
+      });
+      const { output } = await provider.generateObject({
+        agent: "develop",
+        system: "sistema",
+        prompt: "tarea",
+        input: null,
+        schema: developOutputSchema,
+      });
+      expect(output.files.length).toBeGreaterThanOrEqual(1);
+      expect(output.notes.length).toBeGreaterThan(0);
     },
   );
 });

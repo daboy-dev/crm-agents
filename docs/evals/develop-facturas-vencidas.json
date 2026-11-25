@@ -1,0 +1,117 @@
+{
+  "slug": "facturas-vencidas",
+  "request": "Marca las facturas vencidas: las que siguen pendientes de pago con la fecha de vencimiento ya pasada deben destacarse en la lista de facturas.",
+  "baseSha": "b6c4a3c9c20aa9c8da8ab8b092e8ce995c239ba2",
+  "iterations": [
+    {
+      "iteration": 1,
+      "tasks": [
+        {
+          "position": 1,
+          "title": "Añadir soporte y cálculo para facturas vencidas en utilidades y componentes UI",
+          "context": {
+            "files": [
+              "base:AGENTS.md",
+              "base:src/db/schema.ts",
+              "planned:src/lib/status.ts",
+              "planned:src/components/status-badge.tsx",
+              "reference:src/lib/dates.ts"
+            ],
+            "trimmed": [],
+            "newFiles": []
+          },
+          "status": "committed",
+          "commitMessage": "feat(invoices): add overdue status support and styling in StatusBadge",
+          "notes": "Se ha añadido el tipo `InvoiceDisplayStatus` ('pending' | 'paid' | 'overdue') y la función `getInvoiceDisplayStatus` en `src/lib/status.ts` para determinar si una factura pendiente tiene la fecha de vencimiento superada. Además, se ha actualizado `StatusBadge` para dar soporte al estado 'overdue' con la etiqueta 'Vencida', `data-status=\"overdue\"` y estilos en rojo (`bg-red-100 text-red-800`), aceptando opcionalmente `dueAt` o directamente el estado.",
+          "files": ["src/lib/status.ts", "src/components/status-badge.tsx"],
+          "outsidePlan": [],
+          "evidence": [
+            {
+              "criterion": "c1",
+              "hint": "/facturas"
+            }
+          ],
+          "calls": [
+            {
+              "model": "gemini:gemini-3.8-flash",
+              "kind": "first",
+              "inputTokens": 6258,
+              "outputTokens": 1060,
+              "latencyMs": 63073,
+              "valid": true
+            }
+          ]
+        },
+        {
+          "position": 2,
+          "title": "Mostrar el distintivo de factura vencida en las vistas de listas y detalle de facturas",
+          "context": {
+            "files": [
+              "base:AGENTS.md",
+              "base:src/db/schema.ts",
+              "planned:src/app/(crm)/facturas/page.tsx",
+              "planned:src/app/(crm)/facturas/[id]/page.tsx",
+              "planned:src/app/(crm)/clientes/[id]/page.tsx",
+              "reference:src/components/status-badge.tsx",
+              "import:src/components/page-header.tsx",
+              "import:src/components/table.tsx",
+              "import:src/lib/dates.ts",
+              "import:src/lib/money.ts",
+              "import:src/lib/totals.ts",
+              "import:src/app/(crm)/facturas/queries.ts",
+              "import:src/components/button.tsx",
+              "import:src/components/line-items-table.tsx",
+              "import:src/lib/ids.ts",
+              "import:src/app/(crm)/facturas/actions.ts",
+              "import:src/app/(crm)/clientes/queries.ts",
+              "import:src/lib/status.ts"
+            ],
+            "trimmed": [],
+            "newFiles": []
+          },
+          "status": "committed",
+          "commitMessage": "feat(invoices): show overdue badge for pending invoices past due date",
+          "notes": "Se ha actualizado la renderización del componente StatusBadge en las vistas de facturas (lista /facturas, detalle /facturas/[id] y lista dentro del detalle de cliente /clientes/[id]) pasando la propiedad dueAt={invoice.dueAt}. StatusBadge ya calcula automáticamente el estado 'overdue' (y muestra 'Vencida' con data-status=\"overdue\") si la factura está en estado 'pending' y su fecha de vencimiento es anterior a la fecha actual.",
+          "files": [
+            "src/app/(crm)/facturas/page.tsx",
+            "src/app/(crm)/facturas/[id]/page.tsx",
+            "src/app/(crm)/clientes/[id]/page.tsx"
+          ],
+          "outsidePlan": [],
+          "evidence": [
+            {
+              "criterion": "c2",
+              "hint": "[data-testid=\"status-badge\"][data-status=\"overdue\"] en /facturas"
+            }
+          ],
+          "calls": [
+            {
+              "model": "gemini:gemini-3.6-flash",
+              "kind": "first",
+              "inputTokens": 13810,
+              "outputTokens": 3075,
+              "latencyMs": 19364,
+              "valid": true
+            }
+          ]
+        }
+      ],
+      "check": {
+        "ok": true,
+        "migrate": {
+          "ok": true,
+          "output": null
+        },
+        "typecheck": {
+          "ok": true,
+          "output": null
+        },
+        "lint": {
+          "ok": true,
+          "output": null
+        },
+        "migrations": []
+      }
+    }
+  ]
+}

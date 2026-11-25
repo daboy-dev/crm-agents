@@ -1,0 +1,47 @@
+{
+  "sdkHttpResponse": {
+    "headers": {
+      "alt-svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000",
+      "content-encoding": "gzip",
+      "content-type": "application/json; charset=UTF-8",
+      "date": "Wed, 25 Nov 2026 09:40:03 GMT",
+      "server": "scaffolding on HTTPServer2",
+      "server-timing": "gfet4t7; dur=20504",
+      "transfer-encoding": "chunked",
+      "vary": "Origin, X-Origin, Referer",
+      "x-content-type-options": "nosniff",
+      "x-frame-options": "SAMEORIGIN",
+      "x-gemini-service-tier": "standard",
+      "x-xss-protection": "0"
+    }
+  },
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "{\n  \"commitMessage\": \"feat(nav): add contact link to navigation\",\n  \"files\": [\n    {\n      \"path\": \"src/components/nav-links.tsx\",\n      \"content\": \"\\\"use client\\\";\\n\\nimport Link from \\\"next/link\\\";\\nimport { usePathname } from \\\"next/navigation\\\";\\n\\nexport const NAV_ITEMS = [\\n  { href: \\\"/clientes\\\", label: \\\"Clientes\\\" },\\n  { href: \\\"/presupuestos\\\", label: \\\"Presupuestos\\\" },\\n  { href: \\\"/facturas\\\", label: \\\"Facturas\\\" },\\n  { href: \\\"/contacto\\\", label: \\\"Contacto\\\" },\\n] as const;\\n\\nconst linkClass = \\\"rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap\\\";\\n\\nexport function NavLinks() {\\n  const pathname = usePathname();\\n  return NAV_ITEMS.map((item) => {\\n    const active = pathname.startsWith(item.href);\\n    return (\\n      <Link\\n        key={item.href}\\n        href={item.href}\\n        data-testid={`nav-${item.href.slice(1)}`}\\n        aria-current={active ? \\\"page\\\" : undefined}\\n        className={`${linkClass} ${active ? \\\"bg-slate-900 text-white\\\" : \\\"text-slate-700 hover:bg-slate-200\\\"}`}\\n      >\\n        {item.label}\\n      </Link>\\n    );\\n  });\\n}\\n\\n/** Rendered while the pathname is not known yet. */\\nexport function NavLinksFallback() {\\n  return NAV_ITEMS.map((item) => (\\n    <Link\\n      key={item.href}\\n      href={item.href}\\n      className={`${linkClass} text-slate-700`}\\n    >\\n      {item.label}\\n    </Link>\\n  ));\\n}\\n\"\n    }\n  ],\n  \"notes\": \"Se ha añadido el enlace de navegación hacia /contacto con el texto 'Contacto' en NAV_ITEMS. El atributo data-testid se genera automáticamente como nav-contacto respetando el patrón existente.\",\n  \"evidence\": [\n    {\n      \"criterion\": \"c1\",\n      \"hint\": \"data-testid=\\\"nav-contacto\\\"\"\n    }\n  ]\n}",
+            "thoughtSignature": "Ep8BCpwBAWkUfRMHb1rnOavEMgBCik6b78bqDdJzviTHBLIYImPOO+y4ANrIg2hENd8pKiKgDyzvxYrLBlG7dy50XgR1VqpiezdnWsBHSDNuwDptyeX4S3M5t9pc1NmUbaErYu+Wm2NnoVtlChFExFbPHVwWSYZX2Sq3ko2ImNvK1609A29hQf5MMQvHKVxLj7glCfLa2N+mF4gwXTiqGBcv"
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "modelVersion": "gemini-3.8-flash",
+  "responseId": "36wGa-vgGpG3nsEPyYGwiQc",
+  "usageMetadata": {
+    "promptTokenCount": 5744,
+    "candidatesTokenCount": 551,
+    "totalTokenCount": 6295,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 5744
+      }
+    ],
+    "serviceTier": "standard"
+  }
+}
