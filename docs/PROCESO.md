@@ -344,6 +344,33 @@ Cómo se ha construido este proyecto, sesión a sesión.
   - La action no tiene secrets, instala sin scripts y Develop no puede tocar `drizzle/**`, `drizzle.config.ts`, `package.json` ni `pnpm-lock.yaml`.
   - Solo hay cambios de esquema que añaden, para que `drizzle-kit` no haga preguntas en CI.
 
-**Resultado:** D31 aceptada.
+- **Contexto de Develop:** Claude propuso que viera la tarea, `AGENTS.md`, el árbol, `schema.ts` y los archivos previstos. El humano pidió añadir los imports de esos archivos, para ver sus tipos, y archivos que ya existan como modelo también cuando la tarea crea algo nuevo, para que Develop trabaje siempre igual. Claude lo concretó: imports locales a un nivel, un campo `references` en cada tarea del plan que elige el Orquestador, y un tope de unos 150 KB (D32 y extra de D28).
+- **Errores de compilación:** el `deployment_status` no trae el error del build. Claude planteó leer el log con la API de Vercel o ampliar la action de D31 con la comprobación de tipos y el lint en un artifact. El humano eligió lo segundo (D33).
+- Al separar en `pr-check.yml` el job que escribe del que comprueba, Claude vio un hueco en D31: `drizzle-kit` ejecuta el `schema.ts` de Develop con un token que puede escribir, y `master` no tenía protección. Se añade un ruleset que exige PR en `master` (extra de D31).
 
-**Siguiente paso:** seguir con la planificación de H5 (contexto, contrato y prompt de Develop, y su lista de modelos).
+- **Contrato de Develop:** Claude propuso archivos completos, mensaje de commit, notas y un campo `evidence` obligatorio por criterio, y que una respuesta cortada por `MAX_TOKENS` hiciera fallar el paso. El humano corrigió dos cosas: Develop no debe decidir qué se comprueba (las pistas son opcionales y Testing evalúa todos los criterios del plan), y una tarea que no cabe debe volver al Orquestador para dividirse. Claude concretó la división (modo `split`, los mismos criterios repartidos, una sola vez por tarea, hasta 6 tareas) y el humano aprobó que no vuelva a pasar por él mientras los criterios no cambien (D34 y extras de D21, D28 y D29).
+
+- **Tiempos de Develop:** Claude vio que el paso `developing` no cabía en los 300 s de Vercel con llamadas de uno o dos minutos, y que con un lease de 90 s una llamada de 150 s acabaría duplicada por el sweep. Se pasa a una llamada por invocación y un lease mayor que el timeout (D35).
+- **Cuota y proveedores:** el humano propuso un proyecto de AI Studio por agente para repartir la cuota y recordó que Groq debía ser el respaldo. Claude comprobó los términos:
+  - Los de las APIs de Google piden no saltarse los límites, así que se queda un solo proyecto.
+  - Los de Gemini solo permiten servicios de pago cuando la aplicación se ofrece a usuarios del Espacio Económico Europeo. Claude recomendó activar la facturación; el humano decidió seguir en la capa gratuita por ser una prueba técnica, y queda anotado como riesgo aceptado (extra de D26).
+  - Groq gratis tiene 8.000 tokens por minuto: vale de respaldo para el Orquestador, pero no para Develop. Se generaliza la lista de modelos a una cadena de `proveedor:modelo` que salta los eslabones donde la petición no cabe (D36).
+
+**Resultado:** D31–D36 aceptadas, con extras en D21, D26, D28, D29 y D31.
+
+**Criterio de H5:**
+- **Antes de producción, `pnpm eval:develop`** (a mano y gasta cuota, como `eval:plan`): se repite `pnpm eval:plan`, porque los planes guardados no llevan `references` (D32). Develop resuelve las tareas de cada plan de D14, la salida se aplica sobre un clon local de `crm-demo` en `base_sha` y se hace lo mismo que `pr-check` (`drizzle-kit generate`, `tsc` y lint). Salidas y resultados se guardan en `docs/evals/`. Unas 11 llamadas; mejor a primera hora, tras el reinicio de las 9:00.
+- **En producción:**
+  1. **NIF (cambia el esquema):** un commit por tarea más el de la migración de `github-actions[bot]`, `pr-check` en verde, vista previa que compila con los 24 E2E existentes (Testing sigue siendo el mock), el campo visible en la vista previa y la columna en producción tras aprobar y fusionar.
+  2. **Página de contacto (sin cambio de esquema):** sin commit de migración, un solo build por iteración y la página nueva en las capturas por estar en `e2e/pages.ts`. La UI muestra los archivos leídos, referencias incluidas.
+  3. **Error de compilación:** con la casilla «Simular error de tipos», que inyecta un error en la salida de la iteración 1, `pr-check` devuelve el error y la iteración 2 lo corrige sin esperar al build de Vercel.
+  4. **Tarea demasiado grande:** con la casilla «Simular MAX_TOKENS», el Orquestador real divide la tarea con los mismos criterios, sin pasar por el humano, y el run sigue.
+  5. **Seguridad y repetición:** un push directo a `master` falla por el ruleset; una salida que sobrescribe un archivo no visto acaba en la reparación (Vitest con respuestas grabadas); con una caída simulada tras la llamada de Develop, el paso se reanuda sin repetir la llamada ni el commit.
+  6. **Groq:** una llamada real del Orquestador con la cadena forzada a `groq:` en `eval:plan` da un plan válido. En CI, con respuestas grabadas, el salto de un eslabón donde la petición no cabe y los 429 de Groq.
+- Las simulaciones van en el formulario, como las de H3 y H4, porque esperar a que Gemini se equivoque o se corte no es reproducible.
+
+**Hecho por el humano** (25/11/2026):
+- Ruleset en `crm-demo` que exige PR para `master`.
+- Cuenta de Groq y `GROQ_API_KEY` en Vercel.
+
+**Siguiente paso:** sesión 11 de Claude Code (H5), en `crm-demo` (`pr-check.yml`, `AGENTS.md`) y `crm-agents`.

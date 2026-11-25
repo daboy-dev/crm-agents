@@ -254,6 +254,8 @@ Registro de decisiones de arquitectura (formato ADR corto). Se toman en el Proje
 - Las transiciones son una función pura `transition(estado, evento) → { estado, efectos }`, probada con una tabla en Vitest.
 - `run_events` es un log en el que solo se añaden filas y es la línea de tiempo de la UI (D4).
 
+**Extra (24/11/2026, sesión 10):** transición nueva `developing → planning` con el evento `task_too_large` (D34), sin pasar por `awaiting_plan_approval`. Estado de tarea nuevo, `split`: final y sustituido por sus subtareas.
+
 ## D22 · Pasos con compare-and-swap, lease y sweep, sin cron
 **Fecha:** 24/11/2026 · **Estado:** aceptada
 
@@ -358,6 +360,11 @@ Las cuotas son por modelo y por proyecto (no por clave), y las diarias se reinic
 - **Modelo saturado:** un 500, 503 («high demand») o 504 pasa al siguiente modelo de la lista sin marcar el anterior como agotado. Si todos fallan, el paso falla y lo reintenta el sweep (cuenta para los 3 fallos de D22). Comprobado en H4: `gemini-3.8-flash` dio 503 varias veces y todas las respuestas llegaron de `gemini-3.6-flash`.
 - El 429 por minuto añade 2 s de margen al `retryDelay`. Si la respuesta no trae `retryDelay`, se espera un minuto.
 
+**Extra (24/11/2026, sesión 10):**
+- **Términos de la capa gratuita, riesgo conocido y aceptado.** Los términos adicionales de la API de Gemini (en vigor desde el 23/03/2026) solo permiten servicios de pago cuando una aplicación se pone a disposición de usuarios del Espacio Económico Europeo, y el panel lo usan los evaluadores desde España. Claude recomendó activar la facturación (cumple los términos y quita el tope diario). El humano decidió seguir en la capa gratuita porque es una prueba técnica con muy pocos usuarios. Se documenta para que quede claro que se decidió sabiéndolo.
+- **Un proyecto de AI Studio por agente:** el humano lo planteó para repartir la cuota, que es por proyecto. Claude señaló que los términos de las APIs de Google (sección 2d) piden no intentar saltarse los límites, y crear proyectos solo para multiplicar la cuota gratuita encaja con eso. Se queda un solo proyecto.
+- La lista de modelos por agente pasa a ser una cadena de `proveedor:modelo` con Groq como respaldo (D36).
+
 ## D27 · Qué ve el Orquestador
 **Fecha:** 24/11/2026 · **Estado:** aceptada
 
@@ -386,6 +393,10 @@ Las cuotas son por modelo y por proyecto (no por clave), y las diarias se reinic
 - Los criterios deben poder comprobarse en la vista previa: el DOM para `e2e` y las capturas para `visual`, nunca el código. Lo pide el prompt tras ver criterios sobre el esquema en el primer eval.
 - Un plan no viable en una replanificación tras la vista previa también lleva a `rejected`, y la limpieza cierra el PR.
 
+**Extra (24/11/2026, sesión 10):** cada tarea lleva un campo nuevo, `references`, con 1 a 3 archivos que ya existen y sirven de modelo a Develop (D32). Por ejemplo, `src/app/clientes/page.tsx` y sus actions para una página nueva, o el formulario de cliente para un campo nuevo. Los elige el Orquestador, que ya ve el árbol. El `superRefine` comprueba que existen en el árbol, y si alguno falla va a la llamada de reparación.
+
+**Extra (24/11/2026, sesión 10):** tras una división (D34) el plan puede pasar de 4 tareas, con un tope de 6.
+
 ## D29 · Replanificación con feedback
 **Fecha:** 24/11/2026 · **Estado:** aceptada
 
@@ -394,6 +405,8 @@ Las cuotas son por modelo y por proyecto (no por clave), y las diarias se reinic
 - **Feedback en la vista previa final:** el plan solo añade tareas nuevas o correctivas sobre la misma rama. El Orquestador recibe el plan anterior, el estado de cada tarea y el feedback.
 
 **Extra (24/11/2026, sesión 09):** el modo lo decide `head_sha`: sin código en la rama es `replace` y con código es `amend`. Las tareas nuevas van en la revisión n+1, y Testing solo evalúa esas.
+
+**Extra (24/11/2026, sesión 10):** tercer modo, `split`, que decide el evento `task_too_large` y no `head_sha` (D34). El Orquestador recibe la tarea que no cupo, sus archivos y el motivo, y devuelve de 2 a 3 subtareas que la sustituyen en la revisión n+1. No vuelve a pasar por el humano porque los criterios no cambian.
 
 ## D30 · Probar el Orquestador sin gastar cuota
 **Fecha:** 24/11/2026 · **Estado:** aceptada
@@ -435,3 +448,128 @@ Las cuotas son por modelo y por proyecto (no por clave), y las diarias se reinic
 - Sin bucles: los commits hechos con `GITHUB_TOKEN` no lanzan otros workflows. Vercel sí despliega Y, porque despliega con su propia app de GitHub y no con Actions.
 - Con un solo run activo (D11), `master` solo avanza con los merges de los runs, así que el journal de `drizzle/` no choca entre ramas.
 - El prompt del Orquestador deja de pedir comandos; el de Develop explica que basta con cambiar `src/db/schema.ts`.
+
+**Extra (24/11/2026, sesión 10):**
+- La action es el job `migrate` del workflow `pr-check.yml` (D33). Es el único job con `contents: write`; la comprobación de tipos y el lint corren en otro job, sin permiso de escritura.
+- **Hueco detectado:** `drizzle-kit` ejecuta `src/db/schema.ts`, que escribe Develop, con un token que puede escribir. Como `master` no tenía protección (sesión 06), un `schema.ts` malicioso, por ejemplo por una inyección en el prompt, podría hacer push directo a `master`. Se añade en `crm-demo` un **ruleset sobre `master` que exige PR**. El merge squash del panel por la API sigue funcionando porque es el merge de un PR. Lo configura el humano en GitHub.
+
+## D32 · Qué ve Develop
+**Fecha:** 24/11/2026 · **Estado:** aceptada
+
+**Contexto:** Develop hace cada tarea en su propia llamada (D20) y escribe archivos completos (D24). Para escribir código que compile necesita ver los tipos que usa y cómo está hecho lo que ya existe.
+
+**Opciones:**
+- A. Solo la tarea, `AGENTS.md`, el árbol y el contenido de los archivos previstos, más `src/db/schema.ts`. *Propuesta inicial de Claude.*
+- B. Lo mismo, más los imports de esos archivos y, siempre, archivos que ya existen y sirven de modelo, también cuando la tarea crea algo nuevo. *Propuesta del humano:* así Develop ve los tipos que importa y trabaja siempre igual, imitando algo que ya funciona.
+
+**Decisión:** B. Develop recibe, por tarea:
+- La tarea: título, descripción, archivos previstos, `references` (extra de D28) y criterios.
+- El `AGENTS.md` de `crm-demo`, el árbol del repo y `src/db/schema.ts`.
+- El contenido completo de los archivos previstos que ya existen. Un archivo previsto que no existe se trata como archivo nuevo.
+- El contenido de las referencias.
+- **Imports a un nivel** de los archivos previstos y de las referencias: solo los locales (relativos y `@/`), resolviendo `.ts`, `.tsx` e `index.ts`. No se leen paquetes de `node_modules` ni los imports de los imports.
+- A partir de la iteración 2: los criterios que fallaron, el motivo de Testing y los errores de `pr-check` (D33).
+
+Todo se lee en la **cabeza de `run/<id>`**, no en `base_sha`, para que una tarea vea lo que hicieron las anteriores.
+
+**Tope de tamaño:** unos 150 KB de archivos. Si se pasa, primero se recortan los imports y luego las referencias; los archivos previstos nunca se recortan. Hay margen: el TPM es de 250K (D26).
+
+**Consecuencias:**
+- El prompt de Develop es más grande que el del Orquestador, pero estable: la forma de trabajar es siempre la misma.
+- La UI muestra qué archivos ha leído Develop en cada tarea, como en D27.
+
+## D33 · Los errores de compilación vuelven a Develop con `pr-check.yml`
+**Fecha:** 24/11/2026 · **Estado:** aceptada
+
+**Contexto:** si el build de la vista previa falla, el `deployment_status` solo trae una descripción genérica, sin el error. Sin el error, Develop no puede corregirlo, y el criterio de H5 es que el PR compile.
+
+**Opciones:**
+- A. Leer el log del build con la API de Vercel. Hace falta un token de Vercel en el panel, y esos tokens no se pueden limitar a un solo proyecto.
+- B. Ampliar la action de D31 para que haga también la comprobación de tipos y el lint y deje los errores en un artifact que el panel descarga, con el patrón de D16.
+
+**Decisión:** B (propuesta de Claude, elegida por el humano). Workflow `pr-check.yml` en `crm-demo`, en cada push a un PR, con dos jobs:
+- **`migrate`** (`contents: write`, sin secrets): instala sin scripts, ejecuta `drizzle-kit generate` y, si hay cambios, hace el commit de la migración (D31).
+- **`check`** (solo lectura, sin secrets): se ejecuta sobre la cabeza resultante, hace `tsc --noEmit` y lint, y deja `check.json` en el artifact `pr-check`. Lleva el sha comprobado, el sha del commit de la migración si lo hay y los errores, recortados. Va en un job aparte porque `next typegen` y ESLint cargan la configuración de la rama.
+
+**En el panel:**
+- Al recibir el `workflow_run` de `pr-check.yml`, descarga el artifact, adopta el commit de la migración como cabeza (D31) y, si hay errores, devuelve las tareas a Develop con ellos, sin esperar al build de Vercel. Gasta una iteración (D5).
+- Si no hay errores, el run espera la vista previa como hasta ahora.
+- Un `deployment_status` en `failure` sigue contando como build roto (extra de D22), como último recurso para errores que solo salen en Vercel, por ejemplo una migración que falla. En ese caso Develop solo recibe el mensaje genérico.
+
+**Consecuencias:**
+- Los errores de tipos llegan en un minuto o dos, antes que el build de Vercel, y sin ningún token nuevo.
+- `crm-demo` sigue sin guardar ningún secreto del panel (D16).
+- `.github/**` sigue prohibido para Develop, así que no puede cambiar el workflow.
+
+## D34 · Contrato de Develop
+**Fecha:** 24/11/2026 · **Estado:** aceptada
+
+**Contexto:** D24 definió la salida de Develop (archivos completos y mensaje de commit por tarea) para el mock. Con Gemini hay que decidir qué puede escribir, cómo ayuda a Testing y qué pasa si la respuesta no cabe.
+
+**Cómo se llegó:**
+- **Propuesta inicial de Claude:** archivos completos, mensaje de commit, notas y un campo `evidence` obligatorio con una entrada por criterio, para decirle a Testing dónde mirar. Ante un `MAX_TOKENS`, el paso fallaba sin llamada de reparación.
+- **Correcciones del humano:**
+  - Las pistas de Develop son útiles, pero Develop no debe decidir qué se comprueba y qué no.
+  - Una tarea que no cabe en la respuesta debe volver al Orquestador y dividirse en otras más pequeñas, según convenga.
+- **Decisión final:** lo que sigue. Claude concretó la división y el humano aprobó que no vuelva a pasar por él mientras los criterios no cambien.
+
+**Decisión:**
+- **Salida por tarea:**
+  - `files`: de 1 a 8 archivos con `path` y su contenido **completo**, sin diffs. Los LLM fallan con los números de línea y con los bloques de buscar y reemplazar, y la Git Data API pide el blob entero de todas formas.
+  - `commitMessage`: en inglés, con formato Conventional Commits, comprobado con una regex.
+  - `notes`: en español, para el humano y para Testing: qué ha hecho y qué ha supuesto.
+  - `evidence` (opcional): pistas de dónde ha dejado cada cosa, por ejemplo un `data-testid` o una ruta.
+- **Testing decide, no Develop:** Testing (H6) evalúa siempre **todos** los criterios del plan aprobado contra el informe y las capturas. Las pistas le ayudan a buscar, pero no cuentan como prueba: una pista que no se ve en el DOM o en las capturas no da nada por bueno.
+- **Qué puede escribir:**
+  - Nunca rutas prohibidas por `paths.ts` (D16 y D31).
+  - Un archivo previsto, uno de su contexto (un import o una referencia, D32) o uno nuevo. **Nunca sobrescribe un archivo que existe y que no ha visto**, porque borraría a ciegas su contenido. Si lo intenta, la salida va a la llamada de reparación con ese error.
+  - Los archivos fuera de los previstos se aceptan, y la UI los marca como «fuera del plan».
+  - No borra archivos. Ninguna petición de D14 lo necesita.
+- **Límites y casos raros:**
+  - Como mucho 60 KB por archivo y `maxOutputTokens` configurado en la llamada.
+  - Si todos los archivos que devuelve son idénticos a los actuales, no hay commit. En la iteración 1 es un error; en las siguientes cuenta como iteración fallida, con la nota «Develop no cambió nada».
+  - Antes de cada commit, el panel normaliza los saltos de línea y añade una línea final si falta.
+- **Respuesta cortada (`finishReason: MAX_TOKENS`) → la tarea se divide:**
+  - El JSON llega incompleto y una reparación no lo arregla, así que no se repara. El run vuelve a `planning` en modo `split` (extras de D21 y D29).
+  - El Orquestador devuelve de 2 a 3 subtareas que sustituyen a la original en la revisión n+1. La original queda en estado `split`.
+  - **Los criterios se reparten pero no cambian:** el `superRefine` comprueba que cada criterio de la tarea original acaba en exactamente una subtarea y que no aparece ninguno nuevo. Las demás tareas del plan no se tocan.
+  - **Sin nueva aprobación:** el alcance que aprobó el cliente es el mismo (D9) y la división es solo de organización. La línea de tiempo la muestra.
+  - Las tareas que ya estaban hechas reutilizan su salida guardada en `agent_steps`.
+  - Una tarea solo se divide una vez: si una subtarea vuelve a cortarse, se bloquea y decide el humano. Tras dividir, el plan puede llegar a 6 tareas (extra de D28). Las subtareas empiezan en la iteración 1.
+  - La respuesta cortada y la llamada del Orquestador cuentan en `LLM_CALLS_PER_RUN`.
+
+**Consecuencias:**
+- El contrato Zod de Develop de D24 cambia: entran `notes` y `evidence`, y las reglas de rutas y de archivos vistos van en el `superRefine`, que necesita la lista de archivos del contexto.
+- Una tarea demasiado grande no gasta iteraciones ni bloquea el run: se reorganiza sola.
+
+## D35 · Tiempos, lease y modelos de Develop
+**Fecha:** 24/11/2026 · **Estado:** aceptada
+
+**Contexto:** una llamada de Develop devuelve archivos completos con su razonamiento y puede tardar uno o dos minutos, frente a los ~27 s del Orquestador en H4. El paso `developing` hacía todas las tareas seguidas en la misma función, y una función de Vercel dura como mucho 300 s.
+
+**Decisión** (propuesta de Claude, aprobada por el humano):
+- **Una llamada al LLM por invocación.** Cada invocación hace una sola llamada, sea de una tarea o de una reparación. La salida se guarda en `agent_steps` y el paso se vuelve a lanzar con `after()` para la siguiente. Cuando todas las tareas tienen salida, se hace la cadena de commits y la rama se mueve una sola vez (D20). Encaja con la caché por tarea de H3; solo cambia que el paso se trocea.
+- **Timeout por agente:** 150 s para Develop; el Orquestador sigue con 60 s (D26).
+- **El lease dura más que la llamada:** antes de cada petición se renueva al timeout del agente más 30 s, es decir, 180 s para Develop (antes eran 90 s fijos, extra de D26). Si no, el lease caducaría a mitad de una llamada larga y el sweep lanzaría otra igual en paralelo, gastando cuota dos veces.
+- **Parámetros:** `thinkingLevel: LOW` (con el mismo retroceso por modelo de D26) y `maxOutputTokens` a 32K. En Gemini, los tokens de razonamiento cuentan dentro de ese límite; si se supera, la tarea se divide (D34).
+- **Cadena de Develop:** `gemini:gemini-3.8-flash`, luego `gemini:gemini-3.6-flash` y, como último recurso, `gemini:gemini-3.5-flash-lite` (formato de D36). Si una tarea la resuelve Flash-Lite, la línea de tiempo lo marca, para que se vea que una iteración fallida puede venir de ahí.
+- **Cuota:** es por modelo, así que el orden de las cadenas no da más llamadas; el límite real son las 40 llamadas diarias de Flash, compartidas por los tres agentes. Un run del NIF sin fallos gasta unas 4 (1 de plan, 2 de Develop y 1 de Testing en H6) y unas 7 con una iteración fallida: caben 5 o 6 runs reales al día, en línea con `RUNS_PER_DAY` = 5.
+- `LLM_CALLS_PER_RUN` = 12 se mantiene. Queda justo con 3 iteraciones y alguna reparación o división, pero está para parar un run que no avanza. Se revisa en H6, cuando Testing sea real.
+
+## D36 · Cadena de proveedores por agente, con Groq de respaldo
+**Fecha:** 24/11/2026 · **Estado:** aceptada
+
+**Contexto:** el humano recordó que Groq debía ser el respaldo de Gemini; por eso la capa de LLM es intercambiable (D8), aunque no constaba en este registro. La capa gratuita de Groq (comprobado 24/11/2026 en su tabla de límites; la cifra exacta de cada organización está en su consola) da, por ejemplo para `openai/gpt-oss-120b`, 30 peticiones por minuto, 1.000 al día, 8.000 tokens por minuto y 200.000 al día. Los límites son por organización y por modelo.
+
+**Decisión** (propuesta de Claude al recoger la petición del humano):
+- La lista de modelos de D26 pasa a ser una **cadena de `proveedor:modelo` por agente**: `LLM_CHAIN_<AGENTE>`, por ejemplo `gemini:gemini-3.8-flash,gemini:gemini-3.6-flash,groq:openai/gpt-oss-120b`. `GEMINI_MODELS_<AGENTE>` deja de usarse.
+- Las reglas de D26 se aplican a cada eslabón: el 429 diario pasa al siguiente y se recuerda en `app_meta`; el 429 por minuto aplaza el lease; los 500, 503 y 504 pasan al siguiente sin marcarlo como agotado.
+- **Eslabones que no caben se saltan:** cada eslabón sabe su límite de tokens por minuto. Si la petición estimada (entrada más `maxOutputTokens`) no cabe, se salta sin gastar una petición.
+- `GroqProvider` usa la API compatible con OpenAI de Groq, con la misma interfaz `LLMProvider`, el contrato Zod y la llamada de reparación. Hay que comprobar en H5 si el modelo elegido acepta JSON Schema en `response_format`; si no, JSON mode más Zod y reparación.
+- Variable nueva: `GROQ_API_KEY` (en `.env.example`, sin valor).
+
+**Consecuencias:**
+- **Groq sirve de respaldo real para el Orquestador** (~6K tokens por llamada en H4), no para Develop: su contexto de D32 puede llegar a unos 40K tokens, muy por encima de 8K por minuto. Para Develop solo entraría con un plan de pago de Groq.
+- Los modelos de texto de Groq no ven imágenes: para Testing (H6) solo valdría con criterios `e2e`.
+- `agent_steps` y la línea de tiempo muestran proveedor y modelo de cada llamada.
+- Plan B si se agota todo: `LLM_PROVIDER=mock` (D8).
