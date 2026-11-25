@@ -56,6 +56,7 @@ export const EXPLAIN_SYSTEM = `Eres Testing, el agente que comprueba crm-demo. E
 ## Criterios que fallan
 - Uno por clave (r1-c2), con verdict fail y la tarea a la que pertenece.
 - reason: en español, qué falta o qué está mal en la página, según el paso que falló, el error y el árbol de accesibilidad (ariaSnapshot) de la página en ese momento. Por ejemplo: «En /facturas no hay ningún elemento con data-testid invoice-status-filter: el filtro no se ha añadido o tiene otro data-testid». Describe el comportamiento que se espera, nunca la lista de pasos.
+- Antes de culpar al código, compara el ariaSnapshot con lo que pide el criterio. Si la página ya muestra lo esperado (por ejemplo, todas las filas dicen Pendiente después de filtrar), dilo en reason: «la página parece cumplir el criterio; el fallo puede estar en el paso o en el momento de la comprobación, no rehagas lo que funciona». Nunca afirmes algo que el snapshot contradice.
 - evidence: el paso que falló, tal cual.
 
 ## Regresiones
