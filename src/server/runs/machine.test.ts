@@ -61,9 +61,16 @@ const table: Row[] = [
     effects: ["run_step"],
   },
   {
-    name: "develop done",
+    name: "develop done waits for pr-check (D33)",
     from: run("developing"),
     event: { type: "develop_done" },
+    to: "awaiting_check",
+    effects: ["check_pr"],
+  },
+  {
+    name: "pr-check passes: wait for the preview",
+    from: run("awaiting_check", { tasks: testing() }),
+    event: { type: "check_passed" },
     to: "awaiting_preview",
     effects: ["check_preview"],
   },
@@ -185,6 +192,60 @@ const table: Row[] = [
     name: "broken build goes back to develop",
     from: run("awaiting_preview", { tasks: testing() }),
     event: { type: "build_failed" },
+    to: "developing",
+    effects: ["run_step"],
+  },
+  {
+    name: "pr-check errors go back to develop (D33)",
+    from: run("awaiting_check", { tasks: testing() }),
+    event: { type: "check_failed", feedback: "TS2322" },
+    to: "developing",
+    effects: ["run_step"],
+  },
+  {
+    name: "pr-check errors on the last iteration block",
+    from: run("awaiting_check", { tasks: testing(3) }),
+    event: { type: "check_failed", feedback: "TS2322" },
+    to: "blocked",
+    effects: [],
+  },
+  {
+    name: "pr-check timeout blocks",
+    from: run("awaiting_check"),
+    event: { type: "check_timeout" },
+    to: "blocked",
+    effects: [],
+  },
+  {
+    name: "a task too large goes back to the orchestrator (D34)",
+    from: run("developing", {
+      tasks: [
+        task(1, { status: "developing", iteration: 1 }),
+        task(2, { status: "developing", iteration: 1 }),
+      ],
+    }),
+    event: { type: "task_too_large", taskId: 2, reason: "MAX_TOKENS" },
+    to: "planning",
+    effects: ["run_step"],
+  },
+  {
+    name: "the subtasks start without a new approval (D34)",
+    from: run("planning", {
+      tasks: [
+        task(1, { status: "developing", iteration: 1 }),
+        task(3, { status: "developing", iteration: 1 }),
+      ],
+    }),
+    event: { type: "split_ready" },
+    to: "developing",
+    effects: ["run_step"],
+  },
+  {
+    name: "nothing changed in any task: the iteration fails (D34)",
+    from: run("developing", {
+      tasks: [task(1, { status: "developing", iteration: 2 })],
+    }),
+    event: { type: "develop_unchanged" },
     to: "developing",
     effects: ["run_step"],
   },
@@ -311,6 +372,30 @@ const table: Row[] = [
     event: { type: "build_failed" },
     to: null,
   },
+  {
+    name: "a broken build is not a pr-check result",
+    from: run("awaiting_check"),
+    event: { type: "build_failed" },
+    to: null,
+  },
+  {
+    name: "late pr-check result",
+    from: run("awaiting_preview"),
+    event: { type: "check_passed" },
+    to: null,
+  },
+  {
+    name: "split ready without tasks to develop",
+    from: run("planning"),
+    event: { type: "split_ready" },
+    to: null,
+  },
+  {
+    name: "split of a task of another revision",
+    from: run("developing"),
+    event: { type: "task_too_large", taskId: 9, reason: "x" },
+    to: null,
+  },
 ];
 
 describe("transition", () => {
@@ -426,5 +511,40 @@ describe("transition", () => {
       verdicts: [{ taskId: 1, passed: true, feedback: "" }],
     });
     expect(next).toBeNull();
+  });
+});
+
+describe("H5 transitions (D33, D34)", () => {
+  it("pr-check errors reach every task of the push, one iteration each", () => {
+    const next = transition(run("awaiting_check", { tasks: testing() }), {
+      type: "check_failed",
+      feedback: "src/x.ts(1,1): error TS2322",
+    });
+    expect(next?.tasks).toEqual([
+      {
+        id: 1,
+        status: "developing",
+        iteration: 2,
+        lastFeedback: "src/x.ts(1,1): error TS2322",
+      },
+      {
+        id: 2,
+        status: "developing",
+        iteration: 2,
+        lastFeedback: "src/x.ts(1,1): error TS2322",
+      },
+    ]);
+  });
+
+  it("a split marks the task and carries it to planning", () => {
+    const next = transition(
+      run("developing", {
+        tasks: [task(1, { status: "developing", iteration: 1 })],
+      }),
+      { type: "task_too_large", taskId: 1, reason: "32768 tokens" },
+    );
+    expect(next?.tasks).toEqual([{ id: 1, status: "split" }]);
+    expect(next?.split).toEqual({ taskId: 1, reason: "32768 tokens" });
+    expect(next?.replan).toBeNull();
   });
 });
