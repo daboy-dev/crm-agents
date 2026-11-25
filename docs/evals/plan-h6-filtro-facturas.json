@@ -1,0 +1,56 @@
+{
+  "request": "Añade un filtro por estado en la lista de facturas: un desplegable que deja ver solo las pendientes, las pagadas o todas.",
+  "baseSha": "2e7eace10eff30264eb920848f29aaf529ab3ce9",
+  "plan": {
+    "feasible": true,
+    "summary": "Se añade un desplegable de filtro por estado (todas, pendientes, pagadas) en la página de lista de facturas utilizando parámetros de búsqueda en la URL.",
+    "assumptions": [
+      "El filtro de estado de facturas se implementa mediante un parámetro de consulta en la URL (searchParams) para mantener el componente dentro del patrón de componentes con caché de Next.js.",
+      "El desplegable incluirá las opciones de estado permitidas en el esquema de facturas (pending y paid) junto con una opción para mostrarlas todas."
+    ],
+    "tasks": [
+      {
+        "title": "Añadir filtro por estado en la lista de facturas",
+        "description": "Modifica src/app/(crm)/facturas/queries.ts para aceptar un filtro opcional por estado. Actualiza src/app/(crm)/facturas/page.tsx para incluir un formulario con un selector <select data-testid=\"field-status-filter\"> que permita elegir entre todas, pendientes (pending) y pagadas (paid), asegurando que se actualicen los searchParams. Mantén intactos los data-testid existentes como invoices-table e invoice-row.",
+        "files": [
+          "src/app/(crm)/facturas/queries.ts",
+          "src/app/(crm)/facturas/page.tsx"
+        ],
+        "references": [
+          "src/app/(crm)/clientes/client-search.tsx",
+          "src/app/(crm)/facturas/page.tsx",
+          "src/app/(crm)/facturas/queries.ts"
+        ],
+        "acceptanceCriteria": [
+          {
+            "id": "c1",
+            "type": "e2e",
+            "text": "la página de facturas muestra el selector de filtro por estado",
+            "testIds": ["nav-facturas", "field-status-filter", "invoices-table"]
+          },
+          {
+            "id": "c2",
+            "type": "e2e",
+            "text": "al seleccionar facturas pendientes en el filtro, la tabla muestra solo las facturas con estado pendiente",
+            "testIds": [
+              "nav-facturas",
+              "field-status-filter",
+              "invoices-table",
+              "invoice-row"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "calls": [
+    {
+      "model": "gemini:gemini-3.5-flash-lite",
+      "kind": "first",
+      "inputTokens": 6694,
+      "outputTokens": 556,
+      "latencyMs": 3199,
+      "valid": true
+    }
+  ]
+}

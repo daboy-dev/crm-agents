@@ -1,0 +1,65 @@
+{
+  "request": "Añade una página de resumen, enlazada desde el menú, con el número de clientes, los presupuestos enviados y el importe pendiente de cobro.",
+  "baseSha": "2e7eace10eff30264eb920848f29aaf529ab3ce9",
+  "steps": {
+    "criteria": [
+      {
+        "id": "c1",
+        "steps": [
+          {
+            "action": "goto",
+            "path": "/resumen"
+          },
+          {
+            "action": "expectVisible",
+            "testId": "page-title"
+          },
+          {
+            "action": "expectVisible",
+            "testId": "summary-card"
+          }
+        ]
+      },
+      {
+        "id": "c2",
+        "steps": [
+          {
+            "action": "goto",
+            "path": "/resumen"
+          },
+          {
+            "action": "expectVisible",
+            "testId": "client-count"
+          },
+          {
+            "action": "expectVisible",
+            "testId": "sent-quotes-count"
+          }
+        ]
+      },
+      {
+        "id": "c3",
+        "steps": [
+          {
+            "action": "goto",
+            "path": "/resumen"
+          },
+          {
+            "action": "expectVisible",
+            "testId": "pending-amount"
+          }
+        ]
+      }
+    ]
+  },
+  "calls": [
+    {
+      "model": "groq:openai/gpt-oss-120b",
+      "kind": "first",
+      "inputTokens": 3014,
+      "outputTokens": 380,
+      "latencyMs": 1331,
+      "valid": true
+    }
+  ]
+}

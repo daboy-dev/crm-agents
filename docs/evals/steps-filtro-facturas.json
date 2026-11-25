@@ -1,0 +1,66 @@
+{
+  "request": "Añade un filtro por estado en la lista de facturas: un desplegable que deja ver solo las pendientes, las pagadas o todas.",
+  "baseSha": "2e7eace10eff30264eb920848f29aaf529ab3ce9",
+  "steps": {
+    "criteria": [
+      {
+        "id": "c1",
+        "steps": [
+          {
+            "action": "goto",
+            "page": "facturas"
+          },
+          {
+            "action": "expectVisible",
+            "testId": "nav-facturas"
+          },
+          {
+            "action": "expectVisible",
+            "testId": "field-status-filter"
+          },
+          {
+            "action": "expectVisible",
+            "testId": "invoices-table"
+          }
+        ]
+      },
+      {
+        "id": "c2",
+        "steps": [
+          {
+            "action": "goto",
+            "page": "facturas"
+          },
+          {
+            "action": "expectVisible",
+            "testId": "nav-facturas"
+          },
+          {
+            "action": "select",
+            "testId": "field-status-filter",
+            "value": "pending"
+          },
+          {
+            "action": "expectVisible",
+            "testId": "invoices-table"
+          },
+          {
+            "action": "expectCount",
+            "testId": "invoice-row",
+            "min": 1
+          }
+        ]
+      }
+    ]
+  },
+  "calls": [
+    {
+      "model": "groq:openai/gpt-oss-120b",
+      "kind": "first",
+      "inputTokens": 3100,
+      "outputTokens": 403,
+      "latencyMs": 1321,
+      "valid": true
+    }
+  ]
+}

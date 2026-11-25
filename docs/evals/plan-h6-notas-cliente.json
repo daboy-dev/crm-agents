@@ -1,0 +1,83 @@
+{
+  "request": "Añade un campo de notas internas a los clientes: se escribe en el formulario de alta y edición y se ve en el detalle del cliente.",
+  "baseSha": "2e7eace10eff30264eb920848f29aaf529ab3ce9",
+  "plan": {
+    "feasible": true,
+    "summary": "Se añade el campo de notas internas a la tabla de clientes en el esquema y se actualizan queries, validaciones, acciones, formularios y la vista de detalle para permitir crearlas, editarlas y consultarlas.",
+    "assumptions": [
+      "Las notas internas son opcionales y se almacenan como texto libre en la base de datos.",
+      "El campo en el formulario de clientes usará field-notes como data-testid."
+    ],
+    "tasks": [
+      {
+        "title": "feat: add notes column to clients schema, queries, validation, and seed",
+        "description": "Modifica src/db/schema.ts añadiendo la columna notes: text() en la tabla clients. Actualiza src/app/(crm)/clientes/queries.ts para incluir notes en la consulta, src/app/(crm)/clientes/validation.ts para incluir notes en el esquema Zod y en clientFields, y src/db/seed.ts para poblar notas en los datos de prueba de forma idempotente.",
+        "files": [
+          "src/db/schema.ts",
+          "src/app/(crm)/clientes/queries.ts",
+          "src/app/(crm)/clientes/validation.ts",
+          "src/db/seed.ts"
+        ],
+        "references": [
+          "src/db/schema.ts",
+          "src/app/(crm)/clientes/validation.ts",
+          "src/db/seed.ts"
+        ],
+        "acceptanceCriteria": [
+          {
+            "id": "c1",
+            "type": "e2e",
+            "text": "La tabla de clientes y las consultas devuelven correctamente el registro con notas.",
+            "testIds": ["clients-table", "client-row"]
+          }
+        ]
+      },
+      {
+        "title": "feat: add internal notes field to client forms and detail view",
+        "description": "Actualiza src/app/(crm)/clientes/client-form.tsx para incluir el campo de notas usando el data-testid field-notes. Actualiza src/app/(crm)/clientes/[id]/page.tsx y src/app/(crm)/clientes/[id]/editar/page.tsx para mostrar las notas internas en la vista de detalle del cliente con el data-testid client-notes.",
+        "files": [
+          "src/app/(crm)/clientes/client-form.tsx",
+          "src/app/(crm)/clientes/[id]/page.tsx",
+          "src/app/(crm)/clientes/[id]/editar/page.tsx",
+          "src/app/(crm)/clientes/actions.ts"
+        ],
+        "references": [
+          "src/app/(crm)/clientes/client-form.tsx",
+          "src/app/(crm)/clientes/[id]/page.tsx",
+          "src/app/(crm)/clientes/actions.ts"
+        ],
+        "acceptanceCriteria": [
+          {
+            "id": "c2",
+            "type": "e2e",
+            "text": "Al crear un cliente rellenando el campo de notas, el detalle muestra las notas en client-notes.",
+            "testIds": [
+              "new-client-button",
+              "client-form",
+              "field-name",
+              "field-email",
+              "field-notes",
+              "save-button"
+            ]
+          },
+          {
+            "id": "c3",
+            "type": "e2e",
+            "text": "El detalle del cliente muestra la sección de notas internas correctamente.",
+            "testIds": ["client-detail", "client-notes", "edit-client-button"]
+          }
+        ]
+      }
+    ]
+  },
+  "calls": [
+    {
+      "model": "gemini:gemini-3.5-flash-lite",
+      "kind": "first",
+      "inputTokens": 6694,
+      "outputTokens": 872,
+      "latencyMs": 6253,
+      "valid": true
+    }
+  ]
+}

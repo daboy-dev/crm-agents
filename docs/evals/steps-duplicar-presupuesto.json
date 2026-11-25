@@ -1,0 +1,79 @@
+{
+  "request": "Añade un botón en el detalle de un presupuesto para duplicarlo: crea un presupuesto nuevo en borrador con el mismo cliente y las mismas líneas.",
+  "baseSha": "2e7eace10eff30264eb920848f29aaf529ab3ce9",
+  "steps": {
+    "criteria": [
+      {
+        "id": "c1",
+        "steps": [
+          {
+            "action": "goto",
+            "page": "presupuesto-detalle"
+          },
+          {
+            "action": "expectVisible",
+            "testId": "duplicate-quote-button"
+          }
+        ]
+      },
+      {
+        "id": "c2",
+        "steps": [
+          {
+            "action": "goto",
+            "page": "presupuesto-detalle"
+          },
+          {
+            "action": "click",
+            "testId": "duplicate-quote-button"
+          },
+          {
+            "action": "expectVisible",
+            "testId": "quote-detail"
+          },
+          {
+            "action": "expectText",
+            "testId": "status-badge",
+            "text": "Borrador"
+          },
+          {
+            "action": "expectVisible",
+            "testId": "items-table"
+          },
+          {
+            "action": "expectCount",
+            "testId": "item-row",
+            "min": 1
+          }
+        ]
+      },
+      {
+        "id": "c3",
+        "steps": [
+          {
+            "action": "goto",
+            "page": "presupuesto-detalle"
+          },
+          {
+            "action": "expectVisible",
+            "testId": "quote-detail"
+          },
+          {
+            "action": "expectVisible",
+            "testId": "duplicate-quote-button"
+          }
+        ]
+      }
+    ]
+  },
+  "calls": [
+    {
+      "model": "groq:openai/gpt-oss-120b",
+      "kind": "first",
+      "inputTokens": 3120,
+      "outputTokens": 601,
+      "latencyMs": 1676,
+      "valid": true
+    }
+  ]
+}
