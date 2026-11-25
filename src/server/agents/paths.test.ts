@@ -24,6 +24,8 @@ describe("checkPaths", () => {
     "drizzle.config.ts",
     "tsconfig.json",
     "eslint.config.mjs",
+    "AGENTS.md",
+    "agents.md",
   ])("rejects %s", (path) => {
     const result = checkPaths(["agent-runs/7/task-1.md", path]);
     expect(result.ok).toBe(false);

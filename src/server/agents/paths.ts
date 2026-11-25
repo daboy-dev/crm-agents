@@ -5,6 +5,8 @@
  * - package.json and the lockfile: Develop cannot update the lockfile (D31).
  * - The build, lint and test config: changing it could hide the errors that
  *   pr-check sends back to Develop (D33).
+ * - AGENTS.md and CLAUDE.md: Develop reads them on every task, so rewriting
+ *   them would change the instructions of later runs (D32).
  */
 export const FORBIDDEN_PREFIXES = [".github/", "drizzle/"];
 export const FORBIDDEN_FILES = [
@@ -19,6 +21,8 @@ export const FORBIDDEN_FILES = [
   "eslint.config.mjs",
   "playwright.config.ts",
   "vitest.config.ts",
+  "AGENTS.md",
+  "CLAUDE.md",
 ];
 
 /** List of captured pages: a task that creates a page adds it here (D28). */
@@ -47,7 +51,7 @@ export function checkPaths(paths: string[]): PathCheck {
     const lower = normalized.toLowerCase();
     if (
       FORBIDDEN_PREFIXES.some((p) => lower.startsWith(p)) ||
-      FORBIDDEN_FILES.includes(lower)
+      FORBIDDEN_FILES.some((f) => f.toLowerCase() === lower)
     ) {
       return {
         ok: false,
