@@ -24,6 +24,7 @@ import planTruncated from "./fixtures/gemini/plan-truncated.json";
 import {
   InvalidOutput,
   OutputTruncated,
+  Overloaded,
   QuotaExhausted,
   RateLimited,
   type CallMeta,
@@ -205,9 +206,21 @@ describe("Gemini links of the chain", () => {
     expect(calls.map((c) => c.model)).toEqual(["gemini:flash-b"]);
     expect(t.marked.size).toBe(0);
 
-    // Every model busy: the step fails and the sweep retries it later.
+    // Every model busy: Overloaded, which postpones the step instead of
+    // failing it (seen in H5, runs 13 and 15).
     const all = setup([busy, busy, busy]);
-    await expect(all.run()).rejects.toBe(busy);
+    const error = await all.run().catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(Overloaded);
+    expect((error as Overloaded).models).toEqual([
+      "gemini:flash-a",
+      "gemini:flash-b",
+      "gemini:lite",
+    ]);
+    expect(all.marked.size).toBe(0);
+
+    // Busy links and the rest out of quota: still worth trying later.
+    const mixed = setup([busy, apiError(daily429)], ["gemini:lite"]);
+    await expect(mixed.run()).rejects.toBeInstanceOf(Overloaded);
   });
 
   it("skips models already exhausted today", async () => {

@@ -68,6 +68,18 @@ export class RateLimited extends Error {
 }
 
 /**
+ * Every link that could answer was busy (500, 503 or 504). Not a failure of
+ * the step: the engine tries again later without spending an attempt.
+ */
+export class Overloaded extends Error {
+  constructor(readonly models: string[]) {
+    super(
+      `Modelos saturados (${models.join(", ")}): se reintenta en un momento`,
+    );
+  }
+}
+
+/**
  * No link of the agent's chain can answer: out of daily quota (it resets at
  * 9:00 in Madrid, D26) or too small for the request (D36).
  */

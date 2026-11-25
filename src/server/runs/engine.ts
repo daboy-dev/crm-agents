@@ -54,6 +54,7 @@ import { AGENT_SETTINGS, leaseSecondsFor } from "@/server/llm/chain";
 import {
   InvalidOutput,
   OutputTruncated,
+  Overloaded,
   QuotaExhausted,
   RateLimited,
   type CallHooks,
@@ -117,6 +118,11 @@ type StepResult = Committed | { resume: true };
 /** What a Vercel function may use of its 300 s, with a margin. */
 const INVOCATION_BUDGET_MS = 280_000;
 class SimulatedCrash extends Error {}
+
+/** A busy model is tried again after this, without spending an attempt. */
+const OVERLOAD_RETRY_SECONDS = 90;
+/** Busy for this long in the same status: the human decides (blocked). */
+const OVERLOAD_BLOCK_MINUTES = 30;
 
 /** Margin on the retry delay of a 429 before the sweep resumes the step. */
 const RATE_LIMIT_MARGIN_MS = 2_000;
@@ -987,6 +993,36 @@ async function stepFailed(
       kind: "rate_limited",
       message: `${error.message}. El paso se reanuda solo.`,
       data: { model: error.model, retryAfterMs: error.retryAfterMs },
+    });
+    return { applied: false };
+  }
+  if (error instanceof Overloaded) {
+    // Seen in H5: Gemini answered 503 on every model for minutes. Like the
+    // per-minute 429, it postpones the step; after a while it blocks the run
+    // instead of failing it, so the work done is kept.
+    if (olderThan(run.statusChangedAt, OVERLOAD_BLOCK_MINUTES * 60)) {
+      const reason = `${error.message}. Llevan más de ${OVERLOAD_BLOCK_MINUTES} minutos saturados: reintenta más tarde.`;
+      return commitTransition(
+        db,
+        run,
+        { type: "block", reason },
+        {
+          leaseToken: token,
+          events: [{ actor: "system", kind: "blocked", message: reason }],
+        },
+      );
+    }
+    await db
+      .update(runs)
+      .set({
+        leaseUntil: sql`now() + make_interval(secs => ${OVERLOAD_RETRY_SECONDS})`,
+      })
+      .where(and(eq(runs.id, run.id), eq(runs.leaseToken, token)));
+    await appendEvent(db, run, {
+      actor: "system",
+      kind: "overloaded",
+      message: `${error.message}: el paso se reanuda en ${OVERLOAD_RETRY_SECONDS} s, sin gastar intentos.`,
+      data: { models: error.models },
     });
     return { applied: false };
   }
