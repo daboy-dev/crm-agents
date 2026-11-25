@@ -1,9 +1,25 @@
 /**
- * Paths Develop may never write (D16, D24): the workflows and the e2e helpers
- * run with crm-demo's secrets. Listed in crm-demo's AGENTS.md.
+ * Paths Develop may never write, all listed in crm-demo's AGENTS.md:
+ * - The workflows and the e2e helpers, which run with crm-demo's secrets (D16).
+ * - drizzle/: migrations are written by pr-check, never by the LLM (D31).
+ * - package.json and the lockfile: Develop cannot update the lockfile (D31).
+ * - The build, lint and test config: changing it could hide the errors that
+ *   pr-check sends back to Develop (D33).
  */
-export const FORBIDDEN_PREFIXES = [".github/"];
-export const FORBIDDEN_FILES = ["e2e/helpers.ts", "e2e/screenshots.spec.ts"];
+export const FORBIDDEN_PREFIXES = [".github/", "drizzle/"];
+export const FORBIDDEN_FILES = [
+  "e2e/helpers.ts",
+  "e2e/screenshots.spec.ts",
+  "package.json",
+  "pnpm-lock.yaml",
+  "pnpm-workspace.yaml",
+  "drizzle.config.ts",
+  "next.config.ts",
+  "tsconfig.json",
+  "eslint.config.mjs",
+  "playwright.config.ts",
+  "vitest.config.ts",
+];
 
 /** List of captured pages: a task that creates a page adds it here (D28). */
 export const PAGES_FILE = "e2e/pages.ts";
