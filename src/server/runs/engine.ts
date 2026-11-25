@@ -543,6 +543,9 @@ async function stepDeveloping(ctx: StepContext): Promise<StepResult> {
             kind: "context",
             message: `Tarea ${task.position}: lee ${context.files.length} archivos${context.trimmed.length ? ` (${context.trimmed.length} recortados por tamaño)` : ""}`,
             data: {
+              taskId: task.id,
+              iteration: task.iteration,
+              sha: context.sha,
               files: context.files.map((f) => ({ path: f.path, role: f.role })),
               trimmed: context.trimmed,
               newFiles: context.newFiles,
@@ -722,6 +725,8 @@ async function stepDeveloping(ctx: StepContext): Promise<StepResult> {
           kind: "commit",
           message: `Tarea ${task.position}, iteración ${task.iteration}: commit ${short(commits[String(task.id)] ?? "")} · ${output.commitMessage}`,
           data: {
+            taskId: task.id,
+            iteration: task.iteration,
             files: output.files.map((f) => f.path),
             outsidePlan: output.files
               .map((f) => f.path)
