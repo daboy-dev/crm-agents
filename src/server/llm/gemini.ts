@@ -71,6 +71,11 @@ function prune(node: unknown): unknown {
   if (!node || typeof node !== "object") return node;
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(node)) {
+    // A z.literal (the action of a step, D38) is a const: Gemini takes enums.
+    if (key === "const") {
+      out.enum = [value];
+      continue;
+    }
     if (!SUPPORTED_KEYS.has(key)) continue;
     if (key === "properties" || key === "$defs") {
       // Keys here are property names, not schema keywords.

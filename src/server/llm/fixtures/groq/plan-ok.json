@@ -8,7 +8,7 @@
       "message": {
         "role": "assistant",
         "reasoning": "The request is a new client field.",
-        "content": "{\"feasible\": true, \"summary\": \"Añadir el campo web a los clientes.\", \"assumptions\": [], \"tasks\": [{\"title\": \"Campo web en clientes\", \"description\": \"Añade la columna website a clients y el campo al formulario.\", \"files\": [\"src/db/schema.ts\", \"src/app/(crm)/clientes/validation.ts\"], \"acceptanceCriteria\": [{\"id\": \"c1\", \"type\": \"e2e\", \"text\": \"El formulario de cliente tiene el campo field-website.\"}], \"references\": [\"src/app/(crm)/clientes/client-form.tsx\"]}]}"
+        "content": "{\"feasible\": true, \"summary\": \"Añadir el campo web a los clientes.\", \"assumptions\": [], \"tasks\": [{\"title\": \"Campo web en clientes\", \"description\": \"Añade la columna website a clients y el campo al formulario.\", \"files\": [\"src/db/schema.ts\", \"src/app/(crm)/clientes/validation.ts\"], \"acceptanceCriteria\": [{\"id\": \"c1\", \"type\": \"e2e\", \"text\": \"El formulario de cliente tiene el campo field-website.\", \"testIds\": [\"clients-table\"]}], \"references\": [\"src/app/(crm)/clientes/client-form.tsx\"]}]}"
       },
       "finish_reason": "stop"
     }

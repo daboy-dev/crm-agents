@@ -5,8 +5,10 @@ import type {
   PlanInput,
   Split,
   SplitInput,
-  TestingInput,
-  TestingVerdict,
+  CriteriaSteps,
+  ExplainInput,
+  StepsInput,
+  TestingExplanation,
 } from "@/server/agents/contracts";
 import type {
   CallMeta,
@@ -29,6 +31,12 @@ export const isMockScenario = (value: unknown): value is MockScenario =>
 
 /** The task the failing scenarios pick on. */
 const TARGET_TASK = 2;
+
+/** Where the mock criteria find their element. */
+const MOCK_PAGES: Record<string, string> = {
+  "clients-table": "/clientes",
+  "invoices-table": "/facturas",
+};
 
 export function mockPlan(input: PlanInput): Plan {
   const revision =
@@ -53,16 +61,19 @@ export function mockPlan(input: PlanInput): Plan {
           ? "AGENTS.md"
           : (input.context.tree[0] ?? "AGENTS.md"),
       ],
+      // Elements that already exist: the mock never changes the app (D38).
       acceptanceCriteria: [
         {
           id: `c${2 * n - 1}`,
           type: "e2e" as const,
-          text: `Existe agent-runs/${input.runId}/task-${n}.md`,
+          text: "La vista previa compila y /clientes muestra la tabla de clientes",
+          testIds: ["clients-table"],
         },
         {
           id: `c${2 * n}`,
           type: "e2e" as const,
-          text: "Los tests E2E de la vista previa pasan",
+          text: "/facturas muestra la tabla de facturas",
+          testIds: ["invoices-table"],
         },
       ],
     })),
@@ -107,6 +118,15 @@ export function mockDevelop(
     `- Escenario: ${scenario}`,
   ];
   if (input.feedback) lines.push(`- Feedback anterior: ${input.feedback}`);
+  // The criteria's data-testid already exist in the app (D38).
+  lines.push(
+    "",
+    ...input.task.acceptanceCriteria.flatMap((c) =>
+      c.testIds.map(
+        (id) => `- ${c.id}: data-testid="${id}" (ya existe en la app)`,
+      ),
+    ),
+  );
   const files = [
     {
       path: `agent-runs/${input.runId}/task-${n}.md`,
@@ -126,45 +146,36 @@ export function mockDevelop(
   };
 }
 
-export function mockVerdict(
-  input: TestingInput,
-  scenario: MockScenario,
-): TestingVerdict {
-  const target = input.task.position === TARGET_TASK;
-  const scripted =
-    target &&
-    ((scenario === "fail-once" && input.iteration === 1) ||
-      scenario === "blocked");
-  const e2eFailed = input.report.status !== "passed";
-
-  const criteria = input.task.acceptanceCriteria.map((c, i) => {
-    const base = { id: c.id, criterion: c.text };
-    if (e2eFailed && i === input.task.acceptanceCriteria.length - 1) {
-      return {
-        ...base,
-        passed: false,
-        note: `El E2E real ha fallado: ${input.report.failed} tests con fallos`,
-      };
-    }
-    if (scripted && i === 0) {
-      return {
-        ...base,
-        passed: false,
-        note: `Fallo simulado por el escenario ${scenario}`,
-      };
-    }
-    return { ...base, passed: true, note: "Cumplido" };
-  });
-  const passed = criteria.every((c) => c.passed);
+/**
+ * Steps that pass on any preview: open the page and see the element of the
+ * criterion. The failing scenarios are scripted by the engine (D24, D39).
+ */
+export function mockSteps(input: StepsInput): CriteriaSteps {
   return {
-    passed,
-    summary: passed
-      ? "Todos los criterios se cumplen"
-      : criteria
-          .filter((c) => !c.passed)
-          .map((c) => c.note)
-          .join(". "),
-    criteria,
+    criteria: input.criteria.map((c) => ({
+      id: c.id,
+      steps: [
+        { action: "goto", path: MOCK_PAGES[c.testIds[0] ?? ""] ?? "/clientes" },
+        { action: "expectVisible", testId: c.testIds[0] ?? "page-title" },
+      ],
+    })),
+  };
+}
+
+export function mockExplain(input: ExplainInput): TestingExplanation {
+  return {
+    criteria: input.failed.map((f) => ({
+      key: f.key,
+      task: f.task,
+      verdict: "fail",
+      reason: `Explicación simulada: ${f.error ?? "el criterio falla"}`,
+      evidence: f.failedStep?.action ?? "",
+    })),
+    regressions: input.regressions.map((r) => ({
+      test: r.title,
+      task: input.tasks.at(-1)?.position ?? 1,
+      reason: `Regresión simulada: ${r.error}`,
+    })),
   };
 }
 
@@ -184,8 +195,12 @@ export class MockProvider implements LLMProvider {
             : mockPlan(request.input as PlanInput);
         case "develop":
           return mockDevelop(request.input as DevelopInput, this.scenario);
-        case "testing":
-          return mockVerdict(request.input as TestingInput, this.scenario);
+        case "testing": {
+          const input = request.input as { mode?: string };
+          return input.mode === "explain"
+            ? mockExplain(request.input as ExplainInput)
+            : mockSteps(request.input as StepsInput);
+        }
       }
     })();
     // Same validation path as a real provider.

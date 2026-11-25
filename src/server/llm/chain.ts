@@ -78,14 +78,14 @@ const GEMINI_FALLBACK =
 const ANTHROPIC_FALLBACK = "anthropic:claude-sonnet-5-5";
 
 /**
- * Default chains. Groq backs up only the orchestrator: Develop's context does
- * not fit its 8K tokens per minute, and Testing needs images (D36). Anthropic
- * goes after Gemini in every chain (D37).
+ * Default chains. Develop's context does not fit Groq's 8K tokens per minute
+ * (D36). Testing sees no images (D39), so its small requests try Groq, free,
+ * before the paid Anthropic (D40). Anthropic backs up every chain (D37).
  */
 export const DEFAULT_CHAINS: Record<AgentName, string> = {
   orchestrator: `${GEMINI_FALLBACK},${ANTHROPIC_FALLBACK},groq:openai/gpt-oss-120b`,
   develop: `${GEMINI_FALLBACK},${ANTHROPIC_FALLBACK}`,
-  testing: `${GEMINI_FALLBACK},${ANTHROPIC_FALLBACK}`,
+  testing: `gemini:gemini-3.8-flash,gemini:gemini-3.6-flash,groq:openai/gpt-oss-120b,${ANTHROPIC_FALLBACK}`,
 };
 
 /** LLM_CHAIN_<AGENT>, or the default chain of the agent. */

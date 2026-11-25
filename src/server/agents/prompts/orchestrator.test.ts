@@ -26,7 +26,12 @@ const previous = {
       status: "passed",
       lastFeedback: null,
       acceptanceCriteria: [
-        { id: "c1", type: "e2e" as const, text: "Se ve field-nif" },
+        {
+          id: "c1",
+          type: "e2e" as const,
+          text: "Se ve field-nif",
+          testIds: ["clients-table"],
+        },
       ],
     },
   ],

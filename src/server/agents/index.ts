@@ -2,6 +2,12 @@ import type { CallHooks, Generated, LLMProvider } from "@/server/llm/provider";
 import { DEVELOP_SYSTEM, developPrompt } from "./prompts/develop";
 import { SPLIT_SYSTEM, splitPrompt } from "./prompts/split";
 import {
+  EXPLAIN_SYSTEM,
+  explainPrompt,
+  STEPS_SYSTEM,
+  stepsPrompt,
+} from "./prompts/testing";
+import {
   ORCHESTRATOR_SYSTEM,
   orchestratorPrompt,
 } from "./prompts/orchestrator";
@@ -9,18 +15,19 @@ import {
   developSchemaFor,
   planSchemaFor,
   splitSchemaFor,
-  verdictSchema,
+  stepsSchemaFor,
+  explainSchemaFor,
   type Split,
   type SplitInput,
   type DevelopInput,
   type DevelopOutput,
   type Plan,
   type PlanInput,
-  type TestingInput,
-  type TestingVerdict,
+  type CriteriaSteps,
+  type ExplainInput,
+  type StepsInput,
+  type TestingExplanation,
 } from "./contracts";
-
-// The Testing prompt is a placeholder until H6; the mock reads `input`.
 
 export function runOrchestrator(
   llm: LLMProvider,
@@ -75,22 +82,39 @@ export function runDevelop(
         context.files.map((f) => [f.path, f.content]),
       ),
       requireChange: input.iteration === 1,
+      testIds: [...new Set(task.acceptanceCriteria.flatMap((c) => c.testIds))],
     }),
   });
 }
 
-export function runTesting(
+/** Steps of the e2e criteria of one plan revision (D38). */
+export function runTestingSteps(
   llm: LLMProvider,
-  input: TestingInput,
+  input: StepsInput,
   hooks?: CallHooks,
-): Promise<Generated<TestingVerdict>> {
+): Promise<Generated<CriteriaSteps>> {
   return llm.generateObject({
     agent: "testing",
-    system:
-      "Eres Testing. Evalúa los criterios de aceptación con el informe E2E.",
-    prompt: JSON.stringify(input),
-    input,
+    system: STEPS_SYSTEM,
+    prompt: stepsPrompt(input),
+    input: { mode: "steps", ...input },
     hooks,
-    schema: verdictSchema,
+    schema: stepsSchemaFor({ criteria: input.criteria, pages: input.pages }),
+  });
+}
+
+/** Explains the failures of a report; the runner already decided them (D39). */
+export function runTestingExplain(
+  llm: LLMProvider,
+  input: ExplainInput,
+  hooks?: CallHooks,
+): Promise<Generated<TestingExplanation>> {
+  return llm.generateObject({
+    agent: "testing",
+    system: EXPLAIN_SYSTEM,
+    prompt: explainPrompt(input),
+    input: { mode: "explain", ...input },
+    hooks,
+    schema: explainSchemaFor(input),
   });
 }

@@ -20,9 +20,24 @@ const input = (over: Partial<SplitInput> = {}): SplitInput => ({
     ],
     references: ["src/app/(crm)/clientes/client-form.tsx"],
     acceptanceCriteria: [
-      { id: "c2", type: "e2e", text: "El formulario tiene field-nif" },
-      { id: "c3", type: "visual", text: "La lista muestra el NIF" },
-      { id: "c4", type: "e2e", text: "El detalle muestra client-nif" },
+      {
+        id: "c2",
+        type: "e2e",
+        text: "El formulario tiene field-nif",
+        testIds: ["clients-table"],
+      },
+      {
+        id: "c3",
+        type: "visual",
+        text: "La lista muestra el NIF",
+        testIds: ["clients-table"],
+      },
+      {
+        id: "c4",
+        type: "e2e",
+        text: "El detalle muestra client-nif",
+        testIds: ["clients-table"],
+      },
     ],
   },
   reason:

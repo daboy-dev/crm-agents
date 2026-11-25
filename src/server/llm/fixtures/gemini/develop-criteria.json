@@ -1,0 +1,47 @@
+{
+  "sdkHttpResponse": {
+    "headers": {
+      "alt-svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000",
+      "content-encoding": "gzip",
+      "content-type": "application/json; charset=UTF-8",
+      "date": "Wed, 25 Nov 2026 09:37:42 GMT",
+      "server": "scaffolding on HTTPServer2",
+      "server-timing": "gfet4t7; dur=8536",
+      "transfer-encoding": "chunked",
+      "vary": "Origin, X-Origin, Referer",
+      "x-content-type-options": "nosniff",
+      "x-frame-options": "SAMEORIGIN",
+      "x-gemini-service-tier": "standard",
+      "x-xss-protection": "0"
+    }
+  },
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "{\"commitMessage\": \"feat(clients): add nif field to database schema and validation\", \"files\": [{\"path\": \"src/db/schema.ts\", \"content\": \"import { relations } from \\\"drizzle-orm\\\";\\nimport {\\n  date,\\n  integer,\\n  pgEnum,\\n  pgTable,\\n  text,\\n  timestamp,\\n} from \\\"drizzle-orm/pg-core\\\";\\n\\nexport const quoteStatus = pgEnum(\\\"quote_status\\\", [\\n  \\\"draft\\\",\\n  \\\"sent\\\",\\n  \\\"accepted\\\",\\n  \\\"rejected\\\",\\n]);\\n\\nexport const invoiceStatus = pgEnum(\\\"invoice_status\\\", [\\\"pending\\\", \\\"paid\\\"]);\\n\\nexport type QuoteStatus = (typeof quoteStatus.enumValues)[number];\\nexport type InvoiceStatus = (typeof invoiceStatus.enumValues)[number];\\n\\nexport const clients = pgTable(\\\"clients\\\", {\\n  id: integer().primaryKey().generatedAlwaysAsIdentity(),\\n  name: text().notNull(),\\n  email: text().notNull().unique(),\\n  nif: text(),\\n  phone: text(),\\n  company: text(),\\n  createdAt: timestamp(\\\"created_at\\\", { withTimezone: true })\\n    .notNull()\\n    .defaultNow(),\\n});\\n\\nexport const quotes = pgTable(\\\"quotes\\\", {\\n  id: integer().primaryKey().generatedAlwaysAsIdentity(),\\n  /** Format `P-YYYY-NNN`, see `src/lib/numbering.ts`. */\\n  number: text().notNull().unique(),\\n  clientId: integer(\\\"client_id\\\")\\n    .notNull()\\n    .references(() => clients.id),\\n  status: quoteStatus().notNull().default(\\\"draft\\\"),\\n  /** Calendar date, `YYYY-MM-DD`. */\\n  issuedAt: date(\\\"issued_at\\\").notNull(),\\n  notes: text(),\\n});\\n\\nexport const quoteItems = pgTable(\\\"quote_items\\\", {\\n  id: integer().primaryKey().generatedAlwaysAsIdentity(),\\n  quoteId: integer(\\\"quote_id\\\")\\n    .notNull()\\n    .references(() => quotes.id, { onDelete: \\\"cascade\\\" }),\\n  description: text().notNull(),\\n  quantity: integer().notNull(),\\n  /** Euro cents. */\\n  unitPrice: integer(\\\"unit_price\\\").notNull(),\\n  /** Whole percentage, e.g. 21 for 21 % IVA. */\\n  taxRate: integer(\\\"tax_rate\\\").notNull(),\\n});\\n\\nexport const invoices = pgTable(\\\"invoices\\\", {\\n  id: integer().primaryKey().generatedAlwaysAsIdentity(),\\n  /** Format `F-YYYY-NNN`, see `src/lib/numbering.ts`. */\\n  number: text().notNull().unique(),\\n  /** One invoice per quote at most. */\\n  quoteId: integer(\\\"quote_id\\\")\\n    .notNull()\\n    .unique()\\n    .references(() => quotes.id),\\n  clientId: integer(\\\"client_id\\\")\\n    .notNull()\\n    .references(() => clients.id),\\n  status: invoiceStatus().notNull().default(\\\"pending\\\"),\\n  /** Calendar date, `YYYY-MM-DD`. */\\n  issuedAt: date(\\\"issued_at\\\").notNull(),\\n  /** Calendar date, `YYYY-MM-DD`. */\\n  dueAt: date(\\\"due_at\\\").notNull(),\\n});\\n\\nexport const invoiceItems = pgTable(\\\"invoice_items\\\", {\\n  id: integer().primaryKey().generatedAlwaysAsIdentity(),\\n  invoiceId: integer(\\\"invoice_id\\\")\\n    .notNull()\\n    .references(() => invoices.id, { onDelete: \\\"cascade\\\" }),\\n  description: text().notNull(),\\n  quantity: integer().notNull(),\\n  /** Euro cents. */\\n  unitPrice: integer(\\\"unit_price\\\").notNull(),\\n  /** Whole percentage, e.g. 21 for 21 % IVA. */\\n  taxRate: integer(\\\"tax_rate\\\").notNull(),\\n});\\n\\nexport const clientsRelations = relations(clients, ({ many }) => ({\\n  quotes: many(quotes),\\n  invoices: many(invoices),\\n}));\\n\\nexport const quotesRelations = relations(quotes, ({ one, many }) => ({\\n  client: one(clients, { fields: [quotes.clientId], references: [clients.id] }),\\n  items: many(quoteItems),\\n  invoice: one(invoices),\\n}));\\n\\nexport const quoteItemsRelations = relations(quoteItems, ({ one }) => ({\\n  quote: one(quotes, { fields: [quoteItems.quoteId], references: [quotes.id] }),\\n}));\\n\\nexport const invoicesRelations = relations(invoices, ({ one, many }) => ({\\n  client: one(clients, {\\n    fields: [invoices.clientId],\\n    references: [clients.id],\\n  }),\\n  quote: one(quotes, { fields: [invoices.quoteId], references: [quotes.id] }),\\n  items: many(invoiceItems),\\n}));\\n\\nexport const invoiceItemsRelations = relations(invoiceItems, ({ one }) => ({\\n  invoice: one(invoices, {\\n    fields: [invoiceItems.invoiceId],\\n    references: [invoices.id],\\n  }),\\n}));\\n\\nexport type Client = typeof clients.$inferSelect;\\nexport type Quote = typeof quotes.$inferSelect;\\nexport type QuoteItem = typeof quoteItems.$inferSelect;\\nexport type Invoice = typeof invoices.$inferSelect;\\nexport type InvoiceItem = typeof invoiceItems.$inferSelect;\\n\"}, {\"path\": \"src/app/(crm)/clientes/validation.ts\", \"content\": \"import { z } from \\\"zod\\\";\\n\\nconst optionalText = z\\n  .string()\\n  .trim()\\n  .transform((value) => (value === \\\"\\\" ? null : value));\\n\\nexport const clientFields = [\\n  \\\"name\\\",\\n  \\\"email\\\",\\n  \\\"nif\\\",\\n  \\\"phone\\\",\\n  \\\"company\\\",\\n] as const;\\n\\nexport const clientSchema = z.object({\\n  name: z.string().trim().min(1, \\\"El nombre es obligatorio.\\\"),\\n  email: z\\n    .string()\\n    .trim()\\n    .toLowerCase()\\n    .pipe(z.email(\\\"Introduce un email válido.\\\")),\\n  nif: optionalText,\\n  phone: optionalText,\\n  company: optionalText,\\n});\\n\\nexport type ClientInput = z.infer<typeof clientSchema>;\\n\"}, {\"path\": \"e2e/criteria/run-16.json\", \"content\": \"{\\\"run\\\":16,\\\"criteria\\\":[]}\\n\"}], \"notes\": \"He añadido la columna `nif` como `text()` opcional (nullable) en el esquema de Drizzle `clients`. También se ha actualizado el validador Zod y la constante `clientFields` en `validation.ts` para incluir `nif` como campo de texto opcional.\", \"evidence\": [{\"criterion\": \"c1\", \"hint\": \"/clientes\"}]}",
+            "thoughtSignature": "Ep8BCpwBAWkUfRP/zzuCd/8hYngLu/LJLxETovk8GtWXwx0eyrao+lJow/8dtr0UBhiXLuNHvakurqZfQ6hm6ORygRmF9ax6rROP2GbJAwhD609KovGyhFtSJXqNJkFrn79NwrCfBMBtcfTGKJbQI3mMOVJ9Rk2+UO6taes3NMb6BQn5HxNmiWUwFZhdKO3cpF/YHFRaEeW8mW+oxzluT9cE"
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "modelVersion": "gemini-3.6-flash",
+  "responseId": "XawGa-aCN8HznsEP-42twAc",
+  "usageMetadata": {
+    "promptTokenCount": 5620,
+    "candidatesTokenCount": 1717,
+    "totalTokenCount": 7337,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 5620
+      }
+    ],
+    "serviceTier": "standard"
+  }
+}

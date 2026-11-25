@@ -42,7 +42,17 @@ describe("chainFor", () => {
       "gemini",
       "anthropic",
     ]);
-    expect(DEFAULT_CHAINS.testing).not.toContain("groq:");
+    expect(DEFAULT_CHAINS.develop).not.toContain("groq:");
+  });
+
+  it("Testing tries Groq before the paid Anthropic (D40)", () => {
+    vi.stubEnv("LLM_CHAIN_TESTING", "");
+    expect(chainFor("testing")).toEqual([
+      { provider: "gemini", model: "gemini-3.8-flash" },
+      { provider: "gemini", model: "gemini-3.6-flash" },
+      { provider: "groq", model: "openai/gpt-oss-120b" },
+      { provider: "anthropic", model: "claude-sonnet-5-5" },
+    ]);
   });
 
   it("Anthropic follows Gemini in every chain (D37)", () => {

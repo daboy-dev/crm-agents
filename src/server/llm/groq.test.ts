@@ -244,6 +244,9 @@ describe("recorded answers of pnpm eval:plan with Groq (D30, D36)", () => {
       import: "default",
     },
   );
+  // H4/H5 recordings are in recorded/h5: they predate testIds (D38).
+  if (Object.keys(recorded).length === 0)
+    it.skip("no recordings yet", () => {});
 
   it.each(Object.entries(recorded))(
     "%s parses as a feasible plan",

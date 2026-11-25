@@ -200,7 +200,12 @@ describe("developPrompt", () => {
         ],
         references: ["src/app/(crm)/clientes/page.tsx"],
         acceptanceCriteria: [
-          { id: "c1", type: "e2e", text: "Se ve field-nif" },
+          {
+            id: "c1",
+            type: "e2e",
+            text: "Se ve field-nif",
+            testIds: ["clients-table"],
+          },
         ],
       },
       context: { ...context, trimmed: ["src/lib/big.ts"] },
