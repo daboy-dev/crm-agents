@@ -163,6 +163,12 @@ export async function commitTransition(
     set.planRevision = run.planRevision + 1;
     set.feedback = next.replan.feedback;
   }
+  if (next.split) {
+    // The subtasks go in the next revision; no new client feedback (D34).
+    set.planRevision = run.planRevision + 1;
+    set.splitTaskId = next.split.taskId;
+    set.splitReason = next.split.reason;
+  }
 
   const taskIds = new Set([
     ...next.tasks.map((t) => t.id),

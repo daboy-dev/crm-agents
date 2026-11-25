@@ -98,6 +98,42 @@ export const testReports = pgTable(
   ],
 );
 
+/**
+ * Result of one pr-check.yml run of crm-demo (D31, D33), read from its
+ * check.json. Stored even when no run is waiting for it yet, like the E2E
+ * reports.
+ */
+export type CheckErrors = {
+  migrate: string | null;
+  typecheck: string | null;
+  lint: string | null;
+};
+
+export const prChecks = pgTable(
+  "pr_checks",
+  {
+    id: serial().primaryKey(),
+    /** Head the workflow ran for: the sha the panel pushed. */
+    triggerSha: text("trigger_sha").notNull(),
+    /** Commit with the generated migration, if any (child of triggerSha). */
+    migrationSha: text("migration_sha"),
+    runId: bigint("run_id", { mode: "number" }).notNull(),
+    runAttempt: integer("run_attempt").notNull(),
+    runUrl: text("run_url").notNull(),
+    conclusion: text().notNull(),
+    /** passed | failed | error (no check.json) */
+    status: text().notNull(),
+    errors: jsonb().$type<CheckErrors>(),
+    /** Why the artifact could not be read. */
+    error: text(),
+    completedAt: timestamp("completed_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [
+    unique("pr_checks_run_uq").on(t.runId, t.runAttempt),
+    index("pr_checks_trigger_idx").on(t.triggerSha),
+  ],
+);
+
 /** Screenshot stored in the private Blob store. Served by /api/screenshots/[id]. */
 export const screenshots = pgTable(
   "screenshots",
@@ -137,6 +173,16 @@ export const runs = pgTable(
     /** The planning step crashes once right after storing the plan (H4). */
     simulatePlanCrash: boolean("simulate_plan_crash").notNull().default(false),
     planCrashedAt: timestamp("plan_crashed_at", { withTimezone: true }),
+    /** H5: a type error is injected in the first commit of iteration 1. */
+    simulateTypeError: boolean("simulate_type_error").notNull().default(false),
+    /** H5: Develop's first call answers as cut at MAX_TOKENS, once (D34). */
+    simulateMaxTokens: boolean("simulate_max_tokens").notNull().default(false),
+    maxTokensSimulatedAt: timestamp("max_tokens_simulated_at", {
+      withTimezone: true,
+    }),
+    /** Task of the previous revision to split while planning (D34). */
+    splitTaskId: integer("split_task_id"),
+    splitReason: text("split_reason"),
     /** See RunStatus in src/server/runs/machine.ts. */
     status: text().notNull().default("queued"),
     version: integer().notNull().default(0),
@@ -215,6 +261,8 @@ export const tasks = pgTable(
     maxIterations: integer("max_iterations").notNull().default(3),
     lastFeedback: text("last_feedback"),
     commitSha: text("commit_sha"),
+    /** Task it was split from: a task is only split once (D34). */
+    splitFrom: integer("split_from"),
   },
   (t) => [unique("tasks_uq").on(t.runId, t.planRevision, t.position)],
 );
