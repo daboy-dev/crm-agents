@@ -51,6 +51,10 @@ export function runDevelop(
       tree: context.tree,
       seen: context.files.map((f) => f.path),
       criteria: task.acceptanceCriteria.map((c) => c.id),
+      current: Object.fromEntries(
+        context.files.map((f) => [f.path, f.content]),
+      ),
+      requireChange: input.iteration === 1,
     }),
   });
 }

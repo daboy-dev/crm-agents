@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { DevelopContext } from "./develop-context";
+import { normalizeContent } from "./files";
 import { checkPaths, normalizePath, PAGES_FILE } from "./paths";
 
 /**
@@ -367,6 +368,13 @@ export type DevelopScope = {
   seen: readonly string[];
   /** Criterion ids of the task, for the evidence hints. */
   criteria?: readonly string[];
+  /** Content of the seen files, to tell an answer that changes nothing. */
+  current?: Readonly<Record<string, string>>;
+  /**
+   * Iteration 1: an answer that changes nothing is a contract error and goes
+   * to the repair call. Later it just counts as a failed iteration (D34).
+   */
+  requireChange?: boolean;
 };
 
 const bytes = (text: string) => new TextEncoder().encode(text).length;
@@ -409,6 +417,21 @@ function refineDevelop(
       );
     }
   });
+  const current = scope?.current;
+  if (
+    scope?.requireChange &&
+    current &&
+    out.files.every(
+      (f) =>
+        current[f.path] !== undefined &&
+        normalizeContent(current[f.path]!) === normalizeContent(f.content),
+    )
+  ) {
+    issue(
+      "Ningún archivo cambia respecto al que has recibido: haz el cambio que pide la tarea",
+      ["files"],
+    );
+  }
   if (scope?.criteria && out.evidence) {
     const ids = new Set(scope.criteria);
     out.evidence.forEach((e, i) => {

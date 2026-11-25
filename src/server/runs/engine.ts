@@ -5,6 +5,7 @@ import { CONTEXT_FILES, readPlanContext } from "@/server/agents/context";
 import { readDevelopContext } from "@/server/agents/develop-context";
 import {
   developOutputSchema,
+  MAX_TASKS_AFTER_SPLIT,
   planSchema,
   verdictSchema,
   type AgentName,
@@ -37,11 +38,13 @@ import {
   getBranchSha,
   getCommitParents,
   getCommitTree,
+  getFileText,
   getPr,
   mergePr,
   moveBranch,
 } from "@/server/github/repo";
 import { getProvider, runProviders } from "@/server/llm";
+import { AGENT_SETTINGS, leaseSecondsFor } from "@/server/llm/chain";
 import {
   InvalidOutput,
   OutputTruncated,
@@ -59,6 +62,7 @@ import {
   type StepKey,
   type StepStore,
 } from "./cache";
+import { prepareCommits } from "./commits";
 import { llmCallsPerRun } from "./limits";
 import {
   AWAITING_HUMAN,
@@ -100,6 +104,12 @@ const BUILD_FAILURE_GRACE_SECONDS = 180;
 const APPROVAL_TIMEOUT_HOURS = 24;
 
 class BlockRun extends Error {}
+
+/** The step made its LLM call and leaves the rest to another call (D35). */
+type StepResult = Committed | { resume: true };
+
+/** What a Vercel function may use of its 300 s, with a margin. */
+const INVOCATION_BUDGET_MS = 280_000;
 class SimulatedCrash extends Error {}
 
 /** Margin on the retry delay of a 429 before the sweep resumes the step. */
@@ -341,7 +351,13 @@ async function stepPlanning(ctx: StepContext): Promise<Committed> {
   );
 }
 
-async function stepDeveloping(ctx: StepContext): Promise<Committed> {
+type DevelopResult = {
+  task: TaskRow;
+  output: DevelopOutput;
+  calls: ReturnType<typeof callData>;
+};
+
+async function stepDeveloping(ctx: StepContext): Promise<StepResult> {
   const { db, run, token } = ctx;
   const branch = runBranch(run.id);
   const work = run.tasks.filter((t) => t.status === "developing");
@@ -349,47 +365,75 @@ async function stepDeveloping(ctx: StepContext): Promise<Committed> {
 
   // D32: read at the head of run/<id> (the base before the first push).
   const readSha = run.headSha ?? run.baseSha ?? (await getBaseSha());
-  const outputs: {
-    task: TaskRow;
-    output: DevelopOutput;
-    calls: ReturnType<typeof callData>;
-  }[] = [];
+  const store = stepStore(ctx);
+  const outputs: DevelopResult[] = [];
+  let called = false;
   for (const task of work) {
-    const result = await cachedCall(
-      ctx,
-      { agent: "develop", taskId: task.id, iteration: task.iteration },
-      developOutputSchema,
-      async (hooks) => {
-        const context = await readDevelopContext({
-          sha: readSha,
-          task: brief(task),
-          // Earlier tasks of this step are not committed yet.
-          overlay: outputs.flatMap((o) => o.output.files),
-        });
-        await appendEvent(db, run, {
-          actor: "develop",
-          kind: "context",
-          message: `Tarea ${task.position}: lee ${context.files.length} archivos${context.trimmed.length ? ` (${context.trimmed.length} recortados por tamaño)` : ""}`,
-          data: {
-            files: context.files.map((f) => ({ path: f.path, role: f.role })),
-            trimmed: context.trimmed,
-            newFiles: context.newFiles,
-          },
-        });
-        return runDevelop(
-          await ctx.llm("develop"),
-          {
-            runId: run.id,
-            request: run.request,
+    const key = {
+      agent: "develop" as const,
+      taskId: task.id,
+      iteration: task.iteration,
+    };
+    // D35: one LLM call per invocation; the next one gets its own 300 s.
+    if (called && !(await store.find(key))) return { resume: true };
+
+    let result: CachedResult<DevelopOutput>;
+    try {
+      result = await cachedCall(
+        ctx,
+        key,
+        developOutputSchema,
+        async (hooks) => {
+          const context = await readDevelopContext({
+            sha: readSha,
             task: brief(task),
-            iteration: task.iteration,
-            feedback: task.lastFeedback,
-            context,
-          },
-          hooks,
-        );
-      },
-    );
+            // Earlier tasks of this step are not committed yet.
+            overlay: outputs.flatMap((o) => o.output.files),
+          });
+          await appendEvent(db, run, {
+            actor: "develop",
+            kind: "context",
+            message: `Tarea ${task.position}: lee ${context.files.length} archivos${context.trimmed.length ? ` (${context.trimmed.length} recortados por tamaño)` : ""}`,
+            data: {
+              files: context.files.map((f) => ({ path: f.path, role: f.role })),
+              trimmed: context.trimmed,
+              newFiles: context.newFiles,
+            },
+          });
+          if (run.simulateMaxTokens && !run.maxTokensSimulatedAt) {
+            // H5: the first call answers as cut, without spending a request.
+            run.maxTokensSimulatedAt = new Date();
+            await checkpoint(db, run, token, {
+              maxTokensSimulatedAt: run.maxTokensSimulatedAt,
+            });
+            throw new OutputTruncated(
+              "simulación",
+              AGENT_SETTINGS.develop.maxOutputTokens,
+              [],
+            );
+          }
+          return runDevelop(
+            await ctx.llm("develop"),
+            {
+              runId: run.id,
+              request: run.request,
+              task: brief(task),
+              iteration: task.iteration,
+              feedback: task.lastFeedback,
+              context,
+            },
+            hooks,
+          );
+        },
+      );
+    } catch (error) {
+      if (error instanceof OutputTruncated) {
+        return taskTooLarge(ctx, task, error);
+      }
+      throw error;
+    }
+    if (!result.cached) called = true;
+
     const output = result.output;
     // D16: checked where the commits are made, before anything is written.
     const check = checkPaths(output.files.map((f) => f.path));
@@ -417,6 +461,8 @@ async function stepDeveloping(ctx: StepContext): Promise<Committed> {
   // 1. Build the commit chain once and remember it before touching the ref.
   let targetSha = run.targetSha;
   let commits = run.targetCommits ?? {};
+  let unchanged: DevelopResult[] = [];
+  const notes: EventDraft[] = [];
   if (!targetSha) {
     const current = await getBranchSha(branch);
     if (current !== run.headSha) {
@@ -424,12 +470,38 @@ async function stepDeveloping(ctx: StepContext): Promise<Committed> {
         `La rama ${branch} no está en el commit esperado (${current ? short(current) : "no existe"})`,
       );
     }
+    const prepared = await prepareCommits(
+      outputs,
+      (path) => getFileText(path, readSha),
+      { simulateTypeError: run.simulateTypeError },
+    );
+    unchanged = prepared.unchanged;
+    notes.push(...prepared.notes);
+    if (prepared.changed.length === 0) {
+      return commitTransition(
+        db,
+        run,
+        { type: "develop_unchanged" },
+        {
+          leaseToken: token,
+          events: [
+            ...notes,
+            {
+              actor: "develop",
+              kind: "unchanged",
+              message:
+                "Develop no ha cambiado ningún archivo: la iteración cuenta como fallida.",
+            },
+          ],
+        },
+      );
+    }
     // The first commit sits on the sha the orchestrator read (D27).
-    let parent = run.headSha ?? run.baseSha ?? (await getBaseSha());
+    let parent = readSha;
     let tree = await getCommitTree(parent);
     commits = {};
-    for (const { task, output } of outputs) {
-      tree = await createTree(tree, output.files);
+    for (const { task, output, files } of prepared.changed) {
+      tree = await createTree(tree, files);
       parent = await createCommit({
         message: output.commitMessage,
         tree,
@@ -439,6 +511,8 @@ async function stepDeveloping(ctx: StepContext): Promise<Committed> {
     }
     targetSha = parent;
     await checkpoint(db, run, token, { targetSha, targetCommits: commits });
+  } else {
+    unchanged = outputs.filter((o) => !commits[String(o.task.id)]);
   }
 
   // 2. Point the branch at the chain: a single push, so a single build (D20).
@@ -473,6 +547,7 @@ async function stepDeveloping(ctx: StepContext): Promise<Committed> {
     prUrl = pr.url;
   }
 
+  const committed = outputs.filter((o) => commits[String(o.task.id)]);
   return commitTransition(
     db,
     run,
@@ -487,22 +562,86 @@ async function stepDeveloping(ctx: StepContext): Promise<Committed> {
         prUrl,
       },
       taskSet: Object.fromEntries(
-        outputs.map(({ task }) => [
+        committed.map(({ task }) => [
           task.id,
           { commitSha: commits[String(task.id)] ?? null },
         ]),
       ),
       events: [
-        ...outputs.map(({ task, output, calls }) => ({
+        ...notes,
+        ...committed.map(({ task, output, calls }) => ({
           actor: "develop" as const,
           kind: "commit",
           message: `Tarea ${task.position}, iteración ${task.iteration}: commit ${short(commits[String(task.id)] ?? "")} · ${output.commitMessage}`,
-          data: { files: output.files.map((f) => f.path), ...calls },
+          data: {
+            files: output.files.map((f) => f.path),
+            outsidePlan: output.files
+              .map((f) => f.path)
+              .filter((p) => !task.files.includes(p)),
+            notes: output.notes,
+            evidence: output.evidence ?? [],
+            ...calls,
+          },
+        })),
+        ...unchanged.map(({ task, calls }) => ({
+          actor: "develop" as const,
+          kind: "unchanged",
+          message: `Tarea ${task.position}, iteración ${task.iteration}: Develop no ha cambiado nada; sin commit.`,
+          data: calls,
         })),
         {
           actor: "system",
           kind: "pushed",
-          message: `Rama ${branch} en ${short(targetSha)} · PR #${prNumber}. Esperando la vista previa.`,
+          message: `Rama ${branch} en ${short(targetSha)} · PR #${prNumber}. Esperando la comprobación del PR.`,
+        },
+      ],
+    },
+  );
+}
+
+/**
+ * Develop's answer was cut (D34): the orchestrator splits the task, unless
+ * it is already a subtask or the plan has no room left.
+ */
+async function taskTooLarge(
+  ctx: StepContext,
+  task: TaskRow,
+  error: OutputTruncated,
+): Promise<Committed> {
+  const { db, run, token } = ctx;
+  const live = run.tasks.filter((t) => t.status !== "split").length;
+  const reason =
+    task.splitFrom !== null
+      ? `La tarea ${task.position} ya viene de una división y tampoco cabe en la respuesta: decide el humano.`
+      : live + 1 > MAX_TASKS_AFTER_SPLIT
+        ? `La tarea ${task.position} no cabe en la respuesta y el plan ya tiene ${live} tareas: no se puede dividir más.`
+        : null;
+  const calls = { calls: error.calls, cached: false };
+  if (reason) {
+    return commitTransition(
+      db,
+      run,
+      { type: "block", reason },
+      {
+        leaseToken: token,
+        events: [
+          { actor: "develop", kind: "too_large", message: reason, data: calls },
+        ],
+      },
+    );
+  }
+  return commitTransition(
+    db,
+    run,
+    { type: "task_too_large", taskId: task.id, reason: error.message },
+    {
+      leaseToken: token,
+      events: [
+        {
+          actor: "develop",
+          kind: "too_large",
+          message: `Tarea ${task.position}: ${error.message}. El Orquestador la divide en subtareas con los mismos criterios.`,
+          data: calls,
         },
       ],
     },
@@ -627,7 +766,11 @@ const STEPS = {
  * any time and from anywhere: it does nothing when there is no step to run
  * or another process holds it.
  */
-export async function runStep(runId: number): Promise<void> {
+export async function runStep(
+  runId: number,
+  /** When the invocation started: it decides whether another call fits. */
+  startedAt = Date.now(),
+): Promise<void> {
   const db = getDb();
   const run = await loadRun(db, runId);
   if (!run || !isStep(run.status as RunStatus)) return;
@@ -640,13 +783,25 @@ export async function runStep(runId: number): Promise<void> {
     llm: (agent) => getProvider(runProviders(run)[agent], agent, run.scenario),
   };
 
-  let committed: Committed;
+  let outcome: StepResult;
   try {
-    committed = await STEPS[run.status as keyof typeof STEPS](ctx);
+    outcome = await STEPS[run.status as keyof typeof STEPS](ctx);
   } catch (error) {
-    committed = await stepFailed(ctx, error);
+    outcome = await stepFailed(ctx, error);
   }
-  if (committed.applied) await executeEffects(runId, committed.effects);
+  if ("resume" in outcome) {
+    // D35: free the step for the next call. It runs here if a whole call
+    // still fits in this invocation, or in the next sweep otherwise.
+    await db
+      .update(runs)
+      .set({ leaseUntil: sql`now()`, leaseToken: null, stepAttempts: 0 })
+      .where(and(eq(runs.id, run.id), eq(runs.leaseToken, token)));
+    const next = Date.now() + leaseSecondsFor("develop") * 1000;
+    if (next - startedAt < INVOCATION_BUDGET_MS)
+      await runStep(runId, startedAt);
+    return;
+  }
+  if (outcome.applied) await executeEffects(runId, outcome.effects);
 }
 
 async function stepFailed(

@@ -308,6 +308,23 @@ describe("Develop output (D34)", () => {
     ]);
   });
 
+  it("in iteration 1 an answer that changes nothing goes to repair (D34)", () => {
+    const same = output({
+      files: [{ path: "src/db/schema.ts", content: "export {};\r\n" }],
+    });
+    const current = { "src/db/schema.ts": "export {};" };
+    expect(
+      messages(
+        same,
+        developSchemaFor({ ...scope, current, requireChange: true }),
+      ),
+    ).toEqual([
+      "Ningún archivo cambia respecto al que has recibido: haz el cambio que pide la tarea",
+    ]);
+    // Later iterations: the engine counts it as a failed iteration instead.
+    expect(messages(same, developSchemaFor({ ...scope, current }))).toEqual([]);
+  });
+
   it("without the scope only checks the shape, and leaves forbidden paths to the engine (D16)", () => {
     expect(
       messages(
