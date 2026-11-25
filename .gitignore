@@ -42,3 +42,6 @@ next-env.d.ts
 
 # local env (keep .env.example tracked)
 !.env.example
+
+# Local dev server config of the Claude desktop app
+/.claude/launch.json
