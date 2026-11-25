@@ -1,5 +1,6 @@
 import { unzipSync } from "fflate";
 import { z } from "zod";
+import type { CriterionResult } from "@/server/agents/contracts";
 import type { TestFailure } from "@/server/db/schema";
 
 /** meta.json written by preview-e2e.yml. */
@@ -55,7 +56,12 @@ export type TestSummary = {
   skipped: number;
   durationMs: number;
   failures: TestFailure[];
+  /** Tests of e2e/criteria.spec.ts, passed or not (D38). */
+  criteria: CriterionResult[];
 };
+
+/** Title the criteria runner gives each test: `run-12 r1 c2 · text`. */
+const CRITERION_TITLE = /^run-([0-9]+) r([0-9]+) (c[0-9]{1,2}) · /;
 
 const MAX_ERROR_LENGTH = 500;
 
@@ -81,12 +87,31 @@ export function parseResults(json: unknown): TestSummary {
     skipped: 0,
     durationMs: Math.round(report.stats.duration),
     failures: [],
+    criteria: [],
   };
 
   const walk = (suite: Suite, path: string[]) => {
     const here = suite.title ? [...path, suite.title] : path;
     for (const spec of suite.specs ?? []) {
+      const criterion = CRITERION_TITLE.exec(spec.title);
       for (const test of spec.tests) {
+        if (criterion && test.status !== "skipped") {
+          const [, run, revision, id] = criterion;
+          summary.criteria.push({
+            key: `r${revision}-${id}`,
+            run: Number(run),
+            revision: Number(revision),
+            criterion: id!,
+            project: test.projectName,
+            passed: test.status === "expected" || test.status === "flaky",
+            error:
+              test.status === "unexpected"
+                ? cleanError(test.results.at(-1)?.errors[0]?.message)
+                : null,
+            failedStep: null,
+            snapshot: null,
+          });
+        }
         if (test.status === "expected") summary.passed++;
         else if (test.status === "flaky") summary.flaky++;
         else if (test.status === "skipped") summary.skipped++;
@@ -126,6 +151,50 @@ export type E2eArtifact = {
 };
 
 const SCREENSHOT_PATH = /^screenshots\/([a-z0-9-]{1,60})-(1280|390)\.jpg$/;
+/** Evidence of a failed criterion step, written by the runner (D38). */
+const EVIDENCE_PATH =
+  /^criteria\/run-[0-9]+-r[0-9]+-c[0-9]{1,2}-[a-z0-9-]{1,30}\.json$/;
+const MAX_EVIDENCE = 80;
+/** Of the aria snapshot, what reaches Testing (D40). */
+export const MAX_SNAPSHOT_CHARS = 2_000;
+
+const evidenceSchema = z.object({
+  run: z.number().int(),
+  revision: z.number().int(),
+  criterion: z.string(),
+  project: z.string(),
+  step: z.number().int(),
+  action: z.string().max(500),
+  url: z.string().max(500),
+  snapshot: z.string(),
+});
+
+/** Adds the failed step and the snapshot to the criteria results. */
+export function attachEvidence(
+  criteria: CriterionResult[],
+  evidence: unknown[],
+): CriterionResult[] {
+  const parsed = evidence.flatMap((e) => {
+    const r = evidenceSchema.safeParse(e);
+    return r.success ? [r.data] : [];
+  });
+  return criteria.map((c) => {
+    if (c.passed) return c;
+    const e = parsed.find(
+      (p) =>
+        p.run === c.run &&
+        p.revision === c.revision &&
+        p.criterion === c.criterion &&
+        p.project === c.project,
+    );
+    if (!e) return c;
+    return {
+      ...c,
+      failedStep: { step: e.step, action: e.action, url: e.url },
+      snapshot: e.snapshot.slice(0, MAX_SNAPSHOT_CHARS) || null,
+    };
+  });
+}
 const MAX_SCREENSHOTS = 40;
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
@@ -136,12 +205,14 @@ const MAX_FILE_BYTES = 5 * 1024 * 1024;
  */
 export function readArtifactZip(zip: Uint8Array): E2eArtifact {
   let shots = 0;
+  let evidence = 0;
   const files = unzipSync(zip, {
     filter: (file) => {
       if (file.originalSize > MAX_FILE_BYTES) return false;
       if (file.name === "meta.json" || file.name === "results.json") {
         return true;
       }
+      if (EVIDENCE_PATH.test(file.name)) return ++evidence <= MAX_EVIDENCE;
       return SCREENSHOT_PATH.test(file.name) && ++shots <= MAX_SCREENSHOTS;
     },
   });
@@ -161,9 +232,21 @@ export function readArtifactZip(zip: Uint8Array): E2eArtifact {
   }
   screenshots.sort((a, b) => a.page.localeCompare(b.page) || b.width - a.width);
 
+  const results = parseResults(json("results.json"));
+  const evidenceFiles = Object.keys(files)
+    .filter((name) => EVIDENCE_PATH.test(name))
+    .flatMap((name) => {
+      try {
+        return [json(name)];
+      } catch {
+        return [];
+      }
+    });
+  results.criteria = attachEvidence(results.criteria, evidenceFiles);
+
   return {
     meta: parseMeta(json("meta.json")),
-    results: parseResults(json("results.json")),
+    results,
     screenshots,
   };
 }

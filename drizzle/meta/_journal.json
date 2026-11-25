@@ -43,6 +43,13 @@
       "when": 1795597084370,
       "tag": "0005_h5_pr_checks_and_split",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795639889867,
+      "tag": "0006_h6_testing",
+      "breakpoints": true
     }
   ]
 }

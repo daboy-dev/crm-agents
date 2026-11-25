@@ -1,0 +1,1415 @@
+{
+  "config": {
+    "argv": [
+      "/opt/hostedtoolcache/node/22.23.5/x64/bin/node",
+      "/home/runner/work/crm-demo/crm-demo/node_modules/.pnpm/@playwright+test@1.65.1/node_modules/@playwright/test/cli.js",
+      "test",
+      "--reporter=list,json",
+      "--trace=off"
+    ],
+    "configFile": "/home/runner/work/crm-demo/crm-demo/playwright.config.ts",
+    "rootDir": "/home/runner/work/crm-demo/crm-demo/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "ci": {
+        "commitHref": "https://github.com/daboy-dev/crm-demo/commit/72f68060476294e1a1c51c24b0612d8b66ed7b46",
+        "commitHash": "72f68060476294e1a1c51c24b0612d8b66ed7b46",
+        "buildHref": "https://github.com/daboy-dev/crm-demo/actions/runs/45698703657"
+      },
+      "gitCommit": {
+        "shortHash": "72f6806",
+        "hash": "72f68060476294e1a1c51c24b0612d8b66ed7b46",
+        "subject": "style(e2e): drop an unused eslint directive",
+        "body": "style(e2e): drop an unused eslint directive\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n",
+        "author": {
+          "name": "daboy-dev",
+          "email": "darii0_-@hotmail.com",
+          "time": 1795639773000
+        },
+        "committer": {
+          "name": "daboy-dev",
+          "email": "darii0_-@hotmail.com",
+          "time": 1795639773000
+        },
+        "branch": "HEAD"
+      },
+      "actualWorkers": 2
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/home/runner/work/crm-demo/crm-demo/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "ci": {
+            "commitHref": "https://github.com/daboy-dev/crm-demo/commit/72f68060476294e1a1c51c24b0612d8b66ed7b46",
+            "commitHash": "72f68060476294e1a1c51c24b0612d8b66ed7b46",
+            "buildHref": "https://github.com/daboy-dev/crm-demo/actions/runs/45698703657"
+          },
+          "gitCommit": {
+            "shortHash": "72f6806",
+            "hash": "72f68060476294e1a1c51c24b0612d8b66ed7b46",
+            "subject": "style(e2e): drop an unused eslint directive",
+            "body": "style(e2e): drop an unused eslint directive\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n",
+            "author": {
+              "name": "daboy-dev",
+              "email": "darii0_-@hotmail.com",
+              "time": 1795639773000
+            },
+            "committer": {
+              "name": "daboy-dev",
+              "email": "darii0_-@hotmail.com",
+              "time": 1795639773000
+            },
+            "branch": "HEAD"
+          },
+          "actualWorkers": 2
+        },
+        "id": "desktop",
+        "name": "desktop",
+        "testDir": "/home/runner/work/crm-demo/crm-demo/e2e",
+        "testIgnore": [],
+        "testMatch": ["**/*.@(spec|test).?(c|m)[jt]s?(x)"],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/home/runner/work/crm-demo/crm-demo/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "ci": {
+            "commitHref": "https://github.com/daboy-dev/crm-demo/commit/72f68060476294e1a1c51c24b0612d8b66ed7b46",
+            "commitHash": "72f68060476294e1a1c51c24b0612d8b66ed7b46",
+            "buildHref": "https://github.com/daboy-dev/crm-demo/actions/runs/45698703657"
+          },
+          "gitCommit": {
+            "shortHash": "72f6806",
+            "hash": "72f68060476294e1a1c51c24b0612d8b66ed7b46",
+            "subject": "style(e2e): drop an unused eslint directive",
+            "body": "style(e2e): drop an unused eslint directive\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n",
+            "author": {
+              "name": "daboy-dev",
+              "email": "darii0_-@hotmail.com",
+              "time": 1795639773000
+            },
+            "committer": {
+              "name": "daboy-dev",
+              "email": "darii0_-@hotmail.com",
+              "time": 1795639773000
+            },
+            "branch": "HEAD"
+          },
+          "actualWorkers": 2
+        },
+        "id": "mobile-390",
+        "name": "mobile-390",
+        "testDir": "/home/runner/work/crm-demo/crm-demo/e2e",
+        "testIgnore": [],
+        "testMatch": ["**/*.@(spec|test).?(c|m)[jt]s?(x)"],
+        "timeout": 30000
+      }
+    ],
+    "filteredProjects": [
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/home/runner/work/crm-demo/crm-demo/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "ci": {
+            "commitHref": "https://github.com/daboy-dev/crm-demo/commit/72f68060476294e1a1c51c24b0612d8b66ed7b46",
+            "commitHash": "72f68060476294e1a1c51c24b0612d8b66ed7b46",
+            "buildHref": "https://github.com/daboy-dev/crm-demo/actions/runs/45698703657"
+          },
+          "gitCommit": {
+            "shortHash": "72f6806",
+            "hash": "72f68060476294e1a1c51c24b0612d8b66ed7b46",
+            "subject": "style(e2e): drop an unused eslint directive",
+            "body": "style(e2e): drop an unused eslint directive\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n",
+            "author": {
+              "name": "daboy-dev",
+              "email": "darii0_-@hotmail.com",
+              "time": 1795639773000
+            },
+            "committer": {
+              "name": "daboy-dev",
+              "email": "darii0_-@hotmail.com",
+              "time": 1795639773000
+            },
+            "branch": "HEAD"
+          },
+          "actualWorkers": 2
+        },
+        "name": "desktop",
+        "testDir": "/home/runner/work/crm-demo/crm-demo/e2e",
+        "snapshotDir": "/home/runner/work/crm-demo/crm-demo/e2e",
+        "testIgnore": [],
+        "testMatch": "**/*.@(spec|test).?(c|m)[jt]s?(x)",
+        "timeout": 30000,
+        "use": {
+          "baseURL": "https://crm-demo-oq51vvvns-daboy-dev.vercel.app",
+          "trace": "off",
+          "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/159.0.8154.6 Safari/537.36",
+          "viewport": {
+            "width": 1280,
+            "height": 720
+          },
+          "screen": {
+            "width": 1920,
+            "height": 1080
+          },
+          "deviceScaleFactor": 1,
+          "isMobile": false,
+          "hasTouch": false,
+          "defaultBrowserType": "chromium"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": "desktop"
+      },
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/home/runner/work/crm-demo/crm-demo/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "ci": {
+            "commitHref": "https://github.com/daboy-dev/crm-demo/commit/72f68060476294e1a1c51c24b0612d8b66ed7b46",
+            "commitHash": "72f68060476294e1a1c51c24b0612d8b66ed7b46",
+            "buildHref": "https://github.com/daboy-dev/crm-demo/actions/runs/45698703657"
+          },
+          "gitCommit": {
+            "shortHash": "72f6806",
+            "hash": "72f68060476294e1a1c51c24b0612d8b66ed7b46",
+            "subject": "style(e2e): drop an unused eslint directive",
+            "body": "style(e2e): drop an unused eslint directive\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n",
+            "author": {
+              "name": "daboy-dev",
+              "email": "darii0_-@hotmail.com",
+              "time": 1795639773000
+            },
+            "committer": {
+              "name": "daboy-dev",
+              "email": "darii0_-@hotmail.com",
+              "time": 1795639773000
+            },
+            "branch": "HEAD"
+          },
+          "actualWorkers": 2
+        },
+        "name": "mobile-390",
+        "testDir": "/home/runner/work/crm-demo/crm-demo/e2e",
+        "snapshotDir": "/home/runner/work/crm-demo/crm-demo/e2e",
+        "testIgnore": [],
+        "testMatch": "**/*.@(spec|test).?(c|m)[jt]s?(x)",
+        "timeout": 30000,
+        "use": {
+          "baseURL": "https://crm-demo-oq51vvvns-daboy-dev.vercel.app",
+          "trace": "off",
+          "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/159.0.8154.6 Safari/537.36",
+          "viewport": {
+            "width": 390,
+            "height": 844
+          },
+          "screen": {
+            "width": 1920,
+            "height": 1080
+          },
+          "deviceScaleFactor": 1,
+          "isMobile": false,
+          "hasTouch": false,
+          "defaultBrowserType": "chromium"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": "mobile-390"
+      }
+    ],
+    "quiet": false,
+    "reporter": [["list"], ["json"]],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "default",
+    "updateSourceMethod": "patch",
+    "version": "1.65.1",
+    "workers": 2,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "criteria.spec.ts",
+      "file": "criteria.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "criteria",
+          "file": "criteria.spec.ts",
+          "line": 185,
+          "column": 6,
+          "specs": [
+            {
+              "title": "run-999 r1 c1 · La lista de facturas muestra la tabla",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3052,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "steps": [
+                        {
+                          "title": "Paso 1 (goto facturas)",
+                          "duration": 385
+                        },
+                        {
+                          "title": "Paso 2 (expectVisible invoices-table)",
+                          "duration": 198
+                        },
+                        {
+                          "title": "Paso 3 (expectCount invoice-row >= 1)",
+                          "duration": 6
+                        }
+                      ],
+                      "startTime": "2026-11-25T20:50:36.226Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                },
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile-390",
+                  "projectName": "mobile-390",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1892,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "steps": [
+                        {
+                          "title": "Paso 1 (goto facturas)",
+                          "duration": 346
+                        },
+                        {
+                          "title": "Paso 2 (expectVisible invoices-table)",
+                          "duration": 196
+                        },
+                        {
+                          "title": "Paso 3 (expectCount invoice-row >= 1)",
+                          "duration": 3
+                        }
+                      ],
+                      "startTime": "2026-11-25T20:50:59.762Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "80bc150fcc6f97ebffbf-90d653c5f4eb4660ac0e",
+              "file": "criteria.spec.ts",
+              "line": 201,
+              "column": 7
+            },
+            {
+              "title": "run-999 r1 c2 · Prueba que falla: no existe invoice-status-filter",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 12911,
+                      "error": {
+                        "message": "Error: Paso 2 (select invoice-status-filter = \"paid\"): locator.selectOption: Timeout 10000ms exceeded.\nCall log:\n  - waiting for getByTestId('invoice-status-filter').visible().first()\n",
+                        "stack": "Error: Paso 2 (select invoice-status-filter = \"paid\"): locator.selectOption: Timeout 10000ms exceeded.\nCall log:\n  - waiting for getByTestId('invoice-status-filter').visible().first()\n\n    at /home/runner/work/crm-demo/crm-demo/e2e/criteria.spec.ts:235:19",
+                        "location": {
+                          "file": "/home/runner/work/crm-demo/crm-demo/e2e/criteria.spec.ts",
+                          "column": 19,
+                          "line": 235
+                        },
+                        "snippet": "  233 |               }),\n  234 |             );\n> 235 |             throw new Error(`${label}: ${message}`);\n      |                   ^\n  236 |           }\n  237 |         }\n  238 |       });"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/runner/work/crm-demo/crm-demo/e2e/criteria.spec.ts",
+                            "column": 19,
+                            "line": 235
+                          },
+                          "message": "Error: Paso 2 (select invoice-status-filter = \"paid\"): locator.selectOption: Timeout 10000ms exceeded.\nCall log:\n  - waiting for getByTestId('invoice-status-filter').visible().first()\n\n\n  233 |               }),\n  234 |             );\n> 235 |             throw new Error(`${label}: ${message}`);\n      |                   ^\n  236 |           }\n  237 |         }\n  238 |       });\n    at /home/runner/work/crm-demo/crm-demo/e2e/criteria.spec.ts:235:19"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "steps": [
+                        {
+                          "title": "Paso 1 (goto /facturas)",
+                          "duration": 412
+                        },
+                        {
+                          "title": "Paso 2 (select invoice-status-filter = \"paid\")",
+                          "duration": 10003,
+                          "error": {
+                            "message": "TimeoutError: locator.selectOption: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByTestId('invoice-status-filter').visible().first()\u001b[22m\n",
+                            "stack": "TimeoutError: locator.selectOption: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByTestId('invoice-status-filter').visible().first()\u001b[22m\n\n    at run (/home/runner/work/crm-demo/crm-demo/e2e/criteria.spec.ts:142:17)\n    at /home/runner/work/crm-demo/crm-demo/e2e/criteria.spec.ts:208:42\n    at /home/runner/work/crm-demo/crm-demo/e2e/criteria.spec.ts:208:13",
+                            "location": {
+                              "file": "/home/runner/work/crm-demo/crm-demo/e2e/criteria.spec.ts",
+                              "column": 17,
+                              "line": 142
+                            },
+                            "snippet": "  140 |       return one.fill(fill(step.value), { timeout: ACTION_TIMEOUT });\n  141 |     case \"select\":\n> 142 |       await one.selectOption(fill(step.value), { timeout: ACTION_TIMEOUT });\n      |                 ^\n  143 |       return;\n  144 |     case \"click\":\n  145 |       return one.click({ timeout: ACTION_TIMEOUT });"
+                          }
+                        }
+                      ],
+                      "startTime": "2026-11-25T20:50:36.221Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/runner/work/crm-demo/crm-demo/test-results/criteria-criteria-run-999--ceb8c-xiste-invoice-status-filter-desktop/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/home/runner/work/crm-demo/crm-demo/e2e/criteria.spec.ts",
+                        "column": 19,
+                        "line": 235
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                },
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile-390",
+                  "projectName": "mobile-390",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 11580,
+                      "error": {
+                        "message": "Error: Paso 2 (select invoice-status-filter = \"paid\"): locator.selectOption: Timeout 10000ms exceeded.\nCall log:\n  - waiting for getByTestId('invoice-status-filter').visible().first()\n",
+                        "stack": "Error: Paso 2 (select invoice-status-filter = \"paid\"): locator.selectOption: Timeout 10000ms exceeded.\nCall log:\n  - waiting for getByTestId('invoice-status-filter').visible().first()\n\n    at /home/runner/work/crm-demo/crm-demo/e2e/criteria.spec.ts:235:19",
+                        "location": {
+                          "file": "/home/runner/work/crm-demo/crm-demo/e2e/criteria.spec.ts",
+                          "column": 19,
+                          "line": 235
+                        },
+                        "snippet": "  233 |               }),\n  234 |             );\n> 235 |             throw new Error(`${label}: ${message}`);\n      |                   ^\n  236 |           }\n  237 |         }\n  238 |       });"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/runner/work/crm-demo/crm-demo/e2e/criteria.spec.ts",
+                            "column": 19,
+                            "line": 235
+                          },
+                          "message": "Error: Paso 2 (select invoice-status-filter = \"paid\"): locator.selectOption: Timeout 10000ms exceeded.\nCall log:\n  - waiting for getByTestId('invoice-status-filter').visible().first()\n\n\n  233 |               }),\n  234 |             );\n> 235 |             throw new Error(`${label}: ${message}`);\n      |                   ^\n  236 |           }\n  237 |         }\n  238 |       });\n    at /home/runner/work/crm-demo/crm-demo/e2e/criteria.spec.ts:235:19"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "steps": [
+                        {
+                          "title": "Paso 1 (goto /facturas)",
+                          "duration": 275
+                        },
+                        {
+                          "title": "Paso 2 (select invoice-status-filter = \"paid\")",
+                          "duration": 10003,
+                          "error": {
+                            "message": "TimeoutError: locator.selectOption: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByTestId('invoice-status-filter').visible().first()\u001b[22m\n",
+                            "stack": "TimeoutError: locator.selectOption: Timeout 10000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByTestId('invoice-status-filter').visible().first()\u001b[22m\n\n    at run (/home/runner/work/crm-demo/crm-demo/e2e/criteria.spec.ts:142:17)\n    at /home/runner/work/crm-demo/crm-demo/e2e/criteria.spec.ts:208:42\n    at /home/runner/work/crm-demo/crm-demo/e2e/criteria.spec.ts:208:13",
+                            "location": {
+                              "file": "/home/runner/work/crm-demo/crm-demo/e2e/criteria.spec.ts",
+                              "column": 17,
+                              "line": 142
+                            },
+                            "snippet": "  140 |       return one.fill(fill(step.value), { timeout: ACTION_TIMEOUT });\n  141 |     case \"select\":\n> 142 |       await one.selectOption(fill(step.value), { timeout: ACTION_TIMEOUT });\n      |                 ^\n  143 |       return;\n  144 |     case \"click\":\n  145 |       return one.click({ timeout: ACTION_TIMEOUT });"
+                          }
+                        }
+                      ],
+                      "startTime": "2026-11-25T20:51:01.732Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/runner/work/crm-demo/crm-demo/test-results/criteria-criteria-run-999--ceb8c-xiste-invoice-status-filter-mobile-390/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/home/runner/work/crm-demo/crm-demo/e2e/criteria.spec.ts",
+                        "column": 19,
+                        "line": 235
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "80bc150fcc6f97ebffbf-89668c391e5dced05525",
+              "file": "criteria.spec.ts",
+              "line": 201,
+              "column": 7
+            },
+            {
+              "title": "run-999 r1 c3 · Crear un cliente con {{stamp}} y verlo en el detalle",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3306,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "steps": [
+                        {
+                          "title": "Paso 1 (goto clientes)",
+                          "duration": 358
+                        },
+                        {
+                          "title": "Paso 2 (click new-client-button)",
+                          "duration": 41
+                        },
+                        {
+                          "title": "Paso 3 (fill field-name = \"Criterio {{stamp}}\")",
+                          "duration": 182
+                        },
+                        {
+                          "title": "Paso 4 (fill field-email = \"criterio-{{stamp}}@example.com\")",
+                          "duration": 4
+                        },
+                        {
+                          "title": "Paso 5 (click save-button)",
+                          "duration": 27
+                        },
+                        {
+                          "title": "Paso 6 (expectText page-title \"Criterio {{stamp}}\")",
+                          "duration": 1285
+                        }
+                      ],
+                      "startTime": "2026-11-25T20:50:39.590Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                },
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile-390",
+                  "projectName": "mobile-390",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2201,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "steps": [
+                        {
+                          "title": "Paso 1 (goto clientes)",
+                          "duration": 305
+                        },
+                        {
+                          "title": "Paso 2 (click new-client-button)",
+                          "duration": 44
+                        },
+                        {
+                          "title": "Paso 3 (fill field-name = \"Criterio {{stamp}}\")",
+                          "duration": 180
+                        },
+                        {
+                          "title": "Paso 4 (fill field-email = \"criterio-{{stamp}}@example.com\")",
+                          "duration": 5
+                        },
+                        {
+                          "title": "Paso 5 (click save-button)",
+                          "duration": 29
+                        },
+                        {
+                          "title": "Paso 6 (expectText page-title \"Criterio {{stamp}}\")",
+                          "duration": 786
+                        }
+                      ],
+                      "startTime": "2026-11-25T20:51:06.985Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "80bc150fcc6f97ebffbf-02ca36c513c97f6f7ce4",
+              "file": "criteria.spec.ts",
+              "line": 201,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "screenshots.spec.ts",
+      "file": "screenshots.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "screenshots",
+          "file": "screenshots.spec.ts",
+          "line": 8,
+          "column": 6,
+          "specs": [
+            {
+              "title": "captures clientes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2688,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-25T20:50:42.904Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                },
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile-390",
+                  "projectName": "mobile-390",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2488,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-25T20:51:09.256Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "677a4938ef65bfc6a6e5-fd37cabac5c7ab3520a8",
+              "file": "screenshots.spec.ts",
+              "line": 10,
+              "column": 5
+            },
+            {
+              "title": "captures presupuestos",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2717,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-25T20:50:45.600Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                },
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile-390",
+                  "projectName": "mobile-390",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2026,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-25T20:51:11.756Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "677a4938ef65bfc6a6e5-94d6a4d0ec5153d3deb7",
+              "file": "screenshots.spec.ts",
+              "line": 10,
+              "column": 5
+            },
+            {
+              "title": "captures facturas",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1974,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-25T20:50:48.326Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                },
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile-390",
+                  "projectName": "mobile-390",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 2558,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-25T20:51:13.600Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "677a4938ef65bfc6a6e5-6439111d6021dfd177a5",
+              "file": "screenshots.spec.ts",
+              "line": 10,
+              "column": 5
+            },
+            {
+              "title": "captures contacto",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 2017,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-25T20:50:49.726Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                },
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile-390",
+                  "projectName": "mobile-390",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2054,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-25T20:51:13.789Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "677a4938ef65bfc6a6e5-d58592a3c6acf5c46dca",
+              "file": "screenshots.spec.ts",
+              "line": 10,
+              "column": 5
+            },
+            {
+              "title": "captures cliente-detalle",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3306,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-25T20:50:50.308Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                },
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile-390",
+                  "projectName": "mobile-390",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3437,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-25T20:51:15.855Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "677a4938ef65bfc6a6e5-5d6c58b5b6ea6944ee0c",
+              "file": "screenshots.spec.ts",
+              "line": 10,
+              "column": 5
+            },
+            {
+              "title": "captures presupuesto-detalle",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 2575,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-25T20:50:51.821Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                },
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile-390",
+                  "projectName": "mobile-390",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 2474,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-25T20:51:16.247Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "677a4938ef65bfc6a6e5-02e5444198ad2fba4468",
+              "file": "screenshots.spec.ts",
+              "line": 10,
+              "column": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "smoke.spec.ts",
+      "file": "smoke.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "redirects to login without a session",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 747,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T20:50:53.625Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            },
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "mobile-390",
+              "projectName": "mobile-390",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 584,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T20:51:18.734Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4219922fea2e2bd3c691-68e0d9827888ec6b7459",
+          "file": "smoke.spec.ts",
+          "line": 4,
+          "column": 1
+        },
+        {
+          "title": "rejects wrong credentials",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 725,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T20:50:54.381Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            },
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "mobile-390",
+              "projectName": "mobile-390",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 823,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T20:51:19.303Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4219922fea2e2bd3c691-837f5a39f6db68e05fcc",
+          "file": "smoke.spec.ts",
+          "line": 10,
+          "column": 1
+        },
+        {
+          "title": "health endpoint is public",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 1133,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T20:50:54.411Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            },
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "mobile-390",
+              "projectName": "mobile-390",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 520,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T20:51:19.326Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4219922fea2e2bd3c691-fdb3688da713be5c9784",
+          "file": "smoke.spec.ts",
+          "line": 18,
+          "column": 1
+        },
+        {
+          "title": "lists clients, quotes and invoices with data",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2770,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T20:50:55.114Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            },
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "mobile-390",
+              "projectName": "mobile-390",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 3296,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T20:51:19.853Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4219922fea2e2bd3c691-6bb971354c1019734621",
+          "file": "smoke.spec.ts",
+          "line": 24,
+          "column": 1
+        },
+        {
+          "title": "shows a quote with its lines and totals",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 2096,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T20:50:55.551Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            },
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "mobile-390",
+              "projectName": "mobile-390",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2144,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T20:51:20.135Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4219922fea2e2bd3c691-80a8253f6ac5d3ea5f29",
+          "file": "smoke.spec.ts",
+          "line": 37,
+          "column": 1
+        },
+        {
+          "title": "has no horizontal page scroll",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 1744,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T20:50:57.656Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            },
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "mobile-390",
+              "projectName": "mobile-390",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2339,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-25T20:51:22.286Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4219922fea2e2bd3c691-d2efde262149c642b8a4",
+          "file": "smoke.spec.ts",
+          "line": 46,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "write-flow.spec.ts",
+      "file": "write-flow.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "write flow",
+          "file": "write-flow.spec.ts",
+          "line": 8,
+          "column": 6,
+          "specs": [
+            {
+              "title": "client → quote → accept → invoice → paid",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 8751,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-25T20:50:57.895Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                },
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "mobile-390",
+                  "projectName": "mobile-390",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 8950,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-25T20:51:23.165Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ce23e84bcbe8a48d627a-adf09484842e4aa086bd",
+              "file": "write-flow.spec.ts",
+              "line": 14,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-11-25T20:50:35.690Z",
+    "duration": 56467.849,
+    "expected": 30,
+    "skipped": 0,
+    "unexpected": 2,
+    "flaky": 0
+  }
+}

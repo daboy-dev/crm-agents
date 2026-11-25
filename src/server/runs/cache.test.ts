@@ -25,7 +25,8 @@ const meta = (over: Partial<CallMeta> = {}): CallMeta => ({
 
 function memoryStore(llmCalls = 0) {
   const rows = new Map<string, StoredStep>();
-  const id = (k: StepKey) => `${k.agent}:${k.taskId}:${k.iteration}`;
+  const id = (k: StepKey) =>
+    `${k.agent}:${k.taskId}:${k.iteration}:${k.scope ?? ""}`;
   const state = { llmCalls, renewed: 0 };
   const store: StepStore = {
     find: async (k) => rows.get(id(k)) ?? null,
@@ -112,7 +113,7 @@ describe("cachedCall (D22, D26)", () => {
   it("uses the output another attempt stored first", async () => {
     const { store, rows } = memoryStore();
     const call = vi.fn(async () => {
-      rows.set("orchestrator:null:1", {
+      rows.set("orchestrator:null:1:", {
         output: { answer: "primero" },
         calls: [meta({ model: "other" })],
       });
@@ -141,5 +142,73 @@ describe("cachedCall (D22, D26)", () => {
       outputTokens: 400,
       latencyMs: 6000,
     });
+  });
+});
+
+describe("Testing's two calls (D38, D39, D40)", () => {
+  const steps: StepKey = {
+    agent: "testing",
+    taskId: null,
+    iteration: 1,
+    scope: "steps",
+  };
+  const explain: StepKey = { ...steps, scope: "explain:abc1234" };
+
+  it("a resumed step reads the stored steps and spends no call", async () => {
+    const { store, state } = memoryStore(3);
+    const first = fakeModel([meta()]);
+    await cachedCall({
+      store,
+      key: steps,
+      schema,
+      used: 3,
+      limit: 16,
+      call: first,
+    });
+    // The step crashes after storing the steps; the sweep runs it again.
+    const again = fakeModel([meta()]);
+    const r = await cachedCall({
+      store,
+      key: steps,
+      schema,
+      used: 4,
+      limit: 16,
+      call: again,
+    });
+    expect(r.cached).toBe(true);
+    expect(again).not.toHaveBeenCalled();
+    expect(state.llmCalls).toBe(4);
+  });
+
+  it("the steps and each explanation have keys of their own", async () => {
+    const { store, rows } = memoryStore();
+    for (const key of [
+      steps,
+      explain,
+      { ...explain, scope: "explain:def5678" },
+    ]) {
+      await cachedCall({
+        store,
+        key,
+        schema,
+        used: 0,
+        limit: 16,
+        call: fakeModel([meta()]),
+      });
+    }
+    expect(rows.size).toBe(3);
+  });
+
+  it("their calls count against LLM_CALLS_PER_RUN", async () => {
+    const { store } = memoryStore(16);
+    const error = await cachedCall({
+      store,
+      key: explain,
+      schema,
+      used: 16,
+      limit: 16,
+      call: fakeModel([meta()]),
+    }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(CallLimitReached);
   });
 });

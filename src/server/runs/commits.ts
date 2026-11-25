@@ -1,5 +1,6 @@
 import { normalizeContent } from "@/server/agents/files";
 import type { DevelopOutput } from "@/server/agents/contracts";
+import { breakTestId } from "@/server/agents/test-ids";
 import type { FileWrite } from "@/server/github/repo";
 import type { EventDraft } from "./store";
 
@@ -22,7 +23,14 @@ export type Prepared = {
 export async function prepareCommits<T extends Prepared>(
   outputs: T[],
   readFile: (path: string) => Promise<string | null>,
-  options: { simulateTypeError: boolean },
+  options: {
+    simulateTypeError: boolean;
+    /**
+     * H6 (D40): data-testid of the task whose first literal use is renamed,
+     * so its criterion fails on the preview. Empty when not simulating.
+     */
+    breakTestIds?: (result: T) => readonly string[];
+  },
 ) {
   const current = new Map<string, string | null>();
   const read = async (path: string) => {
@@ -32,6 +40,7 @@ export async function prepareCommits<T extends Prepared>(
   const notes: EventDraft[] = [];
   const changed: (T & { files: FileWrite[] })[] = [];
   const unchanged: T[] = [];
+  let broken = false;
   for (const [i, result] of outputs.entries()) {
     let files = result.output.files.map((f) => ({
       path: f.path,
@@ -59,6 +68,19 @@ export async function prepareCommits<T extends Prepared>(
         });
       }
     }
+    const testIds = options.breakTestIds?.(result) ?? [];
+    if (!broken && testIds.length > 0) {
+      const done = breakTestId(files, testIds);
+      if (done) {
+        broken = true;
+        files = done.files;
+        notes.push({
+          actor: "system",
+          kind: "simulation",
+          message: `Simulación: data-testid="${done.testId}" pasa a "${done.testId}-simulated" en la tarea ${result.task.position}, iteración ${result.task.iteration}. Su criterio debe fallar.`,
+        });
+      }
+    }
     const same = await Promise.all(
       files.map(async (f) => {
         const before = await read(f.path);
@@ -69,6 +91,17 @@ export async function prepareCommits<T extends Prepared>(
     for (const f of files) current.set(f.path, f.content);
     if (same.every(Boolean)) unchanged.push(result);
     else changed.push({ ...result, files });
+  }
+  if (
+    !broken &&
+    outputs.some((o) => (options.breakTestIds?.(o) ?? []).length > 0)
+  ) {
+    notes.push({
+      actor: "system",
+      kind: "simulation",
+      message:
+        "Simulación de fallo de criterio sin efecto: Develop no escribe ningún data-testid del plan de forma literal.",
+    });
   }
   return { changed, unchanged, notes };
 }

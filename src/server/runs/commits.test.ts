@@ -81,3 +81,31 @@ describe("prepareCommits (D34)", () => {
     expect(later.notes).toEqual([]);
   });
 });
+
+describe("simulated criterion failure (D40)", () => {
+  const filter = '<select data-testid="invoice-status-filter" />';
+  it("renames one data-testid of the plan before the commit", async () => {
+    const { changed, notes } = await prepareCommits(
+      [result(1, { "src/f.tsx": filter }), result(2, { "src/g.tsx": filter })],
+      readFile,
+      { ...none, breakTestIds: () => ["invoice-status-filter"] },
+    );
+    expect(changed[0]!.files[0]!.content).toContain(
+      'data-testid="invoice-status-filter-simulated"',
+    );
+    // Only one, so only one criterion fails.
+    expect(changed[1]!.files[0]!.content).toContain(
+      'data-testid="invoice-status-filter"',
+    );
+    expect(notes[0]!.message).toContain("Su criterio debe fallar");
+  });
+
+  it("says so when no data-testid is literal", async () => {
+    const { notes } = await prepareCommits(
+      [result(1, { "src/f.tsx": '<Field name="notes" />' })],
+      readFile,
+      { ...none, breakTestIds: () => ["field-notes"] },
+    );
+    expect(notes[0]!.message).toContain("sin efecto");
+  });
+});

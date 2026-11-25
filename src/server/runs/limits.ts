@@ -7,5 +7,5 @@ function positiveInt(name: string, fallback: number): number {
 /** New runs accepted per day (UTC). */
 export const runsPerDay = () => positiveInt("RUNS_PER_DAY", 5);
 
-/** LLM calls one run may make before it is blocked (D8, D26). */
-export const llmCallsPerRun = () => positiveInt("LLM_CALLS_PER_RUN", 12);
+/** LLM calls one run may make before it is blocked (D8, D26, D40). */
+export const llmCallsPerRun = () => positiveInt("LLM_CALLS_PER_RUN", 16);
