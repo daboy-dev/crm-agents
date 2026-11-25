@@ -17,11 +17,13 @@ import { checkPaths } from "@/server/agents/paths";
 import { getDb, type Db } from "@/server/db/client";
 import {
   agentSteps,
+  prChecks,
   previews,
   runs,
   tasks,
   testReports,
 } from "@/server/db/schema";
+import { checkFeedback } from "@/server/pipeline/checks";
 import { runBranch } from "@/server/github/config";
 import {
   closePr,
@@ -33,6 +35,7 @@ import {
   findOpenPr,
   getBaseSha,
   getBranchSha,
+  getCommitParents,
   getCommitTree,
   getPr,
   mergePr,
@@ -77,6 +80,7 @@ import {
   type Committed,
   type EventDraft,
   type LoadedRun,
+  type RunSet,
   type TaskRow,
 } from "./store";
 
@@ -85,6 +89,8 @@ const MAX_STEP_ATTEMPTS = 3;
 /** A step state without a lease for this long is considered dropped. */
 const STEP_GRACE_SECONDS = 30;
 const PREVIEW_TIMEOUT_MINUTES = 15;
+/** pr-check takes a minute or two (D33). */
+const CHECK_TIMEOUT_MINUTES = 15;
 /**
  * A failed deployment only counts as a broken build if no success replaces
  * it in this time: Vercel fails the first deployment of a new branch and
@@ -750,6 +756,12 @@ export async function executeEffects(runId: number, effects: Effect[]) {
         if (run) await checkPreview(db, run, { timeout: false });
         break;
       }
+      case "check_pr": {
+        const db = getDb();
+        const [run] = await db.select().from(runs).where(eq(runs.id, runId));
+        if (run) await checkPrCheck(db, run, { timeout: false });
+        break;
+      }
     }
   }
 }
@@ -821,6 +833,8 @@ export async function applyEvent(
     expectedVersion?: number;
     /** false: the caller runs the effects later (in after()). */
     runEffects?: boolean;
+    /** Run columns set with the transition. */
+    set?: RunSet;
   } = {},
 ): Promise<Committed> {
   const db = getDb();
@@ -828,7 +842,10 @@ export async function applyEvent(
   if (!run) return { applied: false };
   const version = options.expectedVersion ?? run.version;
   if (run.version !== version) return { applied: false };
-  const committed = await commitTransition(db, run, event, { events });
+  const committed = await commitTransition(db, run, event, {
+    events,
+    set: options.set,
+  });
   if (committed.applied && options.runEffects !== false) {
     await executeEffects(runId, committed.effects);
   }
@@ -950,6 +967,131 @@ async function checkPreview(
   }
 }
 
+async function latestCheck(db: Db, sha: string) {
+  const [check] = await db
+    .select()
+    .from(prChecks)
+    .where(eq(prChecks.triggerSha, sha))
+    .orderBy(desc(prChecks.completedAt), desc(prChecks.runAttempt))
+    .limit(1);
+  return check ?? null;
+}
+
+/** A pr-check result arrived for this sha: move the run waiting on it. */
+export async function checkPrCheckFor(db: Db, sha: string) {
+  const [run] = await db
+    .select()
+    .from(runs)
+    .where(and(eq(runs.headSha, sha), eq(runs.status, "awaiting_check")));
+  if (run) await checkPrCheck(db, run, { timeout: false });
+}
+
+/**
+ * For a run waiting on pr-check (D31, D33): adopts the migration commit as
+ * the head once the branch confirms it, and moves on to the preview or back
+ * to Develop with the errors. Applies the 15-minute timeout.
+ */
+async function checkPrCheck(
+  db: Db,
+  run: typeof runs.$inferSelect,
+  options: { timeout: boolean },
+) {
+  if (run.status !== "awaiting_check" || !run.headSha) return;
+  const expectedVersion = run.version;
+  const check = await latestCheck(db, run.headSha);
+  if (!check) {
+    if (
+      options.timeout &&
+      olderThan(run.statusChangedAt, CHECK_TIMEOUT_MINUTES * 60)
+    ) {
+      await applyEvent(
+        run.id,
+        { type: "check_timeout" },
+        [
+          {
+            actor: "system",
+            kind: "timeout",
+            message: `La comprobación del PR no ha llegado en ${CHECK_TIMEOUT_MINUTES} minutos.`,
+          },
+        ],
+        { expectedVersion },
+      );
+    }
+    return;
+  }
+
+  // check.json comes from a job that runs the branch's code: the migration
+  // commit only counts if the branch points to it and it sits on our head.
+  let headSha = run.headSha;
+  if (check.migrationSha) {
+    const branch = runBranch(run.id);
+    const current = await getBranchSha(branch);
+    const parents =
+      current === check.migrationSha
+        ? await getCommitParents(check.migrationSha)
+        : [];
+    if (parents[0] !== run.headSha) {
+      await applyEvent(
+        run.id,
+        {
+          type: "block",
+          reason: `La rama ${branch} no está en el commit de la migración (${short(check.migrationSha)})`,
+        },
+        [
+          {
+            actor: "system",
+            kind: "blocked",
+            message: `pr-check dice que subió la migración ${short(check.migrationSha)}, pero ${branch} está en ${current ? short(current) : "ningún commit"}.`,
+          },
+        ],
+        { expectedVersion },
+      );
+      return;
+    }
+    headSha = check.migrationSha;
+  }
+
+  const migration =
+    headSha !== run.headSha
+      ? ` Migración generada en ${short(headSha)} (github-actions[bot]).`
+      : "";
+  const data = { runUrl: check.runUrl, migrationSha: check.migrationSha };
+  if (check.status === "passed") {
+    await applyEvent(
+      run.id,
+      { type: "check_passed" },
+      [
+        {
+          actor: "github",
+          kind: "check_passed",
+          message: `pr-check de ${short(run.headSha)} en verde.${migration} Esperando la vista previa de ${short(headSha)}.`,
+          data,
+        },
+      ],
+      { expectedVersion, set: { headSha } },
+    );
+    return;
+  }
+  const feedback =
+    check.status === "error"
+      ? `${checkFeedback(null)}\n${check.error ?? ""}`.trim()
+      : checkFeedback(check.errors);
+  await applyEvent(
+    run.id,
+    { type: "check_failed", feedback },
+    [
+      {
+        actor: "github",
+        kind: "check_failed",
+        message: `pr-check de ${short(run.headSha)} con errores: vuelven a Develop.${migration}`,
+        data: { ...data, errors: check.errors, error: check.error },
+      },
+    ],
+    // Adopted even on errors: the next commits go on top of the migration.
+    { expectedVersion, set: { headSha } },
+  );
+}
+
 async function sweepRun(db: Db, run: typeof runs.$inferSelect) {
   const status = run.status as RunStatus;
   if (isFinal(status)) {
@@ -967,6 +1109,10 @@ async function sweepRun(db: Db, run: typeof runs.$inferSelect) {
   }
   if (status === "awaiting_preview") {
     await checkPreview(db, run, { timeout: true });
+    return;
+  }
+  if (status === "awaiting_check") {
+    await checkPrCheck(db, run, { timeout: true });
     return;
   }
   if (

@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { DEMO_REPO, PREVIEW_WORKFLOW_PATH } from "@/server/github/config";
+import {
+  DEMO_REPO,
+  PREVIEW_WORKFLOW_PATH,
+  PR_CHECK_WORKFLOW_PATH,
+} from "@/server/github/config";
 
 const repository = z.object({ full_name: z.string() });
 const timestamp = z.iso
@@ -77,6 +81,8 @@ export type Classified =
   | { kind: "pull_request"; update: PullRequestUpdate }
   | { kind: "deployment_status"; update: DeploymentUpdate }
   | { kind: "workflow_run"; run: PreviewRun }
+  /** A completed pr-check.yml run; same fields as a preview run (D33). */
+  | { kind: "pr_check"; run: PreviewRun }
   | { kind: "ignored"; reason: string };
 
 const PR_ACTIONS = new Set([
@@ -150,14 +156,29 @@ export function classifyEvent(event: string, payload: unknown): Classified {
     case "workflow_run": {
       const { action, workflow_run: run } = workflowRunEvent.parse(payload);
       // GitHub may append "@<ref>" to the path.
-      if (run.path.split("@")[0] !== PREVIEW_WORKFLOW_PATH) {
-        return ignored(`workflow ${run.path}`);
-      }
+      const path = run.path.split("@")[0];
+      const kind =
+        path === PREVIEW_WORKFLOW_PATH
+          ? "workflow_run"
+          : path === PR_CHECK_WORKFLOW_PATH
+            ? "pr_check"
+            : null;
+      if (!kind) return ignored(`workflow ${run.path}`);
       if (action !== "completed") return ignored(`workflow_run ${action}`);
       // Production deployments also start the workflow; its jobs are skipped.
       if (run.conclusion === "skipped") return ignored("workflow_run skipped");
+      if (kind === "pr_check") {
+        // The migration commit of github-actions[bot] leaves runs waiting for
+        // an approval that never comes; a cancelled run was superseded.
+        if (run.conclusion === "action_required") {
+          return ignored("pr-check action_required");
+        }
+        if (run.conclusion === "cancelled") {
+          return ignored("pr-check cancelled");
+        }
+      }
       return {
-        kind: "workflow_run",
+        kind,
         run: {
           runId: run.id,
           runAttempt: run.run_attempt,

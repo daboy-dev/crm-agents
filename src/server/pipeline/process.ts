@@ -3,6 +3,7 @@ import { getDb, type Db } from "@/server/db/client";
 import { githubEvents } from "@/server/db/schema";
 import { classifyEvent } from "./classify";
 import { applyDeployment, applyPullRequest } from "./previews";
+import { handlePrCheck } from "./checks";
 import { handlePreviewRun } from "./reports";
 import { notifyRuns } from "@/server/runs/notify";
 
@@ -17,6 +18,9 @@ async function runEvent(db: Db, event: string, payload: unknown) {
       break;
     case "workflow_run":
       await handlePreviewRun(db, classified.run);
+      break;
+    case "pr_check":
+      await handlePrCheck(db, classified.run);
       break;
     case "ignored":
       return;

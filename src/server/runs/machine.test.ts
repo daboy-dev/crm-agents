@@ -210,6 +210,13 @@ const table: Row[] = [
     effects: [],
   },
   {
+    name: "a migration commit that does not check out blocks (D31)",
+    from: run("awaiting_check"),
+    event: { type: "block", reason: "rama movida" },
+    to: "blocked",
+    effects: [],
+  },
+  {
     name: "pr-check timeout blocks",
     from: run("awaiting_check"),
     event: { type: "check_timeout" },

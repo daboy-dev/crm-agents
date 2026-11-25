@@ -392,7 +392,10 @@ export function transition(run: RunState, event: RunEvent): Transition | null {
       return AWAITING_HUMAN.includes(s) ? result(run, "cancelled") : null;
 
     case "block":
-      return isStep(s) ? blocked(run, event.reason) : null;
+      // awaiting_check too: a migration commit that does not check out (D31).
+      return isStep(s) || s === "awaiting_check"
+        ? blocked(run, event.reason)
+        : null;
 
     case "step_failed":
       return isStep(s) ? result(run, "failed") : null;
