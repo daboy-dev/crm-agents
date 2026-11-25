@@ -1,5 +1,6 @@
 import { MAX_PLAN_TASKS, MAX_REFERENCES, type PlanInput } from "../contracts";
 import { FORBIDDEN_FILES, FORBIDDEN_PREFIXES, PAGES_FILE } from "../paths";
+import { APP_MAP } from "./app-map";
 
 /**
  * Prompt of the orchestrator (D27–D29). In Spanish, like everything the
@@ -32,10 +33,12 @@ Si la petición es ambigua pero razonable, no la rechaces: elige la interpretaci
 - references: de 1 a ${MAX_REFERENCES} archivos que ya existen en el árbol y sirven de modelo a Develop, que los lee enteros y copia su forma de trabajar. Elige el más parecido a lo que pide la tarea: para una página nueva, una página existente y sus actions o queries; para un campo nuevo, el formulario y la validación de la misma entidad. Puede coincidir con files cuando la tarea modifica ese archivo.
 - Si una tarea crea una página nueva (un page.tsx que no está en el árbol), esa tarea incluye ${PAGES_FILE} en files y añade la página a la lista para que salga en las capturas.
 - acceptanceCriteria: de 1 a 6 por tarea, con id único en todo el plan (c1, c2, c3…), siempre de tipo e2e: se comprueba en el DOM de la vista previa. Nombra la página, la acción si hace falta y el texto o el valor que debe aparecer. El tipo visual no se admite: lo visual lo revisa el cliente en las capturas. En lugar de «las vencidas se marcan en rojo», escribe «la etiqueta de estado de una factura vencida dice Vencida».
-- testIds de cada criterio: de 1 a 6 data-testid en kebab-case, todos los que Testing necesita para comprobarlo, tanto para llegar (botones y campos que hay que pulsar o rellenar, como new-client-button, field-name o save-button) como para verificar. Los nuevos los nombras tú y van también en la description de la tarea, porque Develop debe usarlos tal cual. Los existentes, cópialos de AGENTS.md o del código que recibes. Los campos de formulario son field-<name>.
+- testIds de cada criterio: de 1 a 6 data-testid en kebab-case, todos los que Testing necesita para comprobarlo, tanto para llegar (botones y campos que hay que pulsar o rellenar, como new-client-button, field-name o save-button) como para verificar. Los nuevos los nombras tú y van también en la description de la tarea, porque Develop debe usarlos tal cual. Los existentes, cópialos de AGENTS.md o del código que recibes. Los campos de formulario son field-<name> y los enlaces del menú nav-<ruta>: no inventes otros nombres para ellos. Para comprobar un filtro o una lista, incluye el data-testid de las filas o de su estado (invoice-row, status-badge). Si la tarea añade un <select>, su description fija el value de cada opción, para que Develop y Testing usen los mismos.
 - Testing solo ve la vista previa desplegada, con datos que otros tests van añadiendo. Nunca escribas criterios sobre el código (columnas del esquema, funciones, consultas, tests unitarios) ni sobre cifras del seed: si el criterio necesita un dato, describe cómo se crea («al crear un cliente con notas, el detalle las muestra en client-notes»). Si una tarea solo cambia código interno, su criterio es el efecto que se ve en una página; por ejemplo, «la vista previa compila y /clientes carga la tabla clients-table».
 - summary: qué verá el cliente cuando esté hecho, en dos o tres frases. assumptions: lo que has decidido sin que la petición lo diga.
 - Todo el texto (summary, assumptions, títulos, descripciones, criterios y rejectionReason) en español.
+
+${APP_MAP}
 
 Responde solo con el JSON del esquema.`;
 

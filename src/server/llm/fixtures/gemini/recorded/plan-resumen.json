@@ -1,0 +1,47 @@
+{
+  "sdkHttpResponse": {
+    "headers": {
+      "alt-svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000",
+      "content-encoding": "gzip",
+      "content-type": "application/json; charset=UTF-8",
+      "date": "Wed, 25 Nov 2026 21:15:36 GMT",
+      "server": "scaffolding on HTTPServer2",
+      "server-timing": "gfet4t7; dur=6583",
+      "transfer-encoding": "chunked",
+      "vary": "Origin, X-Origin, Referer",
+      "x-content-type-options": "nosniff",
+      "x-frame-options": "SAMEORIGIN",
+      "x-gemini-service-tier": "standard",
+      "x-xss-protection": "0"
+    }
+  },
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "{\n  \"feasible\": true,\n  \"summary\": \"Se añade la página de resumen en /resumen con tarjetas y contadores para el número total de clientes, los presupuestos enviados y el importe pendiente de cobro de las facturas pendientes. Se incluye también en el menú de navegación lateral mediante el enlace correspondiente y se añade a la lista de páginas E2E para su captura.\",\n  \"assumptions\": [\n    \"Los presupuestos enviados corresponden al recuento de presupuestos cuyo estado es 'sent'.\",\n    \"El importe pendiente de cobro se calcula sumando el total de todas las facturas cuyo estado es 'pending'.\"\n  ],\n  \"tasks\": [\n    {\n      \"title\": \"Añadir página de resumen y consultas de métricas\",\n      \"description\": \"Crea queries.ts en src/app/(crm)/resumen/ queries con consultas para contar clientes, presupuestos enviados y sumar importes de facturas pendientes. Crea page.tsx en src/app/(crm)/resumen/ utilizando Suspense y componentes con data-testid summary-card, client-count, sent-quotes-count e pending-amount.\",\n      \"files\": [\n        \"src/app/(crm)/resumen/page.tsx\",\n        \"src/app/(crm)/resumen/queries.ts\",\n        \"e2e/pages.ts\"\n      ],\n      \"references\": [\n        \"src/app/(crm)/facturas/queries.ts\",\n        \"src/app/(crm)/clientes/page.tsx\",\n        \"src/app/(crm)/facturas/page.tsx\"\n      ],\n      \"acceptanceCriteria\": [\n        {\n          \"id\": \"c1\",\n          \"type\": \"e2e\",\n          \"text\": \"La página de resumen carga correctamente y muestra el título y las tarjetas de métricas.\",\n          \"testIds\": [\n            \"nav-resumen\",\n            \"page-title\",\n            \"summary-card\"\n          ]\n        },\n        {\n          \"id\": \"c2\",\n          \"type\": \"e2e\",\n          \"text\": \"Se muestra el recuento de clientes y presupuestos enviados en las tarjetas correspondientes.\",\n          \"testIds\": [\n            \"nav-resumen\",\n            \"client-count\",\n            \"sent-quotes-count\"\n          ]\n        },\n        {\n          \"id\": \"c3\",\n          \"type\": \"e2e\",\n          \"text\": \"Se muestra el importe pendiente de cobro en la tarjeta de pendientes.\",\n          \"testIds\": [\n            \"nav-resumen\",\n            \"pending-amount\"\n          ]\n        }\n      ]\n    }\n  ]\n}",
+            "thoughtSignature": "EpYBCpMBAWkUfRNUkoYlNOgSCi6KKGQF16lntcU2pRIhKS7iukD1Od1hR1/VWlgeUmehWRJcVWEL27wTTMjyLQbRqmlEj8ww3LA3R7N/Gzkg1SwJBh98uE5yrV7m3/wT1ZSHwWG77MmbQtnO/zH5MChiWW3zfJz3m4YGU310z3shMu+cMa6JMPEAbHhIimkD08HFY7C3Xop9"
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "modelVersion": "gemini-3.5-flash-lite",
+  "responseId": "8U8Ha_j-NJTMvdIPu7xU",
+  "usageMetadata": {
+    "promptTokenCount": 6593,
+    "candidatesTokenCount": 604,
+    "totalTokenCount": 7197,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 6593
+      }
+    ],
+    "serviceTier": "standard"
+  }
+}

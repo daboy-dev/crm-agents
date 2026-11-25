@@ -1,0 +1,37 @@
+{
+  "id": "chatcmpl-2b63acd5-cd9b-49df-a6f8-0670f4a8b55f",
+  "object": "chat.completion",
+  "created": 1795641617,
+  "model": "openai/gpt-oss-120b",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"criteria\": [\n    {\n      \"id\": \"c1\",\n      \"steps\": [\n        {\n          \"action\": \"goto\",\n          \"page\": \"clientes\"\n        },\n        {\n          \"action\": \"expectVisible\",\n          \"testId\": \"clients-table\"\n        },\n        {\n          \"action\": \"expectCount\",\n          \"testId\": \"client-row\",\n          \"min\": 1\n        }\n      ]\n    },\n    {\n      \"id\": \"c2\",\n      \"steps\": [\n        {\n          \"action\": \"goto\",\n          \"page\": \"clientes\"\n        },\n        {\n          \"action\": \"click\",\n          \"testId\": \"new-client-button\"\n        },\n        {\n          \"action\": \"fill\",\n          \"testId\": \"field-name\",\n          \"value\": \"Cliente {{stamp}}\"\n        },\n        {\n          \"action\": \"fill\",\n          \"testId\": \"field-email\",\n          \"value\": \"test-{{stamp}}@example.com\"\n        },\n        {\n          \"action\": \"fill\",\n          \"testId\": \"field-notes\",\n          \"value\": \"Nota interna {{stamp}}\"\n        },\n        {\n          \"action\": \"click\",\n          \"testId\": \"save-button\"\n        },\n        {\n          \"action\": \"expectVisible\",\n          \"testId\": \"client-detail\"\n        },\n        {\n          \"action\": \"expectText\",\n          \"testId\": \"client-notes\",\n          \"text\": \"Nota interna {{stamp}}\"\n        }\n      ]\n    },\n    {\n      \"id\": \"c3\",\n      \"steps\": [\n        {\n          \"action\": \"goto\",\n          \"page\": \"clientes\"\n        },\n        {\n          \"action\": \"click\",\n          \"testId\": \"new-client-button\"\n        },\n        {\n          \"action\": \"fill\",\n          \"testId\": \"field-name\",\n          \"value\": \"Cliente {{stamp}}\"\n        },\n        {\n          \"action\": \"fill\",\n          \"testId\": \"field-email\",\n          \"value\": \"test-{{stamp}}@example.com\"\n        },\n        {\n          \"action\": \"fill\",\n          \"testId\": \"field-notes\",\n          \"value\": \"Notas de prueba {{stamp}}\"\n        },\n        {\n          \"action\": \"click\",\n          \"testId\": \"save-button\"\n        },\n        {\n          \"action\": \"expectVisible\",\n          \"testId\": \"client-detail\"\n        },\n        {\n          \"action\": \"expectVisible\",\n          \"testId\": \"client-notes\"\n        },\n        {\n          \"action\": \"expectText\",\n          \"testId\": \"client-notes\",\n          \"text\": \"Notas de prueba {{stamp}}\"\n        },\n        {\n          \"action\": \"expectVisible\",\n          \"testId\": \"edit-client-button\"\n        }\n      ]\n    }\n  ]\n}",
+        "reasoning": "We need JSON criteria. Provide three objects. Include steps for desktop and mobile? Actually need steps for both viewports but same steps; they run in both. Provide steps list.\n\nc1: verify table shows notes? just check record returned; we can check client-row visible count maybe. Use goto clientes page, expectVisible clients-table, expectCount client-row min 1. That's enough.\n\nc2: create client with notes. Steps: goto clientes, click new-client-button, fill field-name, field-email, field-notes with \"Nota {{stamp}}\", click save-button, expectVisible client-detail, expectText client-notes with \"Nota {{stamp}}\". Also expectURL maybe not needed.\n\nc3: check detail shows notes section. Steps: goto client-detail page via page cliente-detalle? We need to open an existing client. Could create one first then check. Simpler: reuse same flow as c2? But independent. Create client then check notes visible. Already covered. For c3 maybe just go to existing client and expect client-notes visible. We'll create client then go to detail and expectVisible client-notes.\n\nProvide JSON."
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "queue_time": 0.288108043,
+    "prompt_tokens": 3241,
+    "prompt_time": 0.25281929,
+    "completion_tokens": 844,
+    "completion_time": 1.755760666,
+    "total_tokens": 4085,
+    "total_time": 2.008579956,
+    "completion_tokens_details": {
+      "reasoning_tokens": 235
+    }
+  },
+  "usage_breakdown": null,
+  "system_fingerprint": "fp_a655021f7d",
+  "x_groq": {
+    "id": "req_01m8a998ryeysa0n5dmwa2a6vp",
+    "seed": 1060243596
+  },
+  "service_tier": "on_demand"
+}

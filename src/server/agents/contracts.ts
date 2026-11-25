@@ -666,6 +666,7 @@ function refineSteps(
   const issue = (message: string, path: (string | number)[]) =>
     ctx.addIssue({ code: "custom", message, path });
   const byId = new Map(scope?.criteria.map((c) => [c.id, c]));
+  const planIds = new Set(scope?.criteria.flatMap((c) => c.testIds));
   const seen = new Set<string>();
   out.criteria.forEach((c, i) => {
     if (seen.has(c.id))
@@ -702,15 +703,22 @@ function refineSteps(
         }
         return;
       }
+      if (step.action === "expectCount" && step.min === 0) {
+        issue(
+          "expectCount con min 0 siempre se cumple: usa count, un min mayor o expectText con all",
+          path,
+        );
+      }
       if (
         step.action === "expectCount" &&
         (step.count === undefined) === (step.min === undefined)
       ) {
         issue("expectCount lleva count o min, uno de los dos", path);
       }
-      if (criterion && !criterion.testIds.includes(step.testId)) {
+      // D38: the data-testid of the plan, the only ones Develop must write.
+      if (scope && !planIds.has(step.testId)) {
         issue(
-          `${step.testId} no está entre los data-testid del criterio ${c.id}: usa solo ${criterion.testIds.join(", ")}`,
+          `${step.testId} no está entre los data-testid del plan: usa solo ${[...planIds].join(", ")}`,
           [...path, "testId"],
         );
       }

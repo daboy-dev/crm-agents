@@ -29,7 +29,7 @@ const valid: CriteriaSteps = {
       steps: [
         { action: "goto", page: "facturas" },
         { action: "select", testId: "invoice-status-filter", value: "paid" },
-        { action: "expectCount", testId: "invoice-row", min: 0 },
+        { action: "expectCount", testId: "invoice-row", min: 1 },
       ],
     },
     {
@@ -76,12 +76,14 @@ describe("steps of the criteria runner (D38)", () => {
     expect(messages(withStep(step)).length).toBeGreaterThan(0);
   });
 
-  it("only takes the data-testid of its own criterion", () => {
+  it("only takes the data-testid of the plan (D38)", () => {
+    // From another criterion: Develop writes it all the same.
     expect(
       messages(withStep({ action: "click", testId: "save-button" })),
-    ).toEqual([
-      "save-button no está entre los data-testid del criterio c1: usa solo invoice-status-filter, invoice-row",
-    ]);
+    ).toEqual([]);
+    expect(
+      messages(withStep({ action: "click", testId: "delete-button" }))[0],
+    ).toContain("delete-button no está entre los data-testid del plan");
   });
 
   it("needs every criterion once, a goto first and some expect", () => {
@@ -118,6 +120,13 @@ describe("steps of the criteria runner (D38)", () => {
     expect(
       messages(withStep({ action: "expectCount", testId: "invoice-row" })),
     ).toEqual(["expectCount lleva count o min, uno de los dos"]);
+    expect(
+      messages(
+        withStep({ action: "expectCount", testId: "invoice-row", min: 0 }),
+      ),
+    ).toEqual([
+      "expectCount con min 0 siempre se cumple: usa count, un min mayor o expectText con all",
+    ]);
   });
 });
 

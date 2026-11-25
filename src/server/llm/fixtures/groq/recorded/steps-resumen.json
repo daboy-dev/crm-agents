@@ -1,0 +1,37 @@
+{
+  "id": "chatcmpl-0edc3b9c-903c-4f6d-b71a-ed83a509df45",
+  "object": "chat.completion",
+  "created": 1795641350,
+  "model": "openai/gpt-oss-120b",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"criteria\": [\n    {\n      \"id\": \"c1\",\n      \"steps\": [\n        {\n          \"action\": \"goto\",\n          \"path\": \"/resumen\"\n        },\n        {\n          \"action\": \"expectVisible\",\n          \"testId\": \"page-title\"\n        },\n        {\n          \"action\": \"expectVisible\",\n          \"testId\": \"summary-card\"\n        }\n      ]\n    },\n    {\n      \"id\": \"c2\",\n      \"steps\": [\n        {\n          \"action\": \"goto\",\n          \"path\": \"/resumen\"\n        },\n        {\n          \"action\": \"expectVisible\",\n          \"testId\": \"client-count\"\n        },\n        {\n          \"action\": \"expectVisible\",\n          \"testId\": \"sent-quotes-count\"\n        }\n      ]\n    },\n    {\n      \"id\": \"c3\",\n      \"steps\": [\n        {\n          \"action\": \"goto\",\n          \"path\": \"/resumen\"\n        },\n        {\n          \"action\": \"expectVisible\",\n          \"testId\": \"pending-amount\"\n        }\n      ]\n    }\n  ]\n}",
+        "reasoning": "We need output JSON array criteria. Provide steps for each c1,c2,c3. Start from base (logged in). So first step goto path \"/resumen\"? page not listed; use path. Then expectVisible page-title, expectVisible summary-card maybe count. For c2 also expectText client-count and sent-quotes-count with some number (but not specific). Use expectText with any text? Could use expectVisible only. But criteria says show count, so check expectVisible on those cards. maybe expectText with regex? Use generic placeholder \"{{stamp}}\" not needed. Just check visible.\n\nc3 expectVisible pending-amount.\n\nProvide steps arrays.\n\nLet's craft."
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "queue_time": 0.093222817,
+    "prompt_tokens": 3014,
+    "prompt_time": 0.140530406,
+    "completion_tokens": 380,
+    "completion_time": 0.828232475,
+    "total_tokens": 3394,
+    "total_time": 0.968762881,
+    "completion_tokens_details": {
+      "reasoning_tokens": 137
+    }
+  },
+  "usage_breakdown": null,
+  "system_fingerprint": "fp_267e812a3a",
+  "x_groq": {
+    "id": "req_01m8a9157ke388cw9jmh8ta8gn",
+    "seed": 992728339
+  },
+  "service_tier": "on_demand"
+}

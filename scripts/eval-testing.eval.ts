@@ -31,8 +31,10 @@ import { pageNames } from "@/server/runs/criteria";
  * orchestrator plans each one with the criteria's data-testid, and Testing
  * writes the steps of its criteria with its own chain (D40). Everything is
  * validated with Zod and saved in docs/evals/; the raw answers go to the
- * fixtures for Vitest. Spends quota: run it by hand. Saved plans are reused
- * (EVAL_FORCE=1 plans again).
+ * fixtures for Vitest. Spends quota: run it by hand. Saved plans and steps
+ * are reused (EVAL_FORCE=1 asks for them again).
+ *
+ * EVAL_ONLY=notas-cliente repeats one request and leaves the README alone.
  *
  * Testing with another chain, on the same plans:
  * LLM_CHAIN_TESTING=groq:openai/gpt-oss-120b EVAL_TAG=groq pnpm eval:testing
@@ -217,7 +219,10 @@ describe("eval:testing (D38, D40)", () => {
 
     const results: Result[] = [];
     let requests = 0;
-    for (const [i, { slug, request }] of REQUESTS.entries()) {
+    // EVAL_ONLY=slug1,slug2 repeats some requests; the README needs all four.
+    const only = process.env.EVAL_ONLY?.split(",");
+    const selected = REQUESTS.filter((r) => !only || only.includes(r.slug));
+    for (const [i, { slug, request }] of selected.entries()) {
       if (i > 0) await sleep(PAUSE_MS);
       const planFile = `docs/evals/plan-h6-${slug}.json`;
       let plan: Plan;
@@ -278,6 +283,23 @@ describe("eval:testing (D38, D40)", () => {
         pages,
         examples,
       };
+      const stepsFile = `docs/evals/steps-${tag}${slug}.json`;
+      if (existsSync(stepsFile) && !process.env.EVAL_FORCE && !only) {
+        const saved = JSON.parse(readFileSync(stepsFile, "utf8")) as {
+          steps: CriteriaSteps;
+          calls: CallMeta[];
+        };
+        results.push({
+          slug,
+          request,
+          plan,
+          planCalls,
+          steps: saved.steps,
+          stepsCalls: saved.calls,
+        });
+        console.log(`${slug}: pasos guardados, se reutilizan`);
+        continue;
+      }
       stepsRaw.length = 0;
       const { output: steps, calls: stepsCalls } = await withRetry(slug, () =>
         runTestingSteps(testing, input),
@@ -301,7 +323,7 @@ describe("eval:testing (D38, D40)", () => {
       );
     }
 
-    if (!tag) {
+    if (!tag && !only) {
       writeFileSync(
         "docs/evals/TESTING.md",
         markdown(baseSha, results, new Date().toISOString().slice(0, 10)),
