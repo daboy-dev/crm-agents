@@ -20,7 +20,7 @@ Cómo se ha construido este proyecto, sesión a sesión.
 | H2 · Tubería sin IA | Un PR de prueba en `crm-demo` aparece en `/pipeline` (con login) con su vista previa, el resultado de los tests y las capturas a 1280 px y 390 px; un test roto a propósito aparece como fallo; reenviar un webhook no duplica nada | Hecho |
 | H3 · Motor de runs | Un run completo con `MockProvider` | Hecho |
 | H4 · Orquestador | Plan con criterios de aceptación que el cliente aprueba o rechaza | Hecho |
-| H5 · Develop | PR real que compila en su vista previa | Pendiente |
+| H5 · Develop | PR real que compila en su vista previa | Hecho |
 | H6 · Testing | Un fallo provocado vuelve a Develop y se corrige o se bloquea | Pendiente |
 | H7 · Panel completo | Run real de principio a fin en móvil y escritorio | Pendiente |
 | H8 · Entrega | README, documentación, transcripciones saneadas y respuestas | Pendiente |
@@ -284,6 +284,12 @@ Cómo se ha construido este proyecto, sesión a sesión.
 4. Repetir un paso no vuelve a llamar a Gemini, y las llamadas cuentan en `LLM_CALLS_PER_RUN`.
 5. Modelo, tokens y latencia de cada llamada visibles en la línea de tiempo.
 
+- **Anthropic como respaldo de pago (D37):** para no parar H5 hasta el día siguiente, el humano propuso usar sus créditos de Anthropic con la interfaz común.
+  - Claude añadió `AnthropicClient`, que va detrás de Gemini en las tres cadenas ([crm-agents#3](https://github.com/daboy-dev/crm-agents/pull/3)).
+  - Claude propuso Opus; el humano eligió Sonnet, porque basta con mostrar cómo se trabaja.
+  - En el run #17 respondió las 4 llamadas reales: plan, división y las dos de Develop. La llamada grande de Develop costó unos 5 céntimos.
+- **Push de prueba a `master`:** se hizo con commits vacíos creados con `git commit-tree`, para que un fallo del ruleset no dejara nada en `master`. Ninguno quedó en una rama.
+
 **Hecho por el humano:** clave de Gemini en un proyecto de Google sin facturación y `GEMINI_API_KEY` en Vercel.
 
 **Siguiente paso:** sesión 09 de Claude Code (H4), en `crm-agents`.
@@ -376,8 +382,6 @@ Cómo se ha construido este proyecto, sesión a sesión.
 **Siguiente paso:** sesión 11 de Claude Code (H5), en `crm-demo` (`pr-check.yml`, `AGENTS.md`) y `crm-agents`.
 ## Sesión 11 · H5 · Develop con `GeminiProvider` (Claude Code) · 25/11/2026
 
-> **En curso.** Faltan los criterios 3, 4 y parte del 5 en producción: el 25/11 Gemini dejó a Develop sin modelos (ver abajo).
-
 **Objetivo:** Develop escribe código real con Gemini (D31–D36): un PR que compila en su vista previa, con la migración generada por `pr-check` cuando cambia el esquema.
 
 **Cómo fue:**
@@ -400,12 +404,20 @@ Cómo se ha construido este proyecto, sesión a sesión.
 3. **Error de tipos:**
    - En el run #15 el bucle funcionó: `pr-check` devolvió `TS2322` y Develop recibió el error en la iteración 2.
    - La iteración 2 no llegó a hacerse porque Gemini respondió 503 en todos los modelos y el run acabó en `failed` (se corrigió, ver abajo).
-   - El run #16 quedó bloqueado por saturación antes de la iteración 1. ⏳
-4. **MAX_TOKENS:** pendiente. ⏳
+   - El run #16 se bloqueó por saturación antes de la iteración 1 y se reintentó con Anthropic en la cadena (D37).
+     - La iteración 1 la escribió Flash-Lite, que volvió a responder. `pr-check` devolvió el error simulado (`TS2322`) y otro real de Flash-Lite, un import vacío (`TS2307`).
+     - La iteración 2 la hizo `claude-sonnet-5-5`: corrigió los dos errores y pasó el buscador a un componente cliente.
+     - `pr-check` en verde y 26/26 E2E, sin esperar al build de Vercel para el error ([crm-demo#15](https://github.com/daboy-dev/crm-demo/pull/15), fusionado). ✅
+4. **MAX_TOKENS** (run #17, facturas vencidas, [crm-demo#16](https://github.com/daboy-dev/crm-demo/pull/16)):
+   - La primera llamada de Develop simuló el corte.
+   - El Orquestador dividió la tarea en 2 subtareas con los mismos criterios (revisión 2), sin pasar por el humano: `isOverdue` en `src/lib/dates.ts` y la página de facturas.
+   - El run siguió solo hasta 26/26 E2E y el merge. ✅
 5. **Seguridad y repetición:**
    - Un push directo a `master` falla por el ruleset, tanto por SSH con la cuenta del humano como por la API con el `GH_TOKEN` del panel: «Changes must be made through a pull request» (422). ✅
    - La reparación ante una salida que sobrescribe un archivo no visto está cubierta en Vitest. ✅
-   - Falta la caída simulada tras la llamada de Develop. ⏳
+   - **Caída tras el commit** (run #17, en el mismo run que el criterio 4): el sweep reanudó el paso al caducar el lease.
+     - Las salidas de Develop salieron de `agent_steps` (`cached: true`) y `llm_calls` no subió.
+     - El PR tiene exactamente los 2 commits. ✅
 6. **Groq:** plan válido con la cadena forzada a Groq (`eval:plan`). Los tests con respuestas grabadas cubren el salto de un eslabón donde la petición no cabe y los 429. ✅
 
 **Qué salió mal y qué se corrigió:**
@@ -429,3 +441,8 @@ Cómo se ha construido este proyecto, sesión a sesión.
 - `GROQ_API_KEY` en `.env.local` y en Vercel, y `LLM_PROVIDER_DEVELOP=gemini` en producción.
 - Login en el panel, aprobación de planes y aprobaciones finales.
 - Merges de los PRs de `crm-agents` y de `crm-demo#10`.
+- Clave de Anthropic en `.env.local` y en Vercel.
+
+**Resultado:** H5 hecho. Los 6 criterios comprobados en producción. Transcripción en [`sesiones/11-h5-develop.md`](./sesiones/11-h5-develop.md).
+
+**Siguiente paso:** H6 · Testing con un modelo real.

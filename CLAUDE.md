@@ -66,4 +66,5 @@ Ver `.env.example`. En Vercel y en `.env.local` (`vercel env pull`): `DATABASE_U
 - H2 hecho (24/11/2026): cada vista previa de `crm-demo` pasa Playwright en Actions; el panel recibe `workflow_run`, descarga el artifact `e2e-results` y muestra tests y capturas en `/pipeline` tras el login.
 - H3 hecho (24/11/2026): runs con `MockProvider` sobre GitHub real (rama `run/<id>`, un commit por tarea, PR, vista previa, E2E y merge), con cola, lease, sweep y los 6 criterios comprobados en producción.
 - H4 hecho (24/11/2026): el Orquestador planifica con Gemini (contexto de `crm-demo`, plan de D28, replanificación de D29 y rechazo fuera de alcance). Develop y Testing siguen con el mock. Los 5 criterios están comprobados en producción.
-- Siguiente: H5 · Develop con `GeminiProvider`.
+- H5 hecho (25/11/2026): Develop escribe código real con la cadena Gemini → Anthropic (D37). `pr-check` genera la migración y devuelve los errores de tipos y lint; las tareas demasiado grandes se dividen. Los 6 criterios están comprobados en producción.
+- Siguiente: H6 · Testing con un modelo real.
