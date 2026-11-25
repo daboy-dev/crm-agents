@@ -156,6 +156,14 @@ Registro de decisiones de arquitectura (formato ADR corto). Se toman en el Proje
 
 **Consecuencias:** los evaluadores tienen peticiones de demo preparadas con resultados visibles en la vista previa.
 
+**Extra (25/11/2026, sesión 12):** las cuatro peticiones de D14 ya están fusionadas en `master` desde H5. Para H6 y H7, el humano pidió a Claude una lista nueva, con funciones fáciles de comprobar en el DOM y que cubran los casos del motor:
+- **Filtro de facturas por estado:** un desplegable en `/facturas` que filtra la lista. Es interacción sin cambio de esquema.
+- **Notas internas del cliente:** un campo de texto en el formulario que se ve en el detalle. Cambia el esquema, así que hay commit de migración.
+- **Duplicar un presupuesto:** un botón en el detalle que crea un borrador con las mismas líneas. Es interacción con escritura.
+- **Página de resumen:** una página nueva, `/resumen`, con el número de clientes, los presupuestos enviados y el importe pendiente de cobro. Es una página nueva en `e2e/pages.ts`.
+
+Los pasos de Testing (D38) no deben depender de cifras exactas del seed: las vistas previas acumulan los datos que crean `write-flow.spec.ts` y los propios pasos. Una cifra solo se comprueba si se ha creado en el mismo test.
+
 ## D15 · Actions arranca con el `deployment_status` de Vercel
 **Fecha:** 24/11/2026 · **Estado:** aceptada
 
@@ -604,3 +612,58 @@ Todo se lee en la **cabeza de `run/<id>`**, no en `base_sha`, para que una tarea
 - Coste: la llamada de Develop del run #16 (12.670 tokens de entrada y 2.105 de salida, 12 s) cuesta unos 5 céntimos. Un run completo, menos de 0,50 $.
 - Con Gemini caído, los runs siguen sin esperar al día siguiente. La línea de tiempo marca las llamadas de Claude como respaldo de pago.
 - Al ser un servicio de pago, ese eslabón no tiene el problema de términos de la capa gratuita de Gemini (extra de D26).
+
+## D38 · Testing comprueba los criterios `e2e` con pasos declarativos y un ejecutor fijo
+**Fecha:** 25/11/2026 · **Estado:** aceptada
+
+**Contexto:** `preview-e2e.yml` solo ejecuta los tests que ya existen y hace capturas. Los criterios `e2e` de cada plan describen comportamiento nuevo (el buscador filtra, un NIF inválido muestra un error), y muchos piden interactuar con la página. Hay que comprobarlos en la vista previa sin ejecutar código escrito por un LLM en un workflow que tiene a su alcance los secrets de `crm-demo` (D16).
+
+**Opciones:**
+- A. Instantánea del DOM (HTML o `ariaSnapshot`) de las páginas de `pages.ts`, que Testing lee junto con las capturas. Es barata, pero solo ve las páginas en reposo, y las interacciones quedan sin comprobar.
+- B. Testing escribe specs de Playwright que ejecuta Actions. Cubre cualquier interacción, pero ejecuta código de un LLM en un workflow con secrets, un test mal escrito gasta iteraciones de Develop, y en un commit aparte cuesta un build más.
+- C. Testing traduce cada criterio `e2e` a pasos en un JSON cerrado, y un spec fijo de `crm-demo` los ejecuta.
+
+**Decisión:** C (propuesta de Claude, elegida por el humano).
+- **Pasos:** `goto` (una página de `pages.ts` o una ruta relativa), `fill`, `click`, `expectVisible`, `expectText` y `expectCount`, siempre por `data-testid` y con `byTestId()`. Contrato Zod, sin selectores CSS, sin JavaScript y sin URLs absolutas.
+- **Ejecutor:** `e2e/criteria.spec.ts` en `crm-demo`, escrito a mano y protegido como los helpers (`paths.ts` y `AGENTS.md`). Lee `e2e/criteria/*.json` y crea un test por criterio, con su id en el título, en escritorio y a 390 px. Sus resultados salen en el mismo `results.json` (D16).
+- **Dónde va el JSON:** `e2e/criteria/run-<id>.json`. Lo escribe el panel en la misma cadena de commits que las tareas (D20), así que no hay build extra. Develop no puede escribir en `e2e/criteria/**`.
+- **Quién lo escribe: Testing**, el único agente que testea. Hace una llamada por revisión del plan, justo después de aprobarla, y la salida se guarda en `agent_steps` y vale para todas las iteraciones. Una revisión `amend` (D29) solo añade los pasos de sus criterios nuevos. Una división (D34) no cambia los criterios, así que reutiliza los pasos. El Orquestador define qué se pide y Testing cómo se comprueba.
+- **Los `data-testid` se fijan en el plan:** cada criterio `e2e` lleva los `data-testid` que va a necesitar (extra de D28). Develop tiene que usarlos: el `superRefine` de su salida comprueba que aparecen en los archivos que devuelve, y si falta alguno va a la llamada de reparación. Testing solo usa en sus pasos los `data-testid` del plan.
+- **Prueba del fallo:** si un paso falla, el ejecutor guarda en el artifact el `ariaSnapshot` de la página. Testing lo usa para explicar a Develop qué falta.
+- **Datos:** los pasos pueden crear datos. El ejecutor solo corre contra vistas previas, con la misma regla de host que `write-flow.spec.ts`, así que escribe en la rama de Neon de la vista previa.
+- **Criterios `visual`:** Testing los sigue evaluando con las capturas y un modelo que ve imágenes.
+
+**Consecuencias:**
+- Las interacciones se comprueban sin ejecutar código generado.
+- Develop no se corrige a sí mismo: los pasos salen de los criterios aprobados y no de su código (D34).
+- Al fusionar, los JSON se quedan en `master` como pruebas de regresión. Un run posterior que rompa un criterio antiguo falla igual que un E2E de los que ya existían.
+- En H6 hay que escribir el ejecutor y el contrato de los pasos, y actualizar `AGENTS.md`, `paths.ts` y el prompt del Orquestador.
+
+## D39 · Veredicto de Testing y solo criterios `e2e` por ahora
+**Fecha:** 25/11/2026 · **Estado:** aceptada
+
+**Contexto:** con D38, los criterios `e2e` se comprueban de forma determinista en la vista previa. Falta decidir qué devuelve Testing, cuándo hace falta llamar al LLM y qué le llega a Develop cuando algo falla.
+
+**Decisión** (propuesta de Claude, aprobada por el humano):
+- **Solo criterios `e2e` por ahora.** El tipo `visual` sigue en el contrato del plan para más adelante, pero el `superRefine` lo rechaza y va a la llamada de reparación. El prompt del Orquestador pide que cada criterio se pueda comprobar en el DOM. Por ejemplo, «las vencidas se marcan en rojo» pasa a ser «la etiqueta de estado dice Vencida». Lo visual (el diseño, cómo se ve a 390 px) lo revisa el humano con las capturas en la aprobación final (D9).
+- **El veredicto de cada criterio lo da el ejecutor, no el LLM.** Sale de `results.json` tal cual. Testing no puede dar por bueno un criterio cuyo test ha fallado, ni al revés.
+- **Salida de Testing por criterio:** `{ id, task, verdict: pass | fail, reason, evidence }`. `reason` va en español y `evidence` lleva el paso que falló. El valor `needs_human` queda para cuando vuelvan los criterios `visual`.
+- **Regresiones:** si falla un E2E de los que ya existían o el JSON de un run anterior (D38), Testing lo asigna a una tarea de esta revisión según los archivos que tocó, y esa tarea vuelve a Develop.
+- **Llamadas al LLM:** una por revisión del plan, para escribir los pasos (D38), y otra en cada iteración con algún fallo, para explicarlo y asignar las regresiones. Si todo pasa, no hay llamada.
+- **Qué recibe Develop en la iteración siguiente:** los criterios que fallaron, con su `reason`, el paso que falló y el fragmento del `ariaSnapshot`. Nunca la lista completa de pasos, para que programe para cumplir el criterio y no para pasar el test.
+
+**Consecuencias:**
+- Testing no necesita ver imágenes, así que Groq vuelve a valer para su cadena si la petición cabe en 8.000 tokens por minuto (extra de D36).
+- Un run en el que todo pasa a la primera gasta una sola llamada de Testing.
+- Las capturas siguen haciéndose y llegando al panel, pero para el humano, no para Testing.
+
+## D40 · Cadena, simulaciones y límites de Testing
+**Fecha:** 25/11/2026 · **Estado:** aceptada
+
+**Decisión** (propuesta de Claude, aprobada por el humano):
+- **Cadena de Testing:** `gemini:gemini-3.8-flash`, `gemini:gemini-3.6-flash`, `groq:openai/gpt-oss-120b` y `anthropic:claude-sonnet-5-5`, en ese orden. Groq va antes que Anthropic porque es gratis y las peticiones de Testing son pequeñas (D39). Si alguna no cabe en sus 8.000 tokens por minuto, la cadena lo salta (D36).
+- **Ajustes:** timeout de 60 s y razonamiento bajo, como el Orquestador. Como mucho unos 2 KB de `ariaSnapshot` por cada fallo.
+- **Simulaciones en el formulario**, como «Simular error de tipos»: el panel rompe la salida de Develop, porque esperar a que el LLM se equivoque no se puede reproducir.
+  - «Simular fallo de criterio»: en la iteración 1, el panel quita de la salida de Develop uno de los `data-testid` del plan, después del `superRefine` y antes del commit. El criterio falla y en la iteración 2 Develop debe corregirlo.
+  - «Simular fallo persistente»: lo mismo en todas las iteraciones. A la tercera, la tarea pasa a `blocked` y decide el humano (D5).
+- **`LLM_CALLS_PER_RUN` sube de 12 a 16** (D26 y D35). Un run de 2 tareas con un fallo gasta unas 6 llamadas, y el peor caso con 3 iteraciones fallidas en las dos tareas llega a unas 10, sin contar reparaciones ni divisiones.

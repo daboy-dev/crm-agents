@@ -446,3 +446,39 @@ Cómo se ha construido este proyecto, sesión a sesión.
 **Resultado:** H5 hecho. Los 6 criterios comprobados en producción. Transcripción en [`sesiones/11-h5-develop.md`](./sesiones/11-h5-develop.md).
 
 **Siguiente paso:** H6 · Testing con un modelo real.
+
+## Sesión 12 · Planificación de H6 (Project de Claude) · 25/11/2026
+
+**Objetivo:** decidir cómo trabaja Testing con un modelo real antes de abrir Claude Code.
+
+**Cómo fue:**
+- Se actualizaron en el Project las copias de `CLAUDE.md`, `PROCESO.md` y `DECISIONES.md` con las del repo tras H5.
+- Se trató primero cómo se comprueban los criterios `e2e` nuevos. Hasta ahora Actions solo ejecutaba los tests que ya existían y hacía capturas, así que nada comprobaba lo que pedía cada plan.
+
+**Qué cambió por el camino:**
+- Claude planteó tres opciones: una instantánea del DOM que lee Testing, specs de Playwright escritos por Testing, o pasos declarativos que ejecuta un spec fijo de `crm-demo`. Recomendó la tercera, porque es la única que comprueba interacciones sin ejecutar código de un LLM. El humano la eligió (D38).
+- Sobre quién escribe los pasos, Claude planteó que lo hiciera Testing en una llamada por revisión del plan, o el Orquestador dentro del plan. El humano eligió Testing: es el único agente que testea.
+
+- **Veredicto:** Claude propuso que los criterios `e2e` los decida el ejecutor y no el LLM, que los `visual` los decida el LLM con las capturas, y que haya un `needs_human` para lo que no se ve. El humano lo aceptó, pero dejó solo criterios `e2e` por ahora: lo visual lo revisa él en la aprobación final. Testing solo llama al LLM para escribir los pasos y para explicar los fallos, y Develop no ve la lista de pasos (D39).
+
+- **Cadena y límites:** como Testing ya no ve imágenes, Groq vuelve a valer para su cadena y va antes que Anthropic. El fallo provocado se simula desde el panel, como el error de tipos de H5, y `LLM_CALLS_PER_RUN` sube a 16 (D40).
+- **Peticiones de demo agotadas:** las cuatro de D14 (NIF, buscador, facturas vencidas y contacto) ya están fusionadas en `master` desde H5. Hacen falta peticiones nuevas para H6 y H7.
+
+**Resultado:** D38–D40 aceptadas. El Whiteboard del plan, que se había quedado en H4, se actualizó desde un chat abierto en su propia página, porque desde el Project no se puede editar.
+
+**Criterio de H6:**
+- **Antes de producción, `pnpm eval:testing`** (a mano y gasta cuota): se repite `pnpm eval:plan` con las peticiones nuevas, porque los criterios ahora llevan sus `data-testid`, y Testing escribe los pasos de cada plan. Todo valida con Zod y se guarda en `docs/evals/`. Una ejecución con la cadena forzada a `groq:` también da pasos válidos.
+- **En producción:**
+  1. **Run sin fallos:** el plan lleva los `data-testid` de cada criterio, Testing escribe los pasos en una sola llamada, `e2e/criteria/run-<id>.json` entra en la cadena de commits sin un build extra, `results.json` trae un test por criterio en escritorio y a 390 px, y no hay ninguna llamada más de Testing. Tras el merge, el JSON queda en `master`.
+  2. **Fallo corregido:** con «Simular fallo de criterio», el criterio falla en la iteración 1, Testing explica el fallo con el paso y el `ariaSnapshot`, y Develop lo corrige en la iteración 2 sin ver la lista de pasos.
+  3. **Fallo que se bloquea:** con «Simular fallo persistente», la tarea pasa a `blocked` tras 3 iteraciones y el humano decide.
+  4. **Regresión:** en el run siguiente, el JSON del criterio 1 se ejecuta también y sale en `results.json`.
+  5. **Seguridad:** se rechaza una salida de Develop que escribe en `e2e/criteria/**` o en `e2e/criteria.spec.ts`, y también un plan con un criterio `visual` (Vitest con respuestas grabadas). Los pasos no admiten selectores CSS ni URLs absolutas (Vitest).
+  6. **Repetición:** con una caída simulada tras escribir los pasos, el paso se reanuda sin volver a llamar a Testing, y las llamadas cuentan contra el tope de 16.
+
+**Pendiente del humano:**
+- Peticiones de demo nuevas: las propuso Claude a petición del humano (extra de D14). En H6: el filtro de facturas para el criterio 1 (y el 4 en el run siguiente), las notas del cliente para el criterio 2 y duplicar un presupuesto para el criterio 3. La página de resumen queda para el run completo de H7.
+- `LLM_PROVIDER_TESTING=gemini` y `LLM_CALLS_PER_RUN=16` en Vercel cuando el código esté listo.
+- En el repo: pasar los apartados de D37 y del push de prueba de la sesión 08 a la sesión 11, añadir a D10 un extra que remita a D37, actualizar la línea de LLM del Stack en `CLAUDE.md` y comprobar que `RUNS_PER_DAY` ha vuelto a 5.
+
+**Siguiente paso:** sesión 13 de Claude Code (H6), en `crm-demo` (ejecutor, `AGENTS.md` y rutas protegidas) y `crm-agents`.
