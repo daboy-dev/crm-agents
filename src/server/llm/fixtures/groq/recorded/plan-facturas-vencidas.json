@@ -1,0 +1,37 @@
+{
+  "id": "chatcmpl-21661972-0f04-43d6-a4bc-8bc5d65e01f9",
+  "object": "chat.completion",
+  "created": 1795595162,
+  "model": "openai/gpt-oss-120b",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"feasible\": true,\n  \"summary\": \"Se resaltarán visualmente en la lista de facturas aquellas cuyo estado sigue siendo \\\"pending\\\" y cuya fecha de vencimiento ya ha pasado. Cada fila mostrará un badge rojo con la etiqueta \\\"Vencida\\\" y el test‑suite verificará que el badge aparece correctamente tanto en el DOM como en las capturas de pantalla.\",\n  \"assumptions\": [\n    \"Se usará el badge existente `StatusBadge` añadiendo el estado \\\"overdue\\\".\",\n    \"La lógica de vencimiento se basa en la fecha `dueAt` comparada con la fecha actual del servidor (se usará `new Date()` en el componente).\",\n    \"No se necesita modificar la base de datos ni agregar columnas nuevas.\",\n    \"El estilo rojo para el badge ya está definido en Tailwind mediante la clase `bg-red-500` del componente `StatusBadge`.\"\n  ],\n  \"tasks\": [\n    {\n      \"title\": \"Añadir resaltado de facturas vencidas en la lista\",\n      \"description\": \"Modifica `src/app/(crm)/facturas/page.tsx` para que, al renderizar cada fila de la tabla, se calcule si la factura está vencida (status === 'pending' && dueAt < hoy). Si es así, muestra un `<StatusBadge data-status=\\\"overdue\\\">Vencida</StatusBadge>` dentro de la columna de estado. Mantén los `data-testid` existentes (`invoices-table`, `invoice-row`) y añade `data-status=\\\"overdue\\\"` al badge para que los tests lo identifiquen. Usa `formatDate` para mostrar la fecha y `new Date()` para la comparación. No cambies otras páginas ni la lógica de consultas.\",\n      \"files\": [\n        \"src/app/(crm)/facturas/page.tsx\"\n      ],\n      \"acceptanceCriteria\": [\n        {\n          \"id\": \"c1\",\n          \"type\": \"e2e\",\n          \"text\": \"En la página /facturas, una fila cuya factura está vencida muestra un elemento con data-testid=\\\"status-badge\\\" y data-status=\\\"overdue\\\" cuyo texto sea \\\"Vencida\\\".\"\n        },\n        {\n          \"id\": \"c2\",\n          \"type\": \"visual\",\n          \"text\": \"En la captura de pantalla 1280px de la página facturas, el badge rojo \\\"Vencida\\\" es visible en la fila correspondiente.\"\n        },\n        {\n          \"id\": \"c3\",\n          \"type\": \"visual\",\n          \"text\": \"En la captura de pantalla 390px de la página facturas, el badge rojo \\\"Vencida\\\" sigue visible y no rompe el layout.\"\n        }\n      ]\n    }\n  ]\n}",
+        "reasoning": "We need plan. Feasible true. Need highlight overdue invoices in list page. Likely add class conditional based on dueAt < today and status pending. Modify invoices page component. Add data-testid maybe \"overdue-badge\". Also visual test.\n\nTasks: 1 modify src/app/(crm)/facturas/page.tsx to add badge. 2 maybe add utility function to check overdue in src/lib/dates.ts? Already exists formatDate; maybe add isPast(date). But can compute inline. Add CSS class. Add e2e criteria: row with overdue shows status-badge with data-status=\"overdue\". Also visual capture unchanged page list.\n\nAdd acceptance criteria.\n\nLet's craft JSON."
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "queue_time": 0.288209836,
+    "prompt_tokens": 5485,
+    "prompt_time": 0.219509413,
+    "completion_tokens": 729,
+    "completion_time": 1.5191134640000001,
+    "total_tokens": 6214,
+    "total_time": 1.738622877,
+    "completion_tokens_details": {
+      "reasoning_tokens": 141
+    }
+  },
+  "usage_breakdown": null,
+  "system_fingerprint": "fp_86dc843b12",
+  "x_groq": {
+    "id": "req_01m88wzjrje4k94aah1pw4ycca",
+    "seed": 876896350
+  },
+  "service_tier": "on_demand"
+}

@@ -235,3 +235,23 @@ describe("Gemini then Groq (D36)", () => {
     expect(calls.map((c) => c.model)).toEqual(["gemini:flash"]);
   });
 });
+
+describe("recorded answers of pnpm eval:plan with Groq (D30, D36)", () => {
+  const recorded = import.meta.glob<unknown>(
+    "./fixtures/groq/recorded/*.json",
+    {
+      eager: true,
+      import: "default",
+    },
+  );
+
+  it.each(Object.entries(recorded))(
+    "%s parses as a feasible plan",
+    async (_, body) => {
+      const { output, calls } = await setup([ok(body)]).run();
+      expect(output.feasible).toBe(true);
+      expect(output.tasks.length).toBeGreaterThanOrEqual(1);
+      expect(calls[0]!.valid).toBe(true);
+    },
+  );
+});

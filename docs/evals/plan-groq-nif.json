@@ -1,0 +1,81 @@
+{
+  "request": "Añade el NIF a los clientes: se introduce en el formulario de alta y edición y se ve en el detalle y en la lista.",
+  "baseSha": "b6c4a3c9c20aa9c8da8ab8b092e8ce995c239ba2",
+  "plan": {
+    "feasible": true,
+    "summary": "Se añadirá el campo NIF a los clientes. Aparecerá en el formulario de alta y edición, se mostrará en la lista de clientes y en la vista de detalle de cada cliente.",
+    "assumptions": [
+      "El NIF es opcional, por lo que la columna se define como nullable.",
+      "Se usará el mismo patrón de `Field` que para los demás campos (email, phone, …) y se asignará el data‑testid `field-nif`.",
+      "En la lista de clientes se mostrará una columna extra con data‑testid `client-nif` y en el detalle se mostrará bajo el título con data‑testid `client-nif-detail`.",
+      "No es necesario actualizar el seed con valores de NIF, se mantendrá vacío para los registros existentes."
+    ],
+    "tasks": [
+      {
+        "title": "Añadir columna NIF al esquema y actualizar consultas y validaciones",
+        "description": "1. Modificar `src/db/schema.ts` añadiendo la columna `nif: text()` a la tabla `clients` (nullable). 2. En `src/app/(crm)/clientes/queries.ts` incluir `nif` en las selecciones de `getClients` y `getClient`. 3. En `src/app/(crm)/clientes/validation.ts` añadir `nif: z.string().optional()` al schema Zod y a la lista `clientFields`. 4. Si el seed usa datos fijos, dejar el campo sin valor para mantener idempotencia.",
+        "files": [
+          "src/db/schema.ts",
+          "src/app/(crm)/clientes/queries.ts",
+          "src/app/(crm)/clientes/validation.ts",
+          "src/db/seed.ts"
+        ],
+        "acceptanceCriteria": [
+          {
+            "id": "c1",
+            "type": "e2e",
+            "text": "Al cargar la página `/clientes`, la tabla contiene una columna con data‑testid `client-nif` y muestra el NIF (o vacío) para cada fila."
+          },
+          {
+            "id": "c2",
+            "type": "e2e",
+            "text": "Al abrir el detalle de un cliente (`cliente-detalle`), el panel muestra el NIF con data‑testid `client-nif-detail`."
+          }
+        ]
+      },
+      {
+        "title": "Mostrar y editar NIF en UI",
+        "description": "1. En `src/app/(crm)/clientes/client-form.tsx` añadir un `<Field>` para NIF con `name=\"nif\"` y `data-testid=\"field-nif\"`. 2. En `src/app/(crm)/clientes/nuevo/page.tsx` y `src/app/(crm)/clientes/[id]/editar/page.tsx` asegurarse de que el formulario incluye el nuevo campo y que el `initial` del formulario contiene `nif`. 3. En `src/app/(crm)/clientes/page.tsx` añadir una columna a la tabla con header “NIF” y celdas `data-testid=\"client-nif\"`. 4. En `src/app/(crm)/clientes/[id]/page.tsx` mostrar el NIF bajo los datos del cliente con `data-testid=\"client-nif-detail\"`.",
+        "files": [
+          "src/app/(crm)/clientes/client-form.tsx",
+          "src/app/(crm)/clientes/nuevo/page.tsx",
+          "src/app/(crm)/clientes/[id]/editar/page.tsx",
+          "src/app/(crm)/clientes/page.tsx",
+          "src/app/(crm)/clientes/[id]/page.tsx"
+        ],
+        "acceptanceCriteria": [
+          {
+            "id": "c3",
+            "type": "e2e",
+            "text": "En la página de crear cliente (`/clientes/nuevo`) el formulario contiene un campo con data‑testid `field-nif`."
+          },
+          {
+            "id": "c4",
+            "type": "e2e",
+            "text": "En la página de editar cliente (`/clientes/[id]/editar`) el formulario muestra el campo NIF con data‑testid `field-nif` y el valor pre‑rellenado si el cliente ya tiene NIF."
+          },
+          {
+            "id": "c5",
+            "type": "visual",
+            "text": "La captura de la página `clientes` (desktop 1280px) muestra la columna NIF en la tabla."
+          },
+          {
+            "id": "c6",
+            "type": "visual",
+            "text": "La captura de la página `cliente-detalle` (mobile 390px) muestra el NIF bajo el título del cliente."
+          }
+        ]
+      }
+    ]
+  },
+  "calls": [
+    {
+      "model": "groq:openai/gpt-oss-120b",
+      "kind": "first",
+      "inputTokens": 5483,
+      "outputTokens": 1128,
+      "latencyMs": 2935,
+      "valid": true
+    }
+  ]
+}

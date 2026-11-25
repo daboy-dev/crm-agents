@@ -1,0 +1,50 @@
+{
+  "request": "Marca las facturas vencidas: las que siguen pendientes de pago con la fecha de vencimiento ya pasada deben destacarse en la lista de facturas.",
+  "baseSha": "b6c4a3c9c20aa9c8da8ab8b092e8ce995c239ba2",
+  "plan": {
+    "feasible": true,
+    "summary": "Se resaltarán visualmente en la lista de facturas aquellas cuyo estado sigue siendo \"pending\" y cuya fecha de vencimiento ya ha pasado. Cada fila mostrará un badge rojo con la etiqueta \"Vencida\" y el test‑suite verificará que el badge aparece correctamente tanto en el DOM como en las capturas de pantalla.",
+    "assumptions": [
+      "Se usará el badge existente `StatusBadge` añadiendo el estado \"overdue\".",
+      "La lógica de vencimiento se basa en la fecha `dueAt` comparada con la fecha actual del servidor (se usará `new Date()` en el componente).",
+      "No se necesita modificar la base de datos ni agregar columnas nuevas.",
+      "El estilo rojo para el badge ya está definido en Tailwind mediante la clase `bg-red-500` del componente `StatusBadge`."
+    ],
+    "tasks": [
+      {
+        "title": "Añadir resaltado de facturas vencidas en la lista",
+        "description": "Modifica `src/app/(crm)/facturas/page.tsx` para que, al renderizar cada fila de la tabla, se calcule si la factura está vencida (status === 'pending' && dueAt < hoy). Si es así, muestra un `<StatusBadge data-status=\"overdue\">Vencida</StatusBadge>` dentro de la columna de estado. Mantén los `data-testid` existentes (`invoices-table`, `invoice-row`) y añade `data-status=\"overdue\"` al badge para que los tests lo identifiquen. Usa `formatDate` para mostrar la fecha y `new Date()` para la comparación. No cambies otras páginas ni la lógica de consultas.",
+        "files": [
+          "src/app/(crm)/facturas/page.tsx"
+        ],
+        "acceptanceCriteria": [
+          {
+            "id": "c1",
+            "type": "e2e",
+            "text": "En la página /facturas, una fila cuya factura está vencida muestra un elemento con data-testid=\"status-badge\" y data-status=\"overdue\" cuyo texto sea \"Vencida\"."
+          },
+          {
+            "id": "c2",
+            "type": "visual",
+            "text": "En la captura de pantalla 1280px de la página facturas, el badge rojo \"Vencida\" es visible en la fila correspondiente."
+          },
+          {
+            "id": "c3",
+            "type": "visual",
+            "text": "En la captura de pantalla 390px de la página facturas, el badge rojo \"Vencida\" sigue visible y no rompe el layout."
+          }
+        ]
+      }
+    ]
+  },
+  "calls": [
+    {
+      "model": "groq:openai/gpt-oss-120b",
+      "kind": "first",
+      "inputTokens": 5485,
+      "outputTokens": 729,
+      "latencyMs": 2154,
+      "valid": true
+    }
+  ]
+}

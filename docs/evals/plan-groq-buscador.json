@@ -1,0 +1,54 @@
+{
+  "request": "Añade un buscador en la lista de clientes que filtre por nombre o por email.",
+  "baseSha": "b6c4a3c9c20aa9c8da8ab8b092e8ce995c239ba2",
+  "plan": {
+    "feasible": true,
+    "summary": "Se añadirá un buscador en la vista de lista de clientes que permite filtrar la tabla por nombre o email. El usuario verá un campo de búsqueda en la parte superior y, al escribir, la tabla mostrará solo los clientes que coincidan.",
+    "assumptions": [
+      "Existe al menos un cliente con nombre y/o email que contenga la cadena \"John\" en los datos de seed.",
+      "El filtro se implementará totalmente del lado del cliente (sin modificar la consulta a la base de datos).",
+      "El componente Table usado en la página de clientes soporta renderizar una lista de clientes pasada como prop."
+    ],
+    "tasks": [
+      {
+        "title": "Añadir buscador y filtrado en la lista de clientes",
+        "description": "En src/app/(crm)/clientes/page.tsx agrega un input con data-testid=\"client-search\" encima de la tabla. Usa useState para almacenar el término de búsqueda y filtra la lista de clientes (obtenida mediante la query existente) por nombre o email (case‑insensitive). Mantén la tabla existente, pasando la lista filtrada al componente Table. Asegúrate de que el input sea responsive y tenga estilo Tailwind similar a los demás campos.",
+        "files": [
+          "src/app/(crm)/clientes/page.tsx"
+        ],
+        "acceptanceCriteria": [
+          {
+            "id": "c1",
+            "type": "e2e",
+            "text": "En la página /clientes se muestra un campo de búsqueda con data-testid=\"client-search\"."
+          },
+          {
+            "id": "c2",
+            "type": "e2e",
+            "text": "Al escribir \"John\" en el campo de búsqueda, la tabla muestra sólo filas con data-testid=\"client-row\" cuyo nombre o email contenga \"John\"."
+          },
+          {
+            "id": "c3",
+            "type": "visual",
+            "text": "En la captura desktop (1280px) de la página clientes, el buscador aparece visible encima de la tabla."
+          },
+          {
+            "id": "c4",
+            "type": "visual",
+            "text": "En la captura mobile (390px) de la página clientes, el buscador se mantiene visible y la tabla se adapta sin romper el layout."
+          }
+        ]
+      }
+    ]
+  },
+  "calls": [
+    {
+      "model": "groq:openai/gpt-oss-120b",
+      "kind": "first",
+      "inputTokens": 5472,
+      "outputTokens": 723,
+      "latencyMs": 1980,
+      "valid": true
+    }
+  ]
+}
