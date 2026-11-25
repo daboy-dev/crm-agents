@@ -15,7 +15,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "eval:plan": "vitest run -c vitest.eval.config.ts scripts/eval-plan.eval.ts",
-    "eval:develop": "vitest run -c vitest.eval.config.ts scripts/eval-develop.eval.ts"
+    "eval:develop": "vitest run -c vitest.eval.config.ts scripts/eval-develop.eval.ts",
+    "eval:testing": "vitest run -c vitest.eval.config.ts scripts/eval-testing.eval.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.13.0",
