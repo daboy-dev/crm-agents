@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { DevelopContext } from "./develop-context";
 import { checkPaths, normalizePath, PAGES_FILE } from "./paths";
 
 /**
@@ -450,8 +451,10 @@ export type DevelopInput = {
   request: string;
   task: TaskBrief;
   iteration: number;
-  /** Testing feedback from the previous iteration. */
+  /** Why the previous iteration failed: Testing or pr-check (D32, D33). */
   feedback: string | null;
+  /** What Develop reads from crm-demo for this task (D32). */
+  context: DevelopContext;
 };
 
 // --- Testing ---

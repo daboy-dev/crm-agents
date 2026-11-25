@@ -2,11 +2,13 @@ import { and, asc, desc, eq, isNull, notInArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { runDevelop, runOrchestrator, runTesting } from "@/server/agents";
 import { CONTEXT_FILES, readPlanContext } from "@/server/agents/context";
+import { readDevelopContext } from "@/server/agents/develop-context";
 import {
   developOutputSchema,
   planSchema,
   verdictSchema,
   type AgentName,
+  type DevelopOutput,
   type E2eSummary,
   type PlanInput,
   type TaskBrief,
@@ -339,14 +341,36 @@ async function stepDeveloping(ctx: StepContext): Promise<Committed> {
   const work = run.tasks.filter((t) => t.status === "developing");
   if (work.length === 0) throw new Error("No hay tareas en desarrollo");
 
-  const outputs = [];
+  // D32: read at the head of run/<id> (the base before the first push).
+  const readSha = run.headSha ?? run.baseSha ?? (await getBaseSha());
+  const outputs: {
+    task: TaskRow;
+    output: DevelopOutput;
+    calls: ReturnType<typeof callData>;
+  }[] = [];
   for (const task of work) {
     const result = await cachedCall(
       ctx,
       { agent: "develop", taskId: task.id, iteration: task.iteration },
       developOutputSchema,
-      async (hooks) =>
-        runDevelop(
+      async (hooks) => {
+        const context = await readDevelopContext({
+          sha: readSha,
+          task: brief(task),
+          // Earlier tasks of this step are not committed yet.
+          overlay: outputs.flatMap((o) => o.output.files),
+        });
+        await appendEvent(db, run, {
+          actor: "develop",
+          kind: "context",
+          message: `Tarea ${task.position}: lee ${context.files.length} archivos${context.trimmed.length ? ` (${context.trimmed.length} recortados por tamaño)` : ""}`,
+          data: {
+            files: context.files.map((f) => ({ path: f.path, role: f.role })),
+            trimmed: context.trimmed,
+            newFiles: context.newFiles,
+          },
+        });
+        return runDevelop(
           await ctx.llm("develop"),
           {
             runId: run.id,
@@ -354,9 +378,11 @@ async function stepDeveloping(ctx: StepContext): Promise<Committed> {
             task: brief(task),
             iteration: task.iteration,
             feedback: task.lastFeedback,
+            context,
           },
           hooks,
-        ),
+        );
+      },
     );
     const output = result.output;
     // D16: checked where the commits are made, before anything is written.

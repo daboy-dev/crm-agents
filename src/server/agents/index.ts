@@ -1,10 +1,11 @@
 import type { CallHooks, Generated, LLMProvider } from "@/server/llm/provider";
+import { DEVELOP_SYSTEM, developPrompt } from "./prompts/develop";
 import {
   ORCHESTRATOR_SYSTEM,
   orchestratorPrompt,
 } from "./prompts/orchestrator";
 import {
-  developOutputSchema,
+  developSchemaFor,
   planSchemaFor,
   verdictSchema,
   type DevelopInput,
@@ -15,8 +16,7 @@ import {
   type TestingVerdict,
 } from "./contracts";
 
-// Develop and Testing prompts are placeholders until H5 and H6; the mock
-// reads `input` instead.
+// The Testing prompt is a placeholder until H6; the mock reads `input`.
 
 export function runOrchestrator(
   llm: LLMProvider,
@@ -39,14 +39,19 @@ export function runDevelop(
   input: DevelopInput,
   hooks?: CallHooks,
 ): Promise<Generated<DevelopOutput>> {
+  const { context, task } = input;
   return llm.generateObject({
     agent: "develop",
-    system:
-      "Eres Develop. Devuelve los archivos completos de la tarea y el mensaje de commit.",
-    prompt: JSON.stringify(input),
+    system: DEVELOP_SYSTEM,
+    prompt: developPrompt(input),
     input,
     hooks,
-    schema: developOutputSchema,
+    // D34: never an existing file it has not seen.
+    schema: developSchemaFor({
+      tree: context.tree,
+      seen: context.files.map((f) => f.path),
+      criteria: task.acceptanceCriteria.map((c) => c.id),
+    }),
   });
 }
 
