@@ -593,7 +593,12 @@ export const stepSchema = z.discriminatedUnion("action", [
   z.strictObject({
     action: z.literal("select"),
     testId: testIdSchema,
-    value: stepText.describe("El value de la opción del <select>."),
+    value: z
+      .string()
+      .max(200)
+      .describe(
+        'El value exacto de la opción del <select>; "" si la opción tiene value vacío.',
+      ),
     nth,
   }),
   z.strictObject({ action: z.literal("click"), testId: testIdSchema, nth }),

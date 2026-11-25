@@ -76,6 +76,18 @@ describe("steps of the criteria runner (D38)", () => {
     expect(messages(withStep(step)).length).toBeGreaterThan(0);
   });
 
+  it("select may choose an option with an empty value", () => {
+    expect(
+      messages(
+        withStep({
+          action: "select",
+          testId: "invoice-status-filter",
+          value: "",
+        }),
+      ),
+    ).toEqual([]);
+  });
+
   it("only takes the data-testid of the plan (D38)", () => {
     // From another criterion: Develop writes it all the same.
     expect(
