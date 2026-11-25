@@ -3,35 +3,29 @@
   "baseSha": "b6c4a3c9c20aa9c8da8ab8b092e8ce995c239ba2",
   "plan": {
     "feasible": true,
-    "summary": "Se resaltarán visualmente en la lista de facturas aquellas cuyo estado sigue siendo \"pending\" y cuya fecha de vencimiento ya ha pasado. Cada fila mostrará un badge rojo con la etiqueta \"Vencida\" y el test‑suite verificará que el badge aparece correctamente tanto en el DOM como en las capturas de pantalla.",
+    "summary": "Se resaltarán las facturas vencidas en la lista de facturas mostrando un badge con el texto \"Vencida\" cuando la factura esté pendiente y la fecha de vencimiento sea anterior a hoy.",
     "assumptions": [
-      "Se usará el badge existente `StatusBadge` añadiendo el estado \"overdue\".",
-      "La lógica de vencimiento se basa en la fecha `dueAt` comparada con la fecha actual del servidor (se usará `new Date()` en el componente).",
-      "No se necesita modificar la base de datos ni agregar columnas nuevas.",
-      "El estilo rojo para el badge ya está definido en Tailwind mediante la clase `bg-red-500` del componente `StatusBadge`."
+      "Se añadirá una lógica de cálculo de vencimiento en la página de listado de facturas.",
+      "El badge existente `status-badge` se reutilizará para mostrar el texto \"Vencida\".",
+      "Se usará la utilidad `formatDate` y la fecha actual del servidor (`new Date()`).",
+      "El seed no contiene facturas vencidas, pero los tests crearán una factura pendiente con `dueAt` pasado."
     ],
     "tasks": [
       {
-        "title": "Añadir resaltado de facturas vencidas en la lista",
-        "description": "Modifica `src/app/(crm)/facturas/page.tsx` para que, al renderizar cada fila de la tabla, se calcule si la factura está vencida (status === 'pending' && dueAt < hoy). Si es así, muestra un `<StatusBadge data-status=\"overdue\">Vencida</StatusBadge>` dentro de la columna de estado. Mantén los `data-testid` existentes (`invoices-table`, `invoice-row`) y añade `data-status=\"overdue\"` al badge para que los tests lo identifiquen. Usa `formatDate` para mostrar la fecha y `new Date()` para la comparación. No cambies otras páginas ni la lógica de consultas.",
-        "files": [
-          "src/app/(crm)/facturas/page.tsx"
-        ],
+        "title": "Resaltar facturas vencidas en la lista",
+        "description": "Modifica `src/app/(crm)/facturas/page.tsx` para que, al renderizar cada fila, se calcule si la factura está vencida (status === \"pending\" y dueAt < hoy). Si es así, pasa el texto \"Vencida\" al componente `StatusBadge` en vez del estado real. Añade la lógica de comparación usando `new Date()` y `new Date(invoice.dueAt)` (las fechas vienen como string `YYYY-MM-DD`). Mantén el `data-testid=\"status-badge\"` existente. No cambies otros archivos.",
+        "files": ["src/app/(crm)/facturas/page.tsx"],
+        "references": ["src/app/(crm)/facturas/page.tsx"],
         "acceptanceCriteria": [
           {
             "id": "c1",
             "type": "e2e",
-            "text": "En la página /facturas, una fila cuya factura está vencida muestra un elemento con data-testid=\"status-badge\" y data-status=\"overdue\" cuyo texto sea \"Vencida\"."
+            "text": "En la página \"/facturas\", una factura pendiente con fecha de vencimiento pasada muestra un badge con el texto \"Vencida\" y el data-testid \"status-badge\"."
           },
           {
             "id": "c2",
             "type": "visual",
-            "text": "En la captura de pantalla 1280px de la página facturas, el badge rojo \"Vencida\" es visible en la fila correspondiente."
-          },
-          {
-            "id": "c3",
-            "type": "visual",
-            "text": "En la captura de pantalla 390px de la página facturas, el badge rojo \"Vencida\" sigue visible y no rompe el layout."
+            "text": "En la captura de la página \"facturas\" (1280px), el badge de una factura vencida se ve con el estilo de `StatusBadge` y contiene el texto \"Vencida\"."
           }
         ]
       }
@@ -41,9 +35,9 @@
     {
       "model": "groq:openai/gpt-oss-120b",
       "kind": "first",
-      "inputTokens": 5485,
-      "outputTokens": 729,
-      "latencyMs": 2154,
+      "inputTokens": 5759,
+      "outputTokens": 812,
+      "latencyMs": 2167,
       "valid": true
     }
   ]

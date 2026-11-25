@@ -1,58 +1,72 @@
 {
   "request": "Añade el NIF a los clientes: se introduce en el formulario de alta y edición y se ve en el detalle y en la lista.",
-  "baseSha": "fa884d7c22a43c5e545ef987c478b5df6dce9abe",
+  "baseSha": "b6c4a3c9c20aa9c8da8ab8b092e8ce995c239ba2",
   "plan": {
     "feasible": true,
-    "summary": "Se añadirá el campo NIF (nif) a la entidad de clientes. Estará disponible en el formulario de alta y edición, en la vista de detalle del cliente y en la tabla del listado de clientes.",
+    "summary": "Se añadirá el campo opcional NIF a los clientes. Esto incluye la actualización del esquema de la base de datos, las validaciones del formulario de alta/edición, y la visualización del NIF tanto en la lista general de clientes como en la página de detalle de cada cliente.",
     "assumptions": [
-      "El campo NIF será opcional (texto) para permitir clientes sin NIF asignado o con datos incompletos.",
-      "El campo se colocará visible en el formulario como field-nif y en el listado/detalle como data-testid client-nif o dentro de las columnas existentes."
+      "El campo NIF se tratará como un campo de texto opcional (nullable) para mantener retrocompatibilidad con los clientes existentes.",
+      "El NIF se mostrará en una nueva columna en la tabla de clientes (/clientes) visible en escritorio.",
+      "En la página de detalle del cliente (/clientes/[id]), el NIF se mostrará junto al resto de datos de contacto o información fiscal."
     ],
     "tasks": [
       {
-        "title": "Añadir columna NIF al esquema de base de datos y migración",
-        "description": "Añade la columna opcional `nif: text()` a la tabla `clients` en `src/db/schema.ts`. Genera una nueva migración SQL en `drizzle/0001_add_client_nif.sql` (o la secuencia equivalente) y actualiza `src/db/seed.ts` para asignar NIFs de prueba a los clientes del seed.",
-        "files": [
+        "title": "Añadir campo nif al esquema de base de datos y validaciones",
+        "description": "Modifica src/db/schema.ts para añadir la columna nif como `nif: text()` (nullable) en la tabla `clients`. Actualiza `src/app/(crm)/clientes/validation.ts` para incluir `nif` en el esquema Zod de cliente y en el objeto/array de campos `clientFields`.",
+        "files": ["src/db/schema.ts", "src/app/(crm)/clientes/validation.ts"],
+        "references": [
           "src/db/schema.ts",
-          "drizzle/0001_add_client_nif.sql",
-          "drizzle/meta/_journal.json",
-          "drizzle/meta/0001_snapshot.json",
-          "src/db/seed.ts"
+          "src/app/(crm)/clientes/validation.ts"
         ],
         "acceptanceCriteria": [
           {
             "id": "c1",
             "type": "e2e",
-            "text": "La vista previa compila y la ruta /clientes carga correctamente mostrando la tabla clients-table."
+            "text": "La vista previa compila correctamente y se puede acceder a la lista de clientes /clientes cargando la tabla clients-table."
           }
         ]
       },
       {
-        "title": "Actualizar validación, consultas y UI del cliente con NIF",
-        "description": "En `src/app/(crm)/clientes/validation.ts`, añade el campo `nif` (opcional/string) al esquema de Zod y a la lista de campos `clientFields`. En `src/app/(crm)/clientes/queries.ts`, asegúrate de incluir el campo `nif` en las lecturas si se especifican columnas. En `client-form.tsx`, añade un campo `Field` con `name=\"nif\"` y la etiqueta correspondiente. En `src/app/(crm)/clientes/page.tsx` (lista) y `src/app/(crm)/clientes/[id]/page.tsx` (detalle), muestra la columna o dato NIF del cliente usando los componentes y data-testid existentes.",
+        "title": "Añadir campo NIF al formulario de alta y edición de clientes",
+        "description": "Modifica `src/app/(crm)/clientes/client-form.tsx` para incluir el campo `nif` con data-testid `field-nif`. Asegúrate de que las páginas `nuevo/page.tsx` y `[id]/editar/page.tsx` pasen o reciban el valor de `nif` correctamente.",
         "files": [
-          "src/app/(crm)/clientes/validation.ts",
-          "src/app/(crm)/clientes/queries.ts",
           "src/app/(crm)/clientes/client-form.tsx",
-          "src/app/(crm)/clientes/page.tsx",
-          "src/app/(crm)/clientes/[id]/page.tsx",
+          "src/app/(crm)/clientes/[id]/editar/page.tsx"
+        ],
+        "references": [
+          "src/app/(crm)/clientes/client-form.tsx",
           "src/app/(crm)/clientes/[id]/editar/page.tsx"
         ],
         "acceptanceCriteria": [
           {
             "id": "c2",
             "type": "e2e",
-            "text": "En /clientes/nuevo, el formulario client-form contiene el campo con data-testid field-nif."
-          },
+            "text": "En /clientes/nuevo aparece el input de NIF con el atributo data-testid='field-nif'."
+          }
+        ]
+      },
+      {
+        "title": "Mostrar el NIF en la lista y detalle de clientes",
+        "description": "Actualiza `src/app/(crm)/clientes/page.tsx` (o su subcomponente de tabla) y `src/app/(crm)/clientes/[id]/page.tsx` para mostrar la información del NIF. También actualiza `src/db/seed.ts` si es necesario para dar valor de NIF de prueba a algún cliente.",
+        "files": [
+          "src/app/(crm)/clientes/page.tsx",
+          "src/app/(crm)/clientes/[id]/page.tsx",
+          "src/db/seed.ts"
+        ],
+        "references": [
+          "src/app/(crm)/clientes/page.tsx",
+          "src/app/(crm)/clientes/[id]/page.tsx"
+        ],
+        "acceptanceCriteria": [
           {
             "id": "c3",
             "type": "e2e",
-            "text": "En /clientes, la tabla clients-table incluye el encabezado NIF."
+            "text": "En /clientes la tabla clients-table contiene la columna NIF."
           },
           {
             "id": "c4",
             "type": "visual",
-            "text": "En las capturas de clientes y cliente-detalle, el campo NIF se visualiza correctamente formateado."
+            "text": "En las capturas de clientes y cliente-detalle se visualiza el campo/columna NIF correctamente integrado en el diseño."
           }
         ]
       }
@@ -60,11 +74,11 @@
   },
   "calls": [
     {
-      "model": "gemini-3.6-flash",
+      "model": "gemini:gemini-3.6-flash",
       "kind": "first",
-      "inputTokens": 5144,
-      "outputTokens": 865,
-      "latencyMs": 5016,
+      "inputTokens": 5731,
+      "outputTokens": 992,
+      "latencyMs": 5268,
       "valid": true
     }
   ]
