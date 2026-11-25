@@ -1,0 +1,47 @@
+{
+  "sdkHttpResponse": {
+    "headers": {
+      "alt-svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000",
+      "content-encoding": "gzip",
+      "content-type": "application/json; charset=UTF-8",
+      "date": "Wed, 25 Nov 2026 21:18:04 GMT",
+      "server": "scaffolding on HTTPServer2",
+      "server-timing": "gfet4t7; dur=6164",
+      "transfer-encoding": "chunked",
+      "vary": "Origin, X-Origin, Referer",
+      "x-content-type-options": "nosniff",
+      "x-frame-options": "SAMEORIGIN",
+      "x-gemini-service-tier": "standard",
+      "x-xss-protection": "0"
+    }
+  },
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "{\n  \"feasible\": true,\n  \"summary\": \"Se añade el campo de notas internas a la tabla de clientes en el esquema y se actualizan queries, validaciones, acciones, formularios y la vista de detalle para permitir crearlas, editarlas y consultarlas.\",\n  \"assumptions\": [\n    \"Las notas internas son opcionales y se almacenan como texto libre en la base de datos.\",\n    \"El campo en el formulario de clientes usará field-notes como data-testid.\"\n  ],\n  \"tasks\": [\n    {\n      \"title\": \"feat: add notes column to clients schema, queries, validation, and seed\",\n      \"description\": \"Modifica src/db/schema.ts añadiendo la columna notes: text() en la tabla clients. Actualiza src/app/(crm)/clientes/queries.ts para incluir notes en la consulta, src/app/(crm)/clientes/validation.ts para incluir notes en el esquema Zod y en clientFields, y src/db/seed.ts para poblar notas en los datos de prueba de forma idempotente.\",\n      \"files\": [\n        \"src/db/schema.ts\",\n        \"src/app/(crm)/clientes/queries.ts\",\n        \"src/app/(crm)/clientes/validation.ts\",\n        \"src/db/seed.ts\"\n      ],\n      \"references\": [\n        \"src/db/schema.ts\",\n        \"src/app/(crm)/clientes/validation.ts\",\n        \"src/db/seed.ts\"\n      ],\n      \"acceptanceCriteria\": [\n        {\n          \"id\": \"c1\",\n          \"type\": \"e2e\",\n          \"text\": \"La tabla de clientes y las consultas devuelven correctamente el registro con notas.\",\n          \"testIds\": [\n            \"clients-table\",\n            \"client-row\"\n          ]\n        }\n      ]\n    },\n    {\n      \"title\": \"feat: add internal notes field to client forms and detail view\",\n      \"description\": \"Actualiza src/app/(crm)/clientes/client-form.tsx para incluir el campo de notas usando el data-testid field-notes. Actualiza src/app/(crm)/clientes/[id]/page.tsx y src/app/(crm)/clientes/[id]/editar/page.tsx para mostrar las notas internas en la vista de detalle del cliente con el data-testid client-notes.\",\n      \"files\": [\n        \"src/app/(crm)/clientes/client-form.tsx\",\n        \"src/app/(crm)/clientes/[id]/page.tsx\",\n        \"src/app/(crm)/clientes/[id]/editar/page.tsx\",\n        \"src/app/(crm)/clientes/actions.ts\"\n      ],\n      \"references\": [\n        \"src/app/(crm)/clientes/client-form.tsx\",\n        \"src/app/(crm)/clientes/[id]/page.tsx\",\n        \"src/app/(crm)/clientes/actions.ts\"\n      ],\n      \"acceptanceCriteria\": [\n        {\n          \"id\": \"c2\",\n          \"type\": \"e2e\",\n          \"text\": \"Al crear un cliente rellenando el campo de notas, el detalle muestra las notas en client-notes.\",\n          \"testIds\": [\n            \"new-client-button\",\n            \"client-form\",\n            \"field-name\",\n            \"field-email\",\n            \"field-notes\",\n            \"save-button\"\n          ]\n        },\n        {\n          \"id\": \"c3\",\n          \"type\": \"e2e\",\n          \"text\": \"El detalle del cliente muestra la sección de notas internas correctamente.\",\n          \"testIds\": [\n            \"client-detail\",\n            \"client-notes\",\n            \"edit-client-button\"\n          ]\n        }\n      ]\n    }\n  ]\n}",
+            "thoughtSignature": "EpYBCpMBAWkUfROzpkkleAn2SCR5ppUIBGhhL3ydCrN21AaSJnB/H61QbCsSeriNXURKLUwm7bLXAupcDELl8QZ3tHXnbOCZM1y5VqOh3nwMd8k+QpDOOAEOiCp2Q/WdFJBzt586fqBCjT30O7JYN1UZExuxcupqU+8HthFL29bV2iyDCxhy5a+gKppwY8htG7w+bHgwcWk5"
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "modelVersion": "gemini-3.5-flash-lite",
+  "responseId": "hlAHa9yWE4WGxs0Pj43x8Qk",
+  "usageMetadata": {
+    "promptTokenCount": 6694,
+    "candidatesTokenCount": 872,
+    "totalTokenCount": 7566,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 6694
+      }
+    ],
+    "serviceTier": "standard"
+  }
+}

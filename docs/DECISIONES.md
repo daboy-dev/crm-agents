@@ -667,3 +667,23 @@ Todo se lee en la **cabeza de `run/<id>`**, no en `base_sha`, para que una tarea
   - «Simular fallo de criterio»: en la iteración 1, el panel quita de la salida de Develop uno de los `data-testid` del plan, después del `superRefine` y antes del commit. El criterio falla y en la iteración 2 Develop debe corregirlo.
   - «Simular fallo persistente»: lo mismo en todas las iteraciones. A la tercera, la tarea pasa a `blocked` y decide el humano (D5).
 - **`LLM_CALLS_PER_RUN` sube de 12 a 16** (D26 y D35). Un run de 2 tareas con un fallo gasta unas 6 llamadas, y el peor caso con 3 iteraciones fallidas en las dos tareas llega a unas 10, sin contar reparaciones ni divisiones.
+
+## D41 · El panel formatea con Prettier lo que escribe Develop
+**Fecha:** 25/11/2026 · **Estado:** aceptada
+
+**Contexto:** el código de Develop no pasa por Prettier. Al fusionar un run, `ci.yml` de `crm-demo` falla en `pnpm format:check` (en H6 hubo que formatear a mano `clientes/validation.ts` y `contacto/page.tsx`). De las 17 respuestas de Develop grabadas en H5, 6 no cumplían el formato.
+
+**Opciones:**
+- A. El job `commit` de `pr-check.yml` ejecuta `prettier --write` sobre los archivos del PR y lo sube en el commit del bot. Ese job tiene un token de escritura, y Prettier lee su configuración de la rama: un `prettier.config.mjs` escrito por Develop sería código ejecutado con ese token (D31). Además, el commit del bot es un despliegue más de Vercel.
+- B. El panel formatea cada archivo antes del commit, en `prepareCommits`.
+
+**Decisión:** B (propuesta de Claude).
+- Prettier 3.10.1, la misma versión que el lockfile de `crm-demo`, pasa a ser una dependencia del panel con la versión fijada. Formatea el texto con las opciones de `crm-demo` (`.prettierrc.json` es `{}`) y nunca lee una configuración de la rama.
+- Se formatean `.ts`, `.tsx`, `.js`, `.mjs`, `.cjs`, `.json` y `.css`, salvo lo que ignora `.prettierignore` (el Markdown, `drizzle/meta/` y `e2e/criteria/`).
+- Si Prettier no puede leer un archivo, se sube tal cual con una nota en la línea de tiempo: `pr-check` devolverá el error de sintaxis a Develop.
+- Se formatea antes de las simulaciones de H5 y H6, y antes de comparar con el repo, así que una respuesta que solo cambia el formato no hace commit (D34).
+
+**Consecuencias:**
+- Sin código de la rama, sin job nuevo con permisos y sin build extra: el formato va en la misma cadena de commits (D20).
+- Develop recibe en la iteración siguiente los archivos tal como quedaron en el repo.
+- Si `crm-demo` cambia de versión de Prettier o de opciones, hay que cambiarlas también en el panel.

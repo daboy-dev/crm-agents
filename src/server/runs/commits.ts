@@ -1,5 +1,7 @@
 import { normalizeContent } from "@/server/agents/files";
 import type { DevelopOutput } from "@/server/agents/contracts";
+import { breakTestId } from "@/server/agents/test-ids";
+import { formatFile } from "./format";
 import type { FileWrite } from "@/server/github/repo";
 import type { EventDraft } from "./store";
 
@@ -14,15 +16,22 @@ export type Prepared = {
 };
 
 /**
- * Files of each task as they will be committed: line endings normalized and
- * a final newline (D34). Tasks whose files are all unchanged get no commit.
+ * Files of each task as they will be committed: line endings normalized, a
+ * final newline (D34) and Prettier's format (D41). Tasks whose files are all unchanged get no commit.
  * The type error of the H5 simulation goes into the first task here, so a
  * retried step builds the same chain.
  */
 export async function prepareCommits<T extends Prepared>(
   outputs: T[],
   readFile: (path: string) => Promise<string | null>,
-  options: { simulateTypeError: boolean },
+  options: {
+    simulateTypeError: boolean;
+    /**
+     * H6 (D40): data-testid of the task whose first literal use is renamed,
+     * so its criterion fails on the preview. Empty when not simulating.
+     */
+    breakTestIds?: (result: T) => readonly string[];
+  },
 ) {
   const current = new Map<string, string | null>();
   const read = async (path: string) => {
@@ -32,11 +41,27 @@ export async function prepareCommits<T extends Prepared>(
   const notes: EventDraft[] = [];
   const changed: (T & { files: FileWrite[] })[] = [];
   const unchanged: T[] = [];
+  let broken = false;
   for (const [i, result] of outputs.entries()) {
-    let files = result.output.files.map((f) => ({
-      path: f.path,
-      content: normalizeContent(f.content),
-    }));
+    // D41: formatted like crm-demo's `pnpm format`, before any simulation.
+    const formatted = await Promise.all(
+      result.output.files.map(async (f) => ({
+        path: f.path,
+        ...(await formatFile(f.path, normalizeContent(f.content))),
+      })),
+    );
+    const unparsed = formatted.filter((f) => f.error);
+    if (unparsed.length > 0) {
+      notes.push({
+        actor: "system",
+        kind: "format",
+        message: `Tarea ${result.task.position}: Prettier no puede leer ${unparsed.map((f) => f.path).join(", ")}; se suben tal cual y pr-check dirá el error.`,
+        data: {
+          errors: unparsed.map((f) => ({ path: f.path, error: f.error })),
+        },
+      });
+    }
+    let files = formatted.map((f) => ({ path: f.path, content: f.content }));
     if (options.simulateTypeError && i === 0 && result.task.iteration === 1) {
       const target = files.find((f) => /\.tsx?$/.test(f.path));
       if (target) {
@@ -59,6 +84,19 @@ export async function prepareCommits<T extends Prepared>(
         });
       }
     }
+    const testIds = options.breakTestIds?.(result) ?? [];
+    if (!broken && testIds.length > 0) {
+      const done = breakTestId(files, testIds);
+      if (done) {
+        broken = true;
+        files = done.files;
+        notes.push({
+          actor: "system",
+          kind: "simulation",
+          message: `Simulación: data-testid="${done.testId}" pasa a "${done.testId}-simulated" en la tarea ${result.task.position}, iteración ${result.task.iteration}. Su criterio debe fallar.`,
+        });
+      }
+    }
     const same = await Promise.all(
       files.map(async (f) => {
         const before = await read(f.path);
@@ -69,6 +107,17 @@ export async function prepareCommits<T extends Prepared>(
     for (const f of files) current.set(f.path, f.content);
     if (same.every(Boolean)) unchanged.push(result);
     else changed.push({ ...result, files });
+  }
+  if (
+    !broken &&
+    outputs.some((o) => (options.breakTestIds?.(o) ?? []).length > 0)
+  ) {
+    notes.push({
+      actor: "system",
+      kind: "simulation",
+      message:
+        "Simulación de fallo de criterio sin efecto: Develop no escribe ningún data-testid del plan de forma literal.",
+    });
   }
   return { changed, unchanged, notes };
 }

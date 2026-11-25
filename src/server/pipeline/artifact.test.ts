@@ -2,7 +2,9 @@ import { readFileSync } from "node:fs";
 import { strToU8, zipSync } from "fflate";
 import { describe, expect, it } from "vitest";
 import {
+  attachEvidence,
   cleanError,
+  MAX_SNAPSHOT_CHARS,
   parseMeta,
   parseResults,
   readArtifactZip,
@@ -36,6 +38,7 @@ describe("parseResults", () => {
             "Error: expect(locator).toBeVisible() failed\n\nLocator: getByTestId('client-row')",
         },
       ],
+      criteria: [],
     });
   });
 
@@ -143,5 +146,68 @@ describe("readArtifactZip", () => {
   it("fails when results.json is missing", () => {
     const zip = zipSync({ "meta.json": strToU8(JSON.stringify(meta)) });
     expect(() => readArtifactZip(zip)).toThrow(/results.json missing/);
+  });
+});
+
+// A real run of e2e/criteria.spec.ts on a crm-demo preview (H6): c1 and c3
+// pass, c2 fails on purpose at its second step.
+const criteriaResults = JSON.parse(
+  readFileSync(
+    new URL("./fixtures/results-criteria.json", import.meta.url),
+    "utf8",
+  ),
+) as unknown;
+const evidence = JSON.parse(
+  readFileSync(
+    new URL("./fixtures/criteria-evidence.json", import.meta.url),
+    "utf8",
+  ),
+) as unknown;
+
+describe("criteria results (D38, D39)", () => {
+  it("reads one result per criterion and project from the titles", () => {
+    const { criteria } = parseResults(criteriaResults);
+    expect(
+      criteria.map((c) => `${c.key} ${c.project} ${c.passed}`).sort(),
+    ).toEqual([
+      "r1-c1 desktop true",
+      "r1-c1 mobile-390 true",
+      "r1-c2 desktop false",
+      "r1-c2 mobile-390 false",
+      "r1-c3 desktop true",
+      "r1-c3 mobile-390 true",
+    ]);
+    const failed = criteria.find((c) => !c.passed)!;
+    expect(failed.run).toBe(999);
+    expect(failed.error).toContain("Paso 2 (select invoice-status-filter");
+  });
+
+  it("attaches the failed step and a trimmed snapshot", () => {
+    const { criteria } = parseResults(criteriaResults);
+    const [c2] = attachEvidence(
+      criteria.filter((c) => c.key === "r1-c2" && c.project === "desktop"),
+      [evidence, { junk: true }],
+    );
+    expect(c2!.failedStep).toEqual({
+      step: 2,
+      action: 'select invoice-status-filter = "paid"',
+      url: "/facturas",
+    });
+    expect(c2!.snapshot).toContain('heading "Facturas"');
+    expect(c2!.snapshot!.length).toBeLessThanOrEqual(MAX_SNAPSHOT_CHARS);
+  });
+
+  it("reads the evidence files from the zip", () => {
+    const zip = zipSync({
+      "meta.json": strToU8(JSON.stringify(meta)),
+      "results.json": strToU8(JSON.stringify(criteriaResults)),
+      "criteria/run-999-r1-c2-desktop.json": strToU8(JSON.stringify(evidence)),
+      "criteria/../../evil.json": strToU8("{}"),
+    });
+    const { results } = readArtifactZip(zip);
+    const withStep = results.criteria.filter((c) => c.failedStep);
+    expect(withStep.map((c) => `${c.key} ${c.project}`)).toEqual([
+      "r1-c2 desktop",
+    ]);
   });
 });

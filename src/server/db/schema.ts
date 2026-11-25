@@ -13,7 +13,11 @@ import {
   unique,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import type { AgentName, Criterion } from "@/server/agents/contracts";
+import type {
+  AgentName,
+  Criterion,
+  CriterionResult,
+} from "@/server/agents/contracts";
 import type { CallMeta, ProviderName } from "@/server/llm/provider";
 
 /** Key/value metadata about the app itself. Used by the health check. */
@@ -89,6 +93,8 @@ export const testReports = pgTable(
     skipped: integer().notNull().default(0),
     durationMs: integer("duration_ms"),
     failures: jsonb().$type<TestFailure[]>().notNull().default([]),
+    /** Tests of e2e/criteria.spec.ts with the runner's evidence (D38, D39). */
+    criteria: jsonb().$type<CriterionResult[]>().notNull().default([]),
     error: text(),
     completedAt: timestamp("completed_at", { withTimezone: true }).notNull(),
   },
@@ -177,6 +183,14 @@ export const runs = pgTable(
     simulateTypeError: boolean("simulate_type_error").notNull().default(false),
     /** H5: Develop's first call answers as cut at MAX_TOKENS, once (D34). */
     simulateMaxTokens: boolean("simulate_max_tokens").notNull().default(false),
+    /** H6: one data-testid of the plan is dropped in iteration 1 (D40). */
+    simulateCriterionFail: boolean("simulate_criterion_fail")
+      .notNull()
+      .default(false),
+    /** H6: the same in every iteration, so the task ends up blocked (D40). */
+    simulatePersistentFail: boolean("simulate_persistent_fail")
+      .notNull()
+      .default(false),
     maxTokensSimulatedAt: timestamp("max_tokens_simulated_at", {
       withTimezone: true,
     }),
@@ -305,6 +319,11 @@ export const agentSteps = pgTable(
     iteration: integer().notNull(),
     /** orchestrator | develop | testing */
     agent: text().notNull(),
+    /**
+     * Which call of the agent: "" for the usual one; for Testing, "steps"
+     * (iteration = plan revision) or "explain:<sha>" (D38, D39).
+     */
+    scope: text().notNull().default(""),
     output: jsonb().notNull(),
     /** Model of the call that produced the output (D26). */
     model: text(),
@@ -319,7 +338,7 @@ export const agentSteps = pgTable(
   },
   (t) => [
     unique("agent_steps_uq")
-      .on(t.runId, t.taskId, t.iteration, t.agent)
+      .on(t.runId, t.taskId, t.iteration, t.agent, t.scope)
       .nullsNotDistinct(),
   ],
 );

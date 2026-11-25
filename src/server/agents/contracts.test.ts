@@ -16,7 +16,9 @@ const task = (over: Partial<PlanTask> = {}): PlanTask => ({
   description: "Añade la columna nif a clients",
   files: ["src/db/schema.ts"],
   references: ["src/db/schema.ts"],
-  acceptanceCriteria: [{ id: "c1", type: "e2e", text: "Se ve el NIF" }],
+  acceptanceCriteria: [
+    { id: "c1", type: "e2e", text: "Se ve el NIF", testIds: ["clients-table"] },
+  ],
   ...over,
 });
 
@@ -49,7 +51,14 @@ describe("planSchema (D28)", () => {
         plan({
           tasks: [1, 2, 3, 4].map((n) =>
             task({
-              acceptanceCriteria: [{ id: `c${n}`, type: "visual", text: "x" }],
+              acceptanceCriteria: [
+                {
+                  id: `c${n}`,
+                  type: "e2e",
+                  text: "x",
+                  testIds: ["clients-table"],
+                },
+              ],
             }),
           ),
         }),
@@ -93,7 +102,11 @@ describe("planSchema (D28)", () => {
       messages(
         plan({
           tasks: [
-            task({ acceptanceCriteria: [{ id: "A", type: "e2e", text: "x" }] }),
+            task({
+              acceptanceCriteria: [
+                { id: "A", type: "e2e", text: "x", testIds: ["clients-table"] },
+              ],
+            }),
           ],
         }),
       ),
@@ -159,8 +172,18 @@ describe("references (extra of D28)", () => {
 
 describe("splitSchemaFor (D34)", () => {
   const criteria: Criterion[] = [
-    { id: "c3", type: "e2e", text: "El formulario tiene field-nif" },
-    { id: "c4", type: "visual", text: "La lista muestra el NIF" },
+    {
+      id: "c3",
+      type: "e2e",
+      text: "El formulario tiene field-nif",
+      testIds: ["clients-table"],
+    },
+    {
+      id: "c4",
+      type: "visual",
+      text: "La lista muestra el NIF",
+      testIds: ["clients-table"],
+    },
   ];
   const tree = ["src/db/schema.ts"];
   const sub = (cs: Criterion[]) => task({ acceptanceCriteria: cs });
@@ -190,11 +213,21 @@ describe("splitSchemaFor (D34)", () => {
         schema,
       ),
     ).toEqual([
-      "El criterio c4 ha cambiado: cópialo tal cual (visual: La lista muestra el NIF)",
+      "El criterio c4 ha cambiado: cópialo tal cual (visual: La lista muestra el NIF; testIds: clients-table)",
     ]);
     expect(
       messages(
-        split([sub(criteria), sub([{ id: "c9", type: "e2e", text: "Nuevo" }])]),
+        split([
+          sub(criteria),
+          sub([
+            {
+              id: "c9",
+              type: "e2e",
+              text: "Nuevo",
+              testIds: ["clients-table"],
+            },
+          ]),
+        ]),
         schema,
       ),
     ).toEqual([
@@ -338,5 +371,61 @@ describe("Develop output (D34)", () => {
     expect(
       developOutputSchema.safeParse({ ...output(), notes: undefined }).success,
     ).toBe(false);
+  });
+});
+
+describe("criteria for Testing (D38, D39)", () => {
+  it("every criterion lists its data-testid, in kebab-case", () => {
+    const noIds = task({
+      acceptanceCriteria: [
+        { id: "c1", type: "e2e", text: "x" } as unknown as Criterion,
+      ],
+    });
+    expect(planSchema.safeParse(plan({ tasks: [noIds] })).success).toBe(false);
+    const css = task({
+      acceptanceCriteria: [
+        { id: "c1", type: "e2e", text: "x", testIds: ["#filter"] },
+      ],
+    });
+    expect(messages(plan({ tasks: [css] }))).toEqual([
+      "Un data-testid va en kebab-case: invoice-status-filter",
+    ]);
+  });
+
+  it("rejects visual criteria for now, so they go to repair (D39)", () => {
+    const visual = task({
+      acceptanceCriteria: [
+        { id: "c1", type: "visual", text: "Se ve en rojo", testIds: ["x"] },
+      ],
+    });
+    expect(messages(plan({ tasks: [visual] }))[0]).toContain(
+      "es de tipo visual",
+    );
+  });
+
+  it("Develop must use the criteria's data-testid", () => {
+    const scope = {
+      tree: ["src/app/a.tsx"],
+      seen: ["src/app/a.tsx"],
+      current: { "src/app/a.tsx": '<table data-testid="invoices-table" />' },
+      testIds: ["invoices-table", "invoice-status-filter", "field-notes"],
+    };
+    const out = (content: string): DevelopOutput => ({
+      commitMessage: "feat(invoices): add status filter",
+      files: [{ path: "src/app/a.tsx", content }],
+      notes: "Filtro",
+    });
+    const schema = developSchemaFor(scope);
+    expect(
+      messages(
+        out(
+          '<select data-testid="invoice-status-filter" /><Field name="notes" />',
+        ),
+        schema,
+      ),
+    ).toEqual([]);
+    expect(messages(out("<select />"), schema)[0]).toContain(
+      "Faltan data-testid que piden los criterios: invoice-status-filter, field-notes",
+    );
   });
 });

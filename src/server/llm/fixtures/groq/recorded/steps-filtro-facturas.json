@@ -1,0 +1,37 @@
+{
+  "id": "chatcmpl-621abf82-4e2f-4390-8341-e73425039740",
+  "object": "chat.completion",
+  "created": 1795641445,
+  "model": "openai/gpt-oss-120b",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"criteria\": [\n    {\n      \"id\": \"c1\",\n      \"steps\": [\n        {\n          \"action\": \"goto\",\n          \"page\": \"facturas\"\n        },\n        {\n          \"action\": \"expectVisible\",\n          \"testId\": \"nav-facturas\"\n        },\n        {\n          \"action\": \"expectVisible\",\n          \"testId\": \"field-status-filter\"\n        },\n        {\n          \"action\": \"expectVisible\",\n          \"testId\": \"invoices-table\"\n        }\n      ]\n    },\n    {\n      \"id\": \"c2\",\n      \"steps\": [\n        {\n          \"action\": \"goto\",\n          \"page\": \"facturas\"\n        },\n        {\n          \"action\": \"expectVisible\",\n          \"testId\": \"nav-facturas\"\n        },\n        {\n          \"action\": \"select\",\n          \"testId\": \"field-status-filter\",\n          \"value\": \"pending\"\n        },\n        {\n          \"action\": \"expectVisible\",\n          \"testId\": \"invoices-table\"\n        },\n        {\n          \"action\": \"expectCount\",\n          \"testId\": \"invoice-row\",\n          \"min\": 1\n        }\n      ]\n    }\n  ]\n}",
+        "reasoning": "We need JSON array criteria c1 and c2. Include steps for both desktop and mobile? Actually each criterion test runs in both viewports but steps same. Provide steps.\n\nc1: go to facturas page via nav-facturas? start from any? first step goto page facturas (page name \"facturas\"). then expectVisible field-status-filter and invoices-table.\n\nc2: select pending filter then expect invoices-table visible and invoice-row count >0? Need expectCount maybe min 1. Use select field-status-filter value \"pending\". then expectCount invoice-row with min 1 (or count? unknown). Use expectCount with min 1.\n\nProvide JSON."
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "queue_time": 0.286615228,
+    "prompt_tokens": 3100,
+    "prompt_time": 0.121631601,
+    "completion_tokens": 403,
+    "completion_time": 0.830476043,
+    "total_tokens": 3503,
+    "total_time": 0.952107644,
+    "completion_tokens_details": {
+      "reasoning_tokens": 138
+    }
+  },
+  "usage_breakdown": null,
+  "system_fingerprint": "fp_4727af4560",
+  "x_groq": {
+    "id": "req_01m8a9426sejf93qwn8m3f2vkg",
+    "seed": 2131086888
+  },
+  "service_tier": "on_demand"
+}

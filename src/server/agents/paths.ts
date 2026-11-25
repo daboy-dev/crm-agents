@@ -1,6 +1,8 @@
 /**
  * Paths Develop may never write, all listed in crm-demo's AGENTS.md:
  * - The workflows and the e2e helpers, which run with crm-demo's secrets (D16).
+ * - The criteria runner and its JSON files: the steps come from the approved
+ *   criteria, never from Develop (D38).
  * - drizzle/: migrations are written by pr-check, never by the LLM (D31).
  * - package.json and the lockfile: Develop cannot update the lockfile (D31).
  * - The build, lint and test config: changing it could hide the errors that
@@ -8,10 +10,11 @@
  * - AGENTS.md and CLAUDE.md: Develop reads them on every task, so rewriting
  *   them would change the instructions of later runs (D32).
  */
-export const FORBIDDEN_PREFIXES = [".github/", "drizzle/"];
+export const FORBIDDEN_PREFIXES = [".github/", "drizzle/", "e2e/criteria/"];
 export const FORBIDDEN_FILES = [
   "e2e/helpers.ts",
   "e2e/screenshots.spec.ts",
+  "e2e/criteria.spec.ts",
   "package.json",
   "pnpm-lock.yaml",
   "pnpm-workspace.yaml",

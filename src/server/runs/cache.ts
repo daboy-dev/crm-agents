@@ -13,6 +13,8 @@ export type StepKey = {
   agent: AgentName;
   taskId: number | null;
   iteration: number;
+  /** A second kind of call of the same agent (Testing, D38 and D39). */
+  scope?: string;
 };
 
 export type StoredStep = { output: unknown; calls: CallMeta[] | null };

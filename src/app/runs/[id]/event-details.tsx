@@ -209,6 +209,116 @@ function SplitDetails({ data }: { data: Obj }) {
   );
 }
 
+/** A step of the criteria runner, as one line (D38). */
+function stepLine(step: Obj): string {
+  const target = step.testId ? ` ${String(step.testId)}` : "";
+  const nth = typeof step.nth === "number" ? `[${step.nth}]` : "";
+  switch (step.action) {
+    case "goto":
+      return `goto ${String(step.page ?? step.path ?? "")}`;
+    case "fill":
+    case "select":
+      return `${String(step.action)}${target}${nth} = "${String(step.value ?? "")}"`;
+    case "expectText":
+      return `expectText${target}${nth} "${String(step.text ?? "")}"${step.all ? " (todos)" : ""}`;
+    case "expectCount":
+      return `expectCount${target} ${step.count !== undefined ? String(step.count) : `≥ ${String(step.min)}`}`;
+    default:
+      return `${String(step.action)}${target}${nth}`;
+  }
+}
+
+/** Steps Testing wrote for each criterion (D38). */
+function StepsDetails({ data }: { data: Obj }) {
+  const criteria = Array.isArray(obj(data.steps).criteria)
+    ? (obj(data.steps).criteria as unknown[]).map(obj)
+    : [];
+  return (
+    <details className="event-details" data-testid="testing-steps">
+      <summary>Pasos por criterio</summary>
+      {criteria.map((c) => (
+        <div key={String(c.id)}>
+          <strong>{String(c.id)}</strong>
+          <ol>
+            {(Array.isArray(c.steps) ? c.steps : []).map((st, i) => (
+              <li key={i}>
+                <code>{stepLine(obj(st))}</code>
+              </li>
+            ))}
+          </ol>
+        </div>
+      ))}
+      <Calls data={data} />
+    </details>
+  );
+}
+
+/** Result of each criterion on the preview, decided by the runner (D39). */
+function ReportDetails({ data }: { data: Obj }) {
+  const passed = strings(data.passed);
+  const failed = Array.isArray(data.failed) ? data.failed.map(obj) : [];
+  const regressions = Array.isArray(data.regressions)
+    ? data.regressions.map(obj)
+    : [];
+  if (!passed.length && !failed.length && !regressions.length) return null;
+  return (
+    <ul className="event-details" data-testid="criteria-results">
+      {passed.map((key) => (
+        <li key={key} data-testid="criterion-result" data-passed="true">
+          <span className="badge badge-ok">{key}</span> pasa
+        </li>
+      ))}
+      {failed.map((f) => (
+        <li
+          key={String(f.key)}
+          data-testid="criterion-result"
+          data-passed="false"
+        >
+          <span className="badge badge-bad">{String(f.key)}</span>{" "}
+          {f.project ? `${String(f.project)}: ` : ""}
+          {obj(f.failedStep).action
+            ? `falla en «${String(obj(f.failedStep).action)}»`
+            : String(f.error ?? "falla")}
+        </li>
+      ))}
+      {regressions.map((r, i) => (
+        <li key={i} data-testid="regression">
+          <span className="badge badge-neutral">regresión</span>{" "}
+          {String(r.title)} ({String(r.project)})
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Testing's explanation of the failures (D39). */
+function ExplainDetails({ data }: { data: Obj }) {
+  const criteria = Array.isArray(data.criteria) ? data.criteria.map(obj) : [];
+  const regressions = Array.isArray(data.regressions)
+    ? data.regressions.map(obj)
+    : [];
+  return (
+    <details className="event-details" open>
+      <summary>Explicación para Develop</summary>
+      <ul>
+        {criteria.map((c) => (
+          <li key={String(c.key)}>
+            <strong>{String(c.key)}</strong> (tarea {String(c.task)}):{" "}
+            {String(c.reason)}
+          </li>
+        ))}
+        {regressions.map((r, i) => (
+          <li key={i}>
+            <strong>{String(r.test)}</strong> → tarea {String(r.task)}:{" "}
+            {String(r.reason)}
+          </li>
+        ))}
+      </ul>
+      <Calls data={data} />
+    </details>
+  );
+}
+
 /** Extra lines under a timeline event, by kind. */
 export function EventDetails({ kind, data }: { kind: string; data: unknown }) {
   const d = obj(data);
@@ -227,6 +337,12 @@ export function EventDetails({ kind, data }: { kind: string; data: unknown }) {
       return <Check data={d} />;
     case "split":
       return <SplitDetails data={d} />;
+    case "steps":
+      return d.steps ? <StepsDetails data={d} /> : null;
+    case "report":
+      return <ReportDetails data={d} />;
+    case "explain":
+      return <ExplainDetails data={d} />;
     default:
       return null;
   }

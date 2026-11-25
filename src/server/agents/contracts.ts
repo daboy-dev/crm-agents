@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { DevelopContext } from "./develop-context";
 import { normalizeContent } from "./files";
 import { checkPaths, normalizePath, PAGES_FILE } from "./paths";
+import { usesTestId } from "./test-ids";
 
 /**
  * Agent contracts (D8, D24). Every LLM output is validated against these
@@ -13,8 +14,21 @@ export type AgentName = (typeof AGENTS)[number];
 
 // --- Orchestrator ---
 
-/** Acceptance criterion: checked in the DOM (e2e) or in the screenshots (visual). */
+/**
+ * Acceptance criterion: checked in the DOM (e2e) or in the screenshots
+ * (visual). `visual` stays in the contract for later, but the plan refinement
+ * rejects it for now (D39).
+ */
 export const CRITERION_TYPES = ["e2e", "visual"] as const;
+
+/** A data-testid: kebab-case, as in crm-demo's AGENTS.md. */
+export const testIdSchema = z
+  .string()
+  .regex(
+    /^[a-z0-9]+(-[a-z0-9]+)*$/,
+    "Un data-testid va en kebab-case: invoice-status-filter",
+  );
+export const MAX_CRITERION_TEST_IDS = 6;
 
 export const criterionSchema = z.object({
   id: z
@@ -24,13 +38,20 @@ export const criterionSchema = z.object({
   type: z
     .enum(CRITERION_TYPES)
     .describe(
-      "e2e: se comprueba en el DOM con data-testid. visual: se comprueba en las capturas a 1280 y 390 px.",
+      "e2e: se comprueba en el DOM de la vista previa con data-testid. visual: todavía no se admite.",
     ),
   text: z
     .string()
     .min(1)
     .max(300)
     .describe("Criterio comprobable, en español."),
+  testIds: z
+    .array(testIdSchema)
+    .min(1)
+    .max(MAX_CRITERION_TEST_IDS)
+    .describe(
+      "Los data-testid con los que Testing comprueba el criterio, nuevos o existentes. Develop tiene que usarlos tal cual (D38).",
+    ),
 });
 export type Criterion = z.infer<typeof criterionSchema>;
 
@@ -153,6 +174,12 @@ function refinePlan(
   plan.tasks.forEach((task, t) => {
     refineTask(task, ctx, tree, ["tasks", t]);
     task.acceptanceCriteria.forEach((c, i) => {
+      if (c.type !== "e2e") {
+        issue(
+          `El criterio ${c.id} es de tipo ${c.type}: por ahora todos los criterios son e2e y se comprueban en el DOM con data-testid (D39)`,
+          ["tasks", t, "acceptanceCriteria", i, "type"],
+        );
+      }
       if (ids.has(c.id)) {
         issue(`El id de criterio ${c.id} está repetido`, [
           "tasks",
@@ -254,9 +281,13 @@ export function splitSchemaFor(
           );
         } else if (placed.has(c.id)) {
           issue(`El criterio ${c.id} está en más de una subtarea`, path);
-        } else if (before.type !== c.type || before.text !== c.text) {
+        } else if (
+          before.type !== c.type ||
+          before.text !== c.text ||
+          before.testIds.join() !== c.testIds.join()
+        ) {
           issue(
-            `El criterio ${c.id} ha cambiado: cópialo tal cual (${before.type}: ${before.text})`,
+            `El criterio ${c.id} ha cambiado: cópialo tal cual (${before.type}: ${before.text}; testIds: ${before.testIds.join(", ")})`,
             path,
           );
         }
@@ -395,6 +426,11 @@ export type DevelopScope = {
    * to the repair call. Later it just counts as a failed iteration (D34).
    */
   requireChange?: boolean;
+  /**
+   * data-testid of the task's criteria (D38): each must appear in the files
+   * Develop returns or in the files it has seen.
+   */
+  testIds?: readonly string[];
 };
 
 const bytes = (text: string) => new TextEncoder().encode(text).length;
@@ -452,6 +488,19 @@ function refineDevelop(
       ["files"],
     );
   }
+  if (scope?.testIds?.length) {
+    const texts = [
+      ...out.files.map((f) => f.content),
+      ...Object.values(current ?? {}),
+    ];
+    const missing = scope.testIds.filter((id) => !usesTestId(id, texts));
+    if (missing.length > 0) {
+      issue(
+        `Faltan data-testid que piden los criterios: ${missing.join(", ")}. Úsalos tal cual, por ejemplo data-testid="${missing[0]}"`,
+        ["files"],
+      );
+    }
+  }
   if (scope?.criteria && out.evidence) {
     const ids = new Set(scope.criteria);
     out.evidence.forEach((e, i) => {
@@ -500,34 +549,319 @@ export type DevelopInput = {
   context: DevelopContext;
 };
 
-// --- Testing ---
+// --- Testing (D38, D39) ---
 
-export const verdictSchema = z.object({
-  passed: z.boolean(),
-  summary: z.string().min(1).max(2000),
-  criteria: z.array(
-    z.object({
-      /** Criterion id (c1, c2…) of the task. */
-      id: z.string(),
-      criterion: z.string(),
-      passed: z.boolean(),
-      note: z.string().max(1000),
-    }),
-  ),
+/** A step of the criteria runner (e2e/criteria.spec.ts in crm-demo). */
+const nth = z
+  .number()
+  .int()
+  .min(0)
+  .max(50)
+  .optional()
+  .describe("Índice entre los visibles con ese data-testid; 0 si se omite.");
+const stepText = z.string().min(1).max(200);
+const relativePath = z
+  .string()
+  .max(200)
+  .regex(
+    /^\/(?!\/)[^\s:\\]*$/,
+    "Una ruta relativa como /facturas: sin esquema, sin host y sin espacios",
+  );
+
+export const stepSchema = z.discriminatedUnion("action", [
+  z.strictObject({
+    action: z.literal("goto"),
+    page: z
+      .string()
+      .optional()
+      .describe(
+        "Nombre de una página de e2e/pages.ts (abre las de detalle desde su lista).",
+      ),
+    path: relativePath
+      .optional()
+      .describe("O una ruta relativa: /facturas, /clientes/nuevo."),
+  }),
+  z.strictObject({
+    action: z.literal("fill"),
+    testId: testIdSchema,
+    value: z
+      .string()
+      .max(200)
+      .describe("{{stamp}} se sustituye por un valor único."),
+    nth,
+  }),
+  z.strictObject({
+    action: z.literal("select"),
+    testId: testIdSchema,
+    value: stepText.describe("El value de la opción del <select>."),
+    nth,
+  }),
+  z.strictObject({ action: z.literal("click"), testId: testIdSchema, nth }),
+  z.strictObject({
+    action: z.literal("expectVisible"),
+    testId: testIdSchema,
+    nth,
+  }),
+  z.strictObject({
+    action: z.literal("expectText"),
+    testId: testIdSchema,
+    text: stepText.describe("Texto que contiene el elemento ({{stamp}} vale)."),
+    nth,
+    all: z
+      .boolean()
+      .optional()
+      .describe(
+        "true: todos los visibles con ese data-testid contienen el texto.",
+      ),
+  }),
+  z.strictObject({
+    action: z.literal("expectCount"),
+    testId: testIdSchema,
+    count: z
+      .number()
+      .int()
+      .min(0)
+      .max(200)
+      .optional()
+      .describe("Número exacto."),
+    min: z.number().int().min(0).max(200).optional().describe("O un mínimo."),
+  }),
+]);
+export type Step = z.infer<typeof stepSchema>;
+export const MAX_STEPS = 20;
+
+/** Steps of every e2e criterion of one plan revision (D38). */
+const stepsObject = z.object({
+  criteria: z
+    .array(
+      z.object({
+        id: z.string().describe("Id del criterio: c1, c2…"),
+        steps: z.array(stepSchema).min(1).max(MAX_STEPS),
+      }),
+    )
+    .min(1),
 });
-export type TestingVerdict = z.infer<typeof verdictSchema>;
+export type CriteriaSteps = z.infer<typeof stepsObject>;
 
-export type E2eSummary = {
-  /** passed | failed | error (see test_reports.status) */
-  status: string;
-  passed: number;
-  failed: number;
-  failures: { title: string; project: string; error: string }[];
+/** A criterion Testing writes steps for. */
+export type StepsCriterion = {
+  id: string;
+  task: number;
+  text: string;
+  testIds: string[];
 };
 
-export type TestingInput = {
+export type StepsScope = {
+  criteria: readonly Pick<StepsCriterion, "id" | "testIds">[];
+  /** Names of e2e/pages.ts at the head the steps are written for. */
+  pages: readonly string[];
+};
+
+/** Mirrors the runner: what a JSON Schema cannot say, plus the plan's ids. */
+function refineSteps(
+  out: CriteriaSteps,
+  ctx: z.RefinementCtx,
+  scope: StepsScope | null,
+) {
+  const issue = (message: string, path: (string | number)[]) =>
+    ctx.addIssue({ code: "custom", message, path });
+  const byId = new Map(scope?.criteria.map((c) => [c.id, c]));
+  const planIds = new Set(scope?.criteria.flatMap((c) => c.testIds));
+  const seen = new Set<string>();
+  out.criteria.forEach((c, i) => {
+    if (seen.has(c.id))
+      issue(`El criterio ${c.id} está repetido`, ["criteria", i, "id"]);
+    seen.add(c.id);
+    const criterion = byId.get(c.id);
+    if (scope && !criterion) {
+      issue(`${c.id} no es un criterio de esta revisión`, [
+        "criteria",
+        i,
+        "id",
+      ]);
+    }
+    if (c.steps[0]?.action !== "goto") {
+      issue("El primer paso es siempre un goto", ["criteria", i, "steps", 0]);
+    }
+    if (!c.steps.some((s) => s.action.startsWith("expect"))) {
+      issue(`${c.id} no comprueba nada: añade algún expect`, [
+        "criteria",
+        i,
+        "steps",
+      ]);
+    }
+    c.steps.forEach((step, j) => {
+      const path = ["criteria", i, "steps", j];
+      if (step.action === "goto") {
+        if (!step.page === !step.path) {
+          issue("goto lleva page o path, uno de los dos", path);
+        } else if (step.page && scope && !scope.pages.includes(step.page)) {
+          issue(
+            `La página ${step.page} no está en e2e/pages.ts (${scope.pages.join(", ")}): usa path`,
+            path,
+          );
+        }
+        return;
+      }
+      if (step.action === "expectCount" && step.min === 0) {
+        issue(
+          "expectCount con min 0 siempre se cumple: usa count, un min mayor o expectText con all",
+          path,
+        );
+      }
+      if (
+        step.action === "expectCount" &&
+        (step.count === undefined) === (step.min === undefined)
+      ) {
+        issue("expectCount lleva count o min, uno de los dos", path);
+      }
+      // D38: the data-testid of the plan, the only ones Develop must write.
+      if (scope && !planIds.has(step.testId)) {
+        issue(
+          `${step.testId} no está entre los data-testid del plan: usa solo ${[...planIds].join(", ")}`,
+          [...path, "testId"],
+        );
+      }
+    });
+  });
+  const missing = [...byId.keys()].filter((id) => !seen.has(id));
+  if (missing.length > 0) {
+    issue(`Faltan los pasos de ${missing.join(", ")}`, ["criteria"]);
+  }
+}
+
+export const stepsSchema = stepsObject.superRefine((o, ctx) =>
+  refineSteps(o, ctx, null),
+);
+export const stepsSchemaFor = (scope: StepsScope) =>
+  stepsObject.superRefine((o, ctx) => refineSteps(o, ctx, scope));
+
+export type StepsInput = {
   runId: number;
-  task: TaskBrief;
-  iteration: number;
-  report: E2eSummary;
+  request: string;
+  planRevision: number;
+  tasks: { position: number; title: string; description: string }[];
+  criteria: StepsCriterion[];
+  pages: string[];
+  /** Existing specs of crm-demo as examples of the flows (write-flow…). */
+  examples: { path: string; content: string }[];
 };
+
+/** Result of one criterion on one project, from results.json (D39). */
+export type CriterionResult = {
+  /** r<revision>-<criterion>: ids restart in an amend (D29). */
+  key: string;
+  run: number;
+  revision: number;
+  criterion: string;
+  project: string;
+  passed: boolean;
+  error: string | null;
+  /** Saved by the runner when a step fails. */
+  failedStep: { step: number; action: string; url: string } | null;
+  snapshot: string | null;
+};
+
+/** Testing's explanation of the failures of one E2E report (D39). */
+const explainObject = z.object({
+  criteria: z
+    .array(
+      z.object({
+        key: z.string().describe("Clave del criterio: r1-c2."),
+        task: z
+          .number()
+          .int()
+          .describe("Posición de la tarea a la que vuelve."),
+        verdict: z.enum(["pass", "fail"]),
+        reason: z
+          .string()
+          .min(1)
+          .max(600)
+          .describe(
+            "En español, para Develop: qué falta o qué está mal, sin copiar los pasos.",
+          ),
+        evidence: z.string().max(300).describe("El paso que falló, tal cual."),
+      }),
+    )
+    .describe("Un elemento por cada criterio que ha fallado."),
+  regressions: z
+    .array(
+      z.object({
+        test: z.string().describe("Título del test que falla."),
+        task: z
+          .number()
+          .int()
+          .describe("Tarea de esta revisión que lo ha roto."),
+        reason: z.string().min(1).max(600),
+      }),
+    )
+    .describe(
+      "Un elemento por cada test que falla y no es un criterio de esta revisión.",
+    ),
+});
+export type TestingExplanation = z.infer<typeof explainObject>;
+/** For a stored explanation, already checked against its input (D22). */
+export const explainSchemaLoose = explainObject;
+
+export type ExplainInput = {
+  runId: number;
+  request: string;
+  /** Tasks under test, with the files their commit touched. */
+  tasks: { position: number; title: string; files: string[] }[];
+  /** Failed criteria of this run, one per key (worst project). */
+  failed: (CriterionResult & { task: number; text: string })[];
+  /** Other failing tests: E2E that already existed or older runs' criteria. */
+  regressions: { title: string; project: string; error: string }[];
+};
+
+/** The executor decides the verdict; Testing only explains it (D39). */
+export function explainSchemaFor(input: ExplainInput) {
+  const failedKeys = new Set(input.failed.map((f) => f.key));
+  const taskSet = new Set(input.tasks.map((t) => t.position));
+  const titles = new Set(input.regressions.map((r) => r.title));
+  return explainObject.superRefine((out, ctx) => {
+    const issue = (message: string, path: (string | number)[]) =>
+      ctx.addIssue({ code: "custom", message, path });
+    const seen = new Set<string>();
+    out.criteria.forEach((c, i) => {
+      seen.add(c.key);
+      if (!failedKeys.has(c.key)) {
+        issue(
+          `${c.key} no ha fallado: solo explicas los criterios que fallan`,
+          ["criteria", i, "key"],
+        );
+      } else if (c.verdict !== "fail") {
+        issue(`El test de ${c.key} ha fallado: el veredicto es fail`, [
+          "criteria",
+          i,
+          "verdict",
+        ]);
+      }
+      if (!taskSet.has(c.task)) {
+        issue(`La tarea ${c.task} no está en esta revisión`, [
+          "criteria",
+          i,
+          "task",
+        ]);
+      }
+    });
+    const missing = [...failedKeys].filter((k) => !seen.has(k));
+    if (missing.length)
+      issue(`Faltan los criterios ${missing.join(", ")}`, ["criteria"]);
+    const assigned = new Set<string>();
+    out.regressions.forEach((r, i) => {
+      assigned.add(r.test);
+      if (!titles.has(r.test))
+        issue(`${r.test} no es un test que falla`, ["regressions", i, "test"]);
+      if (!taskSet.has(r.task))
+        issue(`La tarea ${r.task} no está en esta revisión`, [
+          "regressions",
+          i,
+          "task",
+        ]);
+    });
+    const unassigned = [...titles].filter((t) => !assigned.has(t));
+    if (unassigned.length)
+      issue(`Asigna a una tarea: ${unassigned.join(", ")}`, ["regressions"]);
+  });
+}

@@ -43,6 +43,8 @@ const newRunSchema = z.object({
   simulatePlanCrash: z.literal("on").optional(),
   simulateTypeError: z.literal("on").optional(),
   simulateMaxTokens: z.literal("on").optional(),
+  simulateCriterionFail: z.literal("on").optional(),
+  simulatePersistentFail: z.literal("on").optional(),
 });
 
 /** New request from the client (D25). It waits in the queue if a run is active. */
@@ -60,6 +62,8 @@ export async function createRun(
     simulatePlanCrash: formData.get("simulatePlanCrash") ?? undefined,
     simulateTypeError: formData.get("simulateTypeError") ?? undefined,
     simulateMaxTokens: formData.get("simulateMaxTokens") ?? undefined,
+    simulateCriterionFail: formData.get("simulateCriterionFail") ?? undefined,
+    simulatePersistentFail: formData.get("simulatePersistentFail") ?? undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos no válidos." };
@@ -82,6 +86,9 @@ export async function createRun(
       simulatePlanCrash: parsed.data.simulatePlanCrash === "on",
       simulateTypeError: parsed.data.simulateTypeError === "on",
       simulateMaxTokens: parsed.data.simulateMaxTokens === "on",
+      // H6 (D40): the persistent failure includes the single one.
+      simulateCriterionFail: parsed.data.simulateCriterionFail === "on",
+      simulatePersistentFail: parsed.data.simulatePersistentFail === "on",
     })
     .returning();
   if (!run) return { error: "No se ha podido crear el run." };
@@ -96,6 +103,8 @@ export async function createRun(
       simulatePlanCrash: run.simulatePlanCrash,
       simulateTypeError: run.simulateTypeError,
       simulateMaxTokens: run.simulateMaxTokens,
+      simulateCriterionFail: run.simulateCriterionFail,
+      simulatePersistentFail: run.simulatePersistentFail,
     },
   });
   after(() => startNext());

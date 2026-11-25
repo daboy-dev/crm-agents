@@ -4,23 +4,27 @@ import {
   runDevelop,
   runOrchestrator,
   runSplit,
-  runTesting,
+  runTestingExplain,
+  runTestingSteps,
 } from "@/server/agents";
 import { CONTEXT_FILES, readPlanContext } from "@/server/agents/context";
 import { readDevelopContext } from "@/server/agents/develop-context";
 import {
   developOutputSchema,
+  explainSchemaLoose,
   MAX_TASKS_AFTER_SPLIT,
   planSchema,
   splitBaseSchema,
-  verdictSchema,
+  stepsSchema,
   type AgentName,
+  type CriteriaSteps,
   type DevelopOutput,
-  type E2eSummary,
+  type ExplainInput,
   type PlanInput,
   type TaskBrief,
+  type TestingExplanation,
 } from "@/server/agents/contracts";
-import { checkPaths } from "@/server/agents/paths";
+import { checkPaths, PAGES_FILE } from "@/server/agents/paths";
 import { getDb, type Db } from "@/server/db/client";
 import {
   agentSteps,
@@ -70,6 +74,16 @@ import {
   type StepStore,
 } from "./cache";
 import { prepareCommits } from "./commits";
+import {
+  buildCriteriaFile,
+  criteriaPath,
+  criterionKey,
+  feedbackFor,
+  isSplitRevision,
+  judge,
+  pageNames,
+  type CurrentCriterion,
+} from "./criteria";
 import { llmCallsPerRun } from "./limits";
 import {
   AWAITING_HUMAN,
@@ -156,6 +170,7 @@ function stepStore(ctx: StepContext): StepStore {
         : eq(agentSteps.taskId, key.taskId),
       eq(agentSteps.iteration, key.iteration),
       eq(agentSteps.agent, key.agent),
+      eq(agentSteps.scope, key.scope ?? ""),
     );
   return {
     async find(key) {
@@ -168,7 +183,14 @@ function stepStore(ctx: StepContext): StepStore {
     async insert(key, output, calls) {
       const [row] = await db
         .insert(agentSteps)
-        .values({ runId: run.id, ...key, output, calls, ...totals(calls) })
+        .values({
+          runId: run.id,
+          ...key,
+          scope: key.scope ?? "",
+          output,
+          calls,
+          ...totals(calls),
+        })
         .onConflictDoNothing()
         .returning({ id: agentSteps.id });
       return Boolean(row);
@@ -511,6 +533,113 @@ async function stepSplit(ctx: StepContext): Promise<Committed> {
   );
 }
 
+// --- Testing's steps (D38) ---
+
+const STEPS_SCOPE = "steps";
+/** Specs Testing reads as an example of the flows and the data-testid. */
+const EXAMPLE_SPECS = ["e2e/write-flow.spec.ts"];
+
+const allTasks = (db: Db, runId: number) =>
+  db.select().from(tasks).where(eq(tasks.runId, runId));
+
+/** Stored steps of every revision of the run, by revision. */
+async function storedSteps(
+  db: Db,
+  runId: number,
+): Promise<Map<number, CriteriaSteps>> {
+  const rows = await db
+    .select({ iteration: agentSteps.iteration, output: agentSteps.output })
+    .from(agentSteps)
+    .where(
+      and(
+        eq(agentSteps.runId, runId),
+        isNull(agentSteps.taskId),
+        eq(agentSteps.agent, "testing"),
+        eq(agentSteps.scope, STEPS_SCOPE),
+      ),
+    );
+  return new Map(rows.map((r) => [r.iteration, stepsSchema.parse(r.output)]));
+}
+
+/**
+ * Testing writes the steps of the revision's criteria once, right after the
+ * approval and before Develop (D38). An amend only has its new criteria; a
+ * split keeps the criteria, so it reuses the steps of the split revision.
+ * Returns whether it called the LLM: then the step resumes (D35).
+ */
+async function ensureSteps(
+  ctx: StepContext,
+  readSha: string,
+): Promise<{ called: boolean }> {
+  const { db, run } = ctx;
+  const revision = run.planRevision;
+  const key: StepKey = {
+    agent: "testing",
+    taskId: null,
+    iteration: revision,
+    scope: STEPS_SCOPE,
+  };
+  const store = stepStore(ctx);
+  if (await store.find(key)) return { called: false };
+
+  if (isSplitRevision(await allTasks(db, run.id), revision)) {
+    const previous = await store.find({ ...key, iteration: revision - 1 });
+    if (previous) {
+      await store.insert(key, previous.output, []);
+      await appendEvent(db, run, {
+        actor: "testing",
+        kind: "steps",
+        message: `Revisión ${revision}: la división mantiene los criterios, así que reutiliza sus pasos sin llamar al LLM.`,
+      });
+      return { called: false };
+    }
+  }
+
+  const criteria = run.tasks.flatMap((t) =>
+    t.acceptanceCriteria
+      .filter((c) => c.type === "e2e")
+      .map((c) => ({
+        id: c.id,
+        task: t.position,
+        text: c.text,
+        testIds: c.testIds,
+      })),
+  );
+  if (criteria.length === 0) return { called: false };
+  const result = await cachedCall(ctx, key, stepsSchema, async (hooks) => {
+    const [pages, ...examples] = await Promise.all(
+      [PAGES_FILE, ...EXAMPLE_SPECS].map((f) => getFileText(f, readSha)),
+    );
+    return runTestingSteps(
+      await ctx.llm("testing"),
+      {
+        runId: run.id,
+        request: run.request,
+        planRevision: revision,
+        tasks: run.tasks.map((t) => ({
+          position: t.position,
+          title: t.title,
+          description: t.description,
+        })),
+        criteria,
+        pages: pageNames(pages ?? null),
+        examples: EXAMPLE_SPECS.flatMap((path, i) => {
+          const content = examples[i];
+          return content ? [{ path, content }] : [];
+        }),
+      },
+      hooks,
+    );
+  });
+  await appendEvent(db, run, {
+    actor: "testing",
+    kind: "steps",
+    message: `Revisión ${revision}: pasos de ${result.output.criteria.length} criterios para ${criteriaPath(run.id)}.`,
+    data: { revision, steps: result.output, ...callData(result) },
+  });
+  return { called: !result.cached };
+}
+
 async function stepDeveloping(ctx: StepContext): Promise<StepResult> {
   const { db, run, token } = ctx;
   const branch = runBranch(run.id);
@@ -519,6 +648,8 @@ async function stepDeveloping(ctx: StepContext): Promise<StepResult> {
 
   // D32: read at the head of run/<id> (the base before the first push).
   const readSha = run.headSha ?? run.baseSha ?? (await getBaseSha());
+  // D38: before the first Develop call of the revision; its own invocation.
+  if ((await ensureSteps(ctx, readSha)).called) return { resume: true };
   const store = stepStore(ctx);
   const outputs: DevelopResult[] = [];
   let called = false;
@@ -630,7 +761,14 @@ async function stepDeveloping(ctx: StepContext): Promise<StepResult> {
     const prepared = await prepareCommits(
       outputs,
       (path) => getFileText(path, readSha),
-      { simulateTypeError: run.simulateTypeError },
+      {
+        simulateTypeError: run.simulateTypeError,
+        breakTestIds: ({ task }) =>
+          run.simulatePersistentFail ||
+          (run.simulateCriterionFail && task.iteration === 1)
+            ? task.acceptanceCriteria.flatMap((c) => c.testIds)
+            : [],
+      },
     );
     unchanged = prepared.unchanged;
     notes.push(...prepared.notes);
@@ -665,6 +803,29 @@ async function stepDeveloping(ctx: StepContext): Promise<StepResult> {
         parent,
       });
       commits[String(task.id)] = parent;
+    }
+    // D38: the criteria JSON rides on the same push, so no extra build.
+    const file = buildCriteriaFile(
+      run.id,
+      await allTasks(db, run.id),
+      await storedSteps(db, run.id),
+    );
+    const path = criteriaPath(run.id);
+    if (
+      JSON.parse(file).criteria.length > 0 &&
+      (await getFileText(path, readSha)) !== file
+    ) {
+      tree = await createTree(tree, [{ path, content: file }]);
+      parent = await createCommit({
+        message: `test(e2e): add acceptance criteria of run #${run.id}`,
+        tree,
+        parent,
+      });
+      notes.push({
+        actor: "testing",
+        kind: "criteria",
+        message: `${path} entra en la cadena de commits (${short(parent)}).`,
+      });
     }
     targetSha = parent;
     await checkpoint(db, run, token, { targetSha, targetCommits: commits });
@@ -822,66 +983,171 @@ async function latestReport(db: Db, sha: string) {
   return report ?? null;
 }
 
+/** The task the failing mock scenarios pick on (D24). */
+const MOCK_TARGET_TASK = 2;
+
+/**
+ * Mock scenarios fail-once and blocked (D24): the mock's code never changes
+ * the app, so the runner cannot fail it. The panel scripts the failure of the
+ * target task's criteria instead, only when Testing is the mock.
+ */
+function scriptedFailures(run: LoadedRun, current: CurrentCriterion[]) {
+  if (runProviders(run).testing !== "mock") return [];
+  const target = run.tasks.find(
+    (t) => t.position === MOCK_TARGET_TASK && t.status === "testing",
+  );
+  if (!target) return [];
+  const fails =
+    run.scenario === "blocked" ||
+    (run.scenario === "fail-once" && target.iteration === 1);
+  return fails ? current.filter((c) => c.taskId === target.id) : [];
+}
+
 async function stepTesting(ctx: StepContext): Promise<Committed> {
   const { db, run, token } = ctx;
   if (!run.headSha) throw new Error("El run no tiene commit");
-  const report = await latestReport(db, run.headSha);
-  if (!report) throw new Error(`No hay informe E2E para ${short(run.headSha)}`);
-  const summary: E2eSummary = {
-    status: report.status,
-    passed: report.passed,
-    failed: report.failed,
-    failures: report.failures,
-  };
+  const headSha = run.headSha;
+  const report = await latestReport(db, headSha);
+  if (!report) throw new Error(`No hay informe E2E para ${short(headSha)}`);
 
-  const verdicts: Verdict[] = [];
-  const events: EventDraft[] = [];
-  for (const task of run.tasks.filter((t) => t.status === "testing")) {
+  // Criteria of this revision, by the key of the runner's titles.
+  const current: CurrentCriterion[] = run.tasks.flatMap((t) =>
+    t.acceptanceCriteria
+      .filter((c) => c.type === "e2e")
+      .map((c) => ({
+        key: criterionKey(run.planRevision, c.id),
+        taskId: t.id,
+        task: t.position,
+        text: c.text,
+      })),
+  );
+  const judgement = judge(run.id, current, report.criteria, report.failures);
+  for (const c of scriptedFailures(run, current)) {
+    if (judgement.failed.some((f) => f.key === c.key)) continue;
+    judgement.passed = judgement.passed.filter((k) => k !== c.key);
+    judgement.failed.push({
+      key: c.key,
+      run: run.id,
+      revision: run.planRevision,
+      criterion: c.key.split("-")[1]!,
+      project: "",
+      passed: false,
+      error: `Fallo simulado del escenario ${run.scenario} (MockProvider)`,
+      failedStep: null,
+      snapshot: null,
+      taskId: c.taskId,
+      task: c.task,
+      text: c.text,
+    });
+  }
+
+  const testing = run.tasks.filter((t) => t.status === "testing");
+  const events: EventDraft[] = [
+    {
+      actor: "system",
+      kind: "report",
+      message: `Informe E2E de ${short(headSha)}: ${report.passed} pasan, ${report.failed} fallan. Criterios: ${judgement.passed.length} pasan, ${judgement.failed.length} fallan.`,
+      data: {
+        reportId: report.id,
+        passed: judgement.passed,
+        failed: judgement.failed.map((f) => ({
+          key: f.key,
+          task: f.task,
+          project: f.project,
+          error: f.error,
+          failedStep: f.failedStep,
+        })),
+        regressions: judgement.regressions,
+      },
+    },
+  ];
+
+  // D39: everything passed, no LLM call.
+  let explanation: TestingExplanation = { criteria: [], regressions: [] };
+  if (judgement.failed.length > 0 || judgement.regressions.length > 0) {
+    const input: ExplainInput = {
+      runId: run.id,
+      request: run.request,
+      tasks: testing.map((t) => ({
+        position: t.position,
+        title: t.title,
+        files: t.files,
+      })),
+      // A failing criterion of a task that already passed is a regression.
+      failed: judgement.failed.filter((f) =>
+        testing.some((t) => t.id === f.taskId),
+      ),
+      regressions: [
+        ...judgement.regressions,
+        ...judgement.failed
+          .filter((f) => !testing.some((t) => t.id === f.taskId))
+          .map((f) => ({
+            title: `run-${run.id} r${f.revision} ${f.criterion} · ${f.text}`,
+            project: f.project,
+            error: f.error ?? "",
+          })),
+      ],
+    };
     const result = await cachedCall(
       ctx,
-      { agent: "testing", taskId: task.id, iteration: task.iteration },
-      verdictSchema,
+      {
+        agent: "testing",
+        taskId: null,
+        iteration: run.planRevision,
+        scope: `explain:${headSha}`,
+      },
+      // Stored outputs were validated against this input when written.
+      explainSchemaLoose,
       async (hooks) =>
-        runTesting(
-          await ctx.llm("testing"),
-          {
-            runId: run.id,
-            task: brief(task),
-            iteration: task.iteration,
-            report: summary,
-          },
-          hooks,
-        ),
+        runTestingExplain(await ctx.llm("testing"), input, hooks),
     );
-    const verdict = result.output;
-    verdicts.push({
-      taskId: task.id,
-      passed: verdict.passed,
-      feedback: verdict.summary,
-    });
+    explanation = result.output;
     events.push({
       actor: "testing",
-      kind: verdict.passed ? "passed" : "failed",
-      message: `Tarea ${task.position}, iteración ${task.iteration}: ${verdict.passed ? "pasa" : "falla"}. ${verdict.summary}`,
-      data: { ...verdict, ...callData(result) },
+      kind: "explain",
+      message: `Testing explica ${explanation.criteria.length} criterios que fallan y ${explanation.regressions.length} regresiones.`,
+      data: { ...explanation, ...callData(result) },
+    });
+  }
+
+  const verdicts: Verdict[] = testing.map((task) => {
+    const failed = judgement.failed
+      .filter((f) => f.taskId === task.id)
+      .map((f) => {
+        const why = explanation.criteria.find((c) => c.key === f.key);
+        return {
+          key: f.key,
+          criterion: f.criterion,
+          reason: why?.reason ?? f.error ?? "El criterio falla.",
+          evidence: why?.evidence ?? f.failedStep?.action ?? "",
+          snapshot: f.snapshot,
+          url: f.failedStep?.url,
+        };
+      });
+    const regressions = explanation.regressions.filter(
+      (r) => r.task === task.position,
+    );
+    const passed = failed.length === 0 && regressions.length === 0;
+    return {
+      taskId: task.id,
+      passed,
+      feedback: passed ? "" : feedbackFor(failed, regressions),
+    };
+  });
+  for (const [i, task] of testing.entries()) {
+    const v = verdicts[i]!;
+    events.push({
+      actor: "testing",
+      kind: v.passed ? "passed" : "failed",
+      message: `Tarea ${task.position}, iteración ${task.iteration}: ${v.passed ? "pasa" : "falla"}.${v.passed ? "" : ` ${v.feedback.split("\n").slice(0, 3).join(" ")}`}`,
+      data: { taskId: task.id, iteration: task.iteration },
     });
   }
   return commitTransition(
     db,
     run,
     { type: "testing_done", verdicts },
-    {
-      leaseToken: token,
-      events: [
-        {
-          actor: "system",
-          kind: "report",
-          message: `Informe E2E de ${short(run.headSha)}: ${report.passed} pasan, ${report.failed} fallan.`,
-          data: { reportId: report.id },
-        },
-        ...events,
-      ],
-    },
+    { leaseToken: token, events },
   );
 }
 

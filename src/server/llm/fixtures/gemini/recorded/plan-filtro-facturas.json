@@ -1,0 +1,47 @@
+{
+  "sdkHttpResponse": {
+    "headers": {
+      "alt-svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000",
+      "content-encoding": "gzip",
+      "content-type": "application/json; charset=UTF-8",
+      "date": "Wed, 25 Nov 2026 21:17:06 GMT",
+      "server": "scaffolding on HTTPServer2",
+      "server-timing": "gfet4t7; dur=3158",
+      "transfer-encoding": "chunked",
+      "vary": "Origin, X-Origin, Referer",
+      "x-content-type-options": "nosniff",
+      "x-frame-options": "SAMEORIGIN",
+      "x-gemini-service-tier": "standard",
+      "x-xss-protection": "0"
+    }
+  },
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "{\n  \"feasible\": true,\n  \"summary\": \"Se añade un desplegable de filtro por estado (todas, pendientes, pagadas) en la página de lista de facturas utilizando parámetros de búsqueda en la URL.\",\n  \"assumptions\": [\n    \"El filtro de estado de facturas se implementa mediante un parámetro de consulta en la URL (searchParams) para mantener el componente dentro del patrón de componentes con caché de Next.js.\",\n    \"El desplegable incluirá las opciones de estado permitidas en el esquema de facturas (pending y paid) junto con una opción para mostrarlas todas.\"\n  ],\n  \"tasks\": [\n    {\n      \"title\": \"Añadir filtro por estado en la lista de facturas\",\n      \"description\": \"Modifica src/app/(crm)/facturas/queries.ts para aceptar un filtro opcional por estado. Actualiza src/app/(crm)/facturas/page.tsx para incluir un formulario con un selector <select data-testid=\\\"field-status-filter\\\"> que permita elegir entre todas, pendientes (pending) y pagadas (paid), asegurando que se actualicen los searchParams. Mantén intactos los data-testid existentes como invoices-table e invoice-row.\",\n      \"files\": [\n        \"src/app/(crm)/facturas/queries.ts\",\n        \"src/app/(crm)/facturas/page.tsx\"\n      ],\n      \"references\": [\n        \"src/app/(crm)/clientes/client-search.tsx\",\n        \"src/app/(crm)/facturas/page.tsx\",\n        \"src/app/(crm)/facturas/queries.ts\"\n      ],\n      \"acceptanceCriteria\": [\n        {\n          \"id\": \"c1\",\n          \"type\": \"e2e\",\n          \"text\": \"la página de facturas muestra el selector de filtro por estado\",\n          \"testIds\": [\n            \"nav-facturas\",\n            \"field-status-filter\",\n            \"invoices-table\"\n          ]\n        },\n        {\n          \"id\": \"c2\",\n          \"type\": \"e2e\",\n          \"text\": \"al seleccionar facturas pendientes en el filtro, la tabla muestra solo las facturas con estado pendiente\",\n          \"testIds\": [\n            \"nav-facturas\",\n            \"field-status-filter\",\n            \"invoices-table\",\n            \"invoice-row\"\n          ]\n        }\n      ]\n    }\n  ]\n}",
+            "thoughtSignature": "EpYBCpMBAWkUfROm6nBugOhD5Y+p5Pey4ageTCxKpfDu9veIs+Ua2eKXv07zjtaYv0YcV/UOidCMkib1SmLN2R3Waaj9cFQeL9bZgak9XVLcpG5P0j55dTZl/B8Axo+3Uwhr7coQPs5Cz/Sjv4T7GO2rAvgGL3i892dGcA11qC66Zt22MLsJe4H7+TCfAA+IFgyi4jy1kG12"
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "modelVersion": "gemini-3.5-flash-lite",
+  "responseId": "T1AHa9vgK-eQkdUPwbmXuAY",
+  "usageMetadata": {
+    "promptTokenCount": 6694,
+    "candidatesTokenCount": 556,
+    "totalTokenCount": 7250,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 6694
+      }
+    ],
+    "serviceTier": "standard"
+  }
+}

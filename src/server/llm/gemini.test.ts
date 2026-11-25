@@ -1,6 +1,11 @@
 import { ApiError, type GenerateContentParameters } from "@google/genai";
 import { describe, expect, it, vi } from "vitest";
-import { developOutputSchema, planSchema } from "@/server/agents/contracts";
+import {
+  developOutputSchema,
+  planSchema,
+  stepsSchema,
+} from "@/server/agents/contracts";
+import { checkPaths } from "@/server/agents/paths";
 import {
   AGENT_SETTINGS,
   ChainProvider,
@@ -20,6 +25,8 @@ import developMaxTokens from "./fixtures/gemini/develop-max-tokens.json";
 import planInfeasible from "./fixtures/gemini/plan-infeasible.json";
 import planInvalid from "./fixtures/gemini/plan-invalid.json";
 import planOk from "./fixtures/gemini/plan-ok.json";
+import planVisual from "./fixtures/gemini/plan-visual.json";
+import developCriteria from "./fixtures/gemini/develop-criteria.json";
 import planTruncated from "./fixtures/gemini/plan-truncated.json";
 import {
   InvalidOutput,
@@ -77,6 +84,13 @@ function setup(
 }
 
 describe("toGeminiSchema", () => {
+  it("turns the step literals into enums, which Gemini takes (D38)", () => {
+    const text = JSON.stringify(toGeminiSchema(stepsSchema));
+    expect(text).toContain('"enum":["goto"]');
+    expect(text).toContain('"enum":["expectCount"]');
+    expect(text).not.toContain('"const"');
+  });
+
   it("keeps the structure and drops what responseJsonSchema rejects", () => {
     const schema = toGeminiSchema(planSchema) as Record<string, unknown>;
     const text = JSON.stringify(schema);
@@ -159,6 +173,40 @@ describe("Gemini links of the chain", () => {
     const repair = JSON.stringify(t.requests[1]!.contents);
     expect(repair).toContain("El id de criterio c1 está repetido");
     expect(repair).toContain(".github/workflows/ci.yml");
+  });
+
+  it("a visual criterion goes to the repair call (D39)", async () => {
+    const t = setup([planVisual as GeminiResponse, planOk]);
+    const { calls } = await t.run();
+    expect(calls.map((c) => [c.kind, c.valid])).toEqual([
+      ["first", false],
+      ["repair", true],
+    ]);
+    expect(JSON.stringify(t.requests[1]!.contents)).toContain(
+      "es de tipo visual",
+    );
+  });
+
+  it("a Develop answer that writes e2e/criteria/** is rejected (D38)", async () => {
+    const provider = new ChainProvider({
+      links: [
+        new GeminiClient("dev", async () => developCriteria as GeminiResponse),
+      ],
+      quota: { isExhausted: async () => false, markExhausted: async () => {} },
+      settings: AGENT_SETTINGS.develop,
+    });
+    const { output } = await provider.generateObject({
+      agent: "develop",
+      system: "sistema",
+      prompt: "tarea",
+      input: null,
+      schema: developOutputSchema,
+    });
+    const check = checkPaths(output.files.map((f) => f.path));
+    expect(check).toMatchObject({
+      ok: false,
+      path: "e2e/criteria/run-16.json",
+    });
   });
 
   it("fails after a single repair that does not validate", async () => {
@@ -302,6 +350,9 @@ describe("recorded answers of pnpm eval:plan (D30)", () => {
     "./fixtures/gemini/recorded/plan-*.json",
     { eager: true, import: "default" },
   );
+  // H4/H5 recordings are in recorded/h5: they predate testIds (D38).
+  if (Object.keys(recorded).length === 0)
+    it.skip("no recordings yet", () => {});
 
   it.each(Object.entries(recorded))(
     "%s parses as a feasible plan",

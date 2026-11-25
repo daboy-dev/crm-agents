@@ -1,0 +1,126 @@
+{
+  "request": "Añade un campo de notas internas a los clientes: se escribe en el formulario de alta y edición y se ve en el detalle del cliente.",
+  "baseSha": "c97dafdaf8cad363e774b34db6fcdcdd4ff91dad",
+  "steps": {
+    "criteria": [
+      {
+        "id": "c1",
+        "steps": [
+          {
+            "action": "goto",
+            "page": "clientes"
+          },
+          {
+            "action": "expectVisible",
+            "testId": "clients-table"
+          },
+          {
+            "action": "expectCount",
+            "testId": "client-row",
+            "min": 1
+          }
+        ]
+      },
+      {
+        "id": "c2",
+        "steps": [
+          {
+            "action": "goto",
+            "page": "clientes"
+          },
+          {
+            "action": "click",
+            "testId": "new-client-button"
+          },
+          {
+            "action": "fill",
+            "testId": "field-name",
+            "value": "Cliente {{stamp}}"
+          },
+          {
+            "action": "fill",
+            "testId": "field-email",
+            "value": "test-{{stamp}}@example.com"
+          },
+          {
+            "action": "fill",
+            "testId": "field-notes",
+            "value": "Nota interna {{stamp}}"
+          },
+          {
+            "action": "click",
+            "testId": "save-button"
+          },
+          {
+            "action": "expectVisible",
+            "testId": "client-detail"
+          },
+          {
+            "action": "expectText",
+            "testId": "client-notes",
+            "text": "Nota interna {{stamp}}"
+          }
+        ]
+      },
+      {
+        "id": "c3",
+        "steps": [
+          {
+            "action": "goto",
+            "page": "clientes"
+          },
+          {
+            "action": "click",
+            "testId": "new-client-button"
+          },
+          {
+            "action": "fill",
+            "testId": "field-name",
+            "value": "Cliente {{stamp}}"
+          },
+          {
+            "action": "fill",
+            "testId": "field-email",
+            "value": "test-{{stamp}}@example.com"
+          },
+          {
+            "action": "fill",
+            "testId": "field-notes",
+            "value": "Notas de prueba {{stamp}}"
+          },
+          {
+            "action": "click",
+            "testId": "save-button"
+          },
+          {
+            "action": "expectVisible",
+            "testId": "client-detail"
+          },
+          {
+            "action": "expectVisible",
+            "testId": "client-notes"
+          },
+          {
+            "action": "expectText",
+            "testId": "client-notes",
+            "text": "Notas de prueba {{stamp}}"
+          },
+          {
+            "action": "expectVisible",
+            "testId": "edit-client-button"
+          }
+        ]
+      }
+    ]
+  },
+  "calls": [
+    {
+      "model": "groq:openai/gpt-oss-120b",
+      "kind": "first",
+      "inputTokens": 3241,
+      "outputTokens": 844,
+      "latencyMs": 2416,
+      "valid": true
+    }
+  ]
+}

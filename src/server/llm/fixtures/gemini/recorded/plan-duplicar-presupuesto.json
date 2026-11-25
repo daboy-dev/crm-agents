@@ -1,0 +1,47 @@
+{
+  "sdkHttpResponse": {
+    "headers": {
+      "alt-svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000",
+      "content-encoding": "gzip",
+      "content-type": "application/json; charset=UTF-8",
+      "date": "Wed, 25 Nov 2026 21:14:32 GMT",
+      "server": "scaffolding on HTTPServer2",
+      "server-timing": "gfet4t7; dur=3517",
+      "transfer-encoding": "chunked",
+      "vary": "Origin, X-Origin, Referer",
+      "x-content-type-options": "nosniff",
+      "x-frame-options": "SAMEORIGIN",
+      "x-gemini-service-tier": "standard",
+      "x-xss-protection": "0"
+    }
+  },
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "{\n  \"feasible\": true,\n  \"summary\": \"Se añade un botón en el detalle de un presupuesto para duplicarlo, creando un nuevo presupuesto en estado borrador con el mismo cliente y sus líneas de detalle.\",\n  \"assumptions\": [\n    \"El número de presupuesto nuevo se genera automáticamente con la función de numeración existente.\",\n    \"La fecha de emisión del presupuesto duplicado será la fecha actual del sistema.\",\n    \"El presupuesto duplicado se crea en estado borrador (draft).\"\n  ],\n  \"tasks\": [\n    {\n      \"title\": \"Añadir acción de duplicar presupuesto en el servidor\",\n      \"description\": \"Crea una server action en src/app/(crm)/presupuestos/actions.ts llamada duplicateQuote que reciba el id de un presupuesto existente, consulte sus datos y sus líneas (quoteItems), genere un nuevo número con nextDocumentNumber, inserte el nuevo presupuesto con estado 'draft' y fecha actual, inserte sus líneas asociadas y redirija al detalle del nuevo presupuesto recién creado.\",\n      \"files\": [\n        \"src/app/(crm)/presupuestos/actions.ts\"\n      ],\n      \"references\": [\n        \"src/app/(crm)/presupuestos/actions.ts\",\n        \"src/app/(crm)/presupuestos/queries.ts\"\n      ],\n      \"acceptanceCriteria\": [\n        {\n          \"id\": \"c1\",\n          \"type\": \"e2e\",\n          \"text\": \"El detalle del presupuesto muestra el botón para duplicar con data-testid duplicate-quote-button.\",\n          \"testIds\": [\n            \"duplicate-quote-button\"\n          ]\n        },\n        {\n          \"id\": \"c2\",\n          \"type\": \"e2e\",\n          \"text\": \"Al pulsar duplicar en un presupuesto, se crea uno nuevo en borrador y se redirige a su detalle mostrando el estado borrador y las mismas líneas.\",\n          \"testIds\": [\n            \"duplicate-quote-button\",\n            \"quote-detail\",\n            \"status-badge\",\n            \"items-table\",\n            \"item-row\"\n          ]\n        }\n      ]\n    },\n    {\n      \"title\": \"Añadir el botón de duplicar en la vista de detalle de presupuesto\",\n      \"description\": \"Modifica src/app/(crm)/presupuestos/[id]/page.tsx para incluir el componente de botón que invoque la acción de duplicación con el data-testid duplicate-quote-button, integrándolo junto a los demás botones de acción del detalle.\",\n      \"files\": [\n        \"src/app/(crm)/presupuestos/[id]/page.tsx\"\n      ],\n      \"references\": [\n        \"src/app/(crm)/presupuestos/[id]/page.tsx\",\n        \"src/app/(crm)/facturas/[id]/page.tsx\"\n      ],\n      \"acceptanceCriteria\": [\n        {\n          \"id\": \"c3\",\n          \"type\": \"e2e\",\n          \"text\": \"La página de detalle del presupuesto contiene el botón duplicate-quote-button junto al resto de controles.\",\n          \"testIds\": [\n            \"quote-detail\",\n            \"duplicate-quote-button\"\n          ]\n        }\n      ]\n    }\n  ]\n}",
+            "thoughtSignature": "EpYBCpMBAWkUfRNU7xIm/88g7+U6zrVOEXAXUzgqRwsMKTYCZLzv3iq40DjsUwdLYl5rrSMHm62ZFqDIxLCaO7jLycvoizZFCM0z7ExhmUoairo3PmSwEISMwnRQONqR0Svs6a69NkahCi6HZCAboouSoDvRFz3xuy+87/WT/KyjR2pEuOy0W4pgfrKGDkvAQ34qvItJXPi+"
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "modelVersion": "gemini-3.5-flash-lite",
+  "responseId": "tU8Ha7WSCo2jvdIP9tSpkAk",
+  "usageMetadata": {
+    "promptTokenCount": 6591,
+    "candidatesTokenCount": 740,
+    "totalTokenCount": 7331,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 6591
+      }
+    ],
+    "serviceTier": "standard"
+  }
+}

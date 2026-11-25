@@ -16,7 +16,7 @@ export const SPLIT_SYSTEM = `Eres el Orquestador de un equipo de agentes que mod
 
 ## Reglas
 - tasks: de 2 al máximo que se indica, en el orden en que se aplican. Cada subtarea escribe pocos archivos, idealmente de 1 a 3, y no repite un archivo grande de otra subtarea salvo que sea imprescindible.
-- Criterios: cada criterio de la tarea original va, copiado tal cual (el mismo id, type y text), a exactamente una subtarea: la que lo deja comprobable. No añadas, cambies ni repitas criterios. Una subtarea puede quedarse sin criterios.
+- Criterios: cada criterio de la tarea original va, copiado tal cual (el mismo id, type, text y testIds), a exactamente una subtarea: la que lo deja comprobable. No añadas, cambies ni repitas criterios. Una subtarea puede quedarse sin criterios.
 - files: rutas exactas del repositorio. Nunca ${forbidden}. Un cambio de esquema solo toca src/db/schema.ts; la migración la genera la comprobación del PR.
 - references: de 1 a 3 archivos que ya existen en el árbol y sirven de modelo; puedes reutilizar los de la tarea original.
 - description: instrucciones concretas para Develop, en español, con rutas y data-testid, como en el plan original.
@@ -38,7 +38,10 @@ export function splitPrompt(input: SplitInput): string {
       `Archivos: ${task.files.join(", ")}`,
       `Referencias: ${task.references.join(", ")}`,
       "Criterios (cópialos tal cual):",
-      ...task.acceptanceCriteria.map((c) => `- ${c.id} (${c.type}): ${c.text}`),
+      ...task.acceptanceCriteria.map(
+        (c) =>
+          `- ${c.id} (${c.type}): ${c.text} · testIds: ${c.testIds.join(", ")}`,
+      ),
       "",
       `Motivo: ${input.reason}`,
       `Divide en 2 subtareas como mínimo y ${input.maxTasks} como máximo.`,

@@ -1,25 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { runDevelop, runOrchestrator, runTesting } from "@/server/agents";
-import type {
-  E2eSummary,
-  PlanInput,
-  TaskBrief,
-} from "@/server/agents/contracts";
+import {
+  runDevelop,
+  runOrchestrator,
+  runTestingExplain,
+  runTestingSteps,
+} from "@/server/agents";
+import type { PlanInput, TaskBrief } from "@/server/agents/contracts";
 import { checkPaths } from "@/server/agents/paths";
-import { MockProvider, type MockScenario } from "./mock";
-
-const passed: E2eSummary = {
-  status: "passed",
-  passed: 24,
-  failed: 0,
-  failures: [],
-};
-const failed: E2eSummary = {
-  status: "failed",
-  passed: 22,
-  failed: 2,
-  failures: [],
-};
+import { MockProvider } from "./mock";
 
 const planInput = (over: Partial<PlanInput> = {}): PlanInput => ({
   runId: 7,
@@ -47,21 +35,6 @@ async function brief(n: number): Promise<TaskBrief> {
   );
   const t = plan.tasks[n - 1]!;
   return { position: n, ...t };
-}
-
-async function verdict(
-  scenario: MockScenario,
-  n: number,
-  iteration: number,
-  report = passed,
-) {
-  const { output } = await runTesting(new MockProvider(scenario), {
-    runId: 7,
-    task: await brief(n),
-    iteration,
-    report,
-  });
-  return output;
 }
 
 describe("MockProvider", () => {
@@ -108,23 +81,58 @@ describe("MockProvider", () => {
     expect(checkPaths(out.files.map((f) => f.path)).ok).toBe(false);
   });
 
-  it.each([
-    ["ok", 2, 1, true],
-    ["fail-once", 1, 1, true],
-    ["fail-once", 2, 1, false],
-    ["fail-once", 2, 2, true],
-    ["blocked", 1, 1, true],
-    ["blocked", 2, 3, false],
-  ] as const)(
-    "%s: task %i iteration %i passes=%s",
-    async (scenario, n, it, expected) => {
-      expect((await verdict(scenario, n, it)).passed).toBe(expected);
-    },
-  );
+  it("writes passing steps over elements that already exist (D38)", async () => {
+    const tasks = [await brief(1), await brief(2)];
+    const { output } = await runTestingSteps(new MockProvider("ok"), {
+      runId: 7,
+      request: "r",
+      planRevision: 1,
+      tasks,
+      criteria: tasks.flatMap((t) =>
+        t.acceptanceCriteria.map((c) => ({
+          id: c.id,
+          task: t.position,
+          text: c.text,
+          testIds: c.testIds,
+        })),
+      ),
+      pages: ["clientes", "facturas"],
+      examples: [],
+    });
+    expect(output.criteria.map((c) => c.id)).toEqual(["c1", "c2", "c3", "c4"]);
+    expect(output.criteria[1]!.steps).toEqual([
+      { action: "goto", path: "/facturas" },
+      { action: "expectVisible", testId: "invoices-table" },
+    ]);
+  });
 
-  it("a failing real E2E fails every task, whatever the scenario", async () => {
-    const v = await verdict("ok", 1, 1, failed);
-    expect(v.passed).toBe(false);
-    expect(v.summary).toContain("E2E real");
+  it("explains every failure and assigns the regressions (D39)", async () => {
+    const { output } = await runTestingExplain(new MockProvider("ok"), {
+      runId: 7,
+      request: "r",
+      tasks: [{ position: 2, title: "t", files: ["a.ts"] }],
+      failed: [
+        {
+          key: "r1-c3",
+          run: 7,
+          revision: 1,
+          criterion: "c3",
+          project: "desktop",
+          passed: false,
+          error: "no está",
+          failedStep: { step: 2, action: "click x", url: "/clientes" },
+          snapshot: null,
+          task: 2,
+          text: "x",
+        },
+      ],
+      regressions: [{ title: "smoke › lists", project: "desktop", error: "e" }],
+    });
+    expect(output.criteria).toMatchObject([
+      { key: "r1-c3", verdict: "fail", evidence: "click x" },
+    ]);
+    expect(output.regressions).toMatchObject([
+      { test: "smoke › lists", task: 2 },
+    ]);
   });
 });

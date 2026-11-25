@@ -1,0 +1,37 @@
+{
+  "id": "chatcmpl-db5d0ab7-590b-4617-b9a7-ca5a94d897d2",
+  "object": "chat.completion",
+  "created": 1795641316,
+  "model": "openai/gpt-oss-120b",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"criteria\": [\n    {\n      \"id\": \"c1\",\n      \"steps\": [\n        {\n          \"action\": \"goto\",\n          \"page\": \"presupuesto-detalle\"\n        },\n        {\n          \"action\": \"expectVisible\",\n          \"testId\": \"duplicate-quote-button\"\n        }\n      ]\n    },\n    {\n      \"id\": \"c2\",\n      \"steps\": [\n        {\n          \"action\": \"goto\",\n          \"page\": \"presupuesto-detalle\"\n        },\n        {\n          \"action\": \"click\",\n          \"testId\": \"duplicate-quote-button\"\n        },\n        {\n          \"action\": \"expectVisible\",\n          \"testId\": \"quote-detail\"\n        },\n        {\n          \"action\": \"expectText\",\n          \"testId\": \"status-badge\",\n          \"text\": \"Borrador\"\n        },\n        {\n          \"action\": \"expectVisible\",\n          \"testId\": \"items-table\"\n        },\n        {\n          \"action\": \"expectCount\",\n          \"testId\": \"item-row\",\n          \"min\": 1\n        }\n      ]\n    },\n    {\n      \"id\": \"c3\",\n      \"steps\": [\n        {\n          \"action\": \"goto\",\n          \"page\": \"presupuesto-detalle\"\n        },\n        {\n          \"action\": \"expectVisible\",\n          \"testId\": \"quote-detail\"\n        },\n        {\n          \"action\": \"expectVisible\",\n          \"testId\": \"duplicate-quote-button\"\n        }\n      ]\n    }\n  ]\n}",
+        "reasoning": "We need JSON array criteria. Provide three objects. Steps per criteria.\n\nc1: just check button visible on detail page. Need goto presupuesto-detalle page. Use page \"presupuesto-detalle\"? That's detail page name. So first step goto page:presupuesto-detalle. Then expectVisible duplicate-quote-button.\n\nc2: duplicate flow. Steps: goto presupuesto-detalle (existing). Click duplicate-quote-button. Then expectVisible quote-detail, expectText status-badge with \"draft\" maybe attribute data-status draft. Use expectText on status-badge? spec says expectText contains text; maybe status badge shows \"Borrador\". We'll use expectText status-badge \"Borrador\". Then expectCount item-row count same as original? We don't know number, but we can check at least 1? Use expectCount min 1. Simpler: expectCount item-row min 1. Also expectVisible items-table. We'll include expectVisible items-table.\n\nc3: similar to c1 but also check alongside other controls. Could just expectVisible duplicate-quote-button and expectVisible change-status-button maybe? But only need button present. We'll do goto, expectVisible duplicate-quote-button, expectVisible change-status-button? Not required. We'll just check duplicate-quote-button and quote-detail visible.\n\nLet's craft JSON."
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "queue_time": 0.08965043,
+    "prompt_tokens": 3120,
+    "prompt_time": 0.137507878,
+    "completion_tokens": 601,
+    "completion_time": 1.254379199,
+    "total_tokens": 3721,
+    "total_time": 1.391887077,
+    "completion_tokens_details": {
+      "reasoning_tokens": 270
+    }
+  },
+  "usage_breakdown": null,
+  "system_fingerprint": "fp_5e2577217c",
+  "x_groq": {
+    "id": "req_01m8a903n5erkvxhdde1btccg6",
+    "seed": 1381296833
+  },
+  "service_tier": "on_demand"
+}

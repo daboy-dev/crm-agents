@@ -22,12 +22,12 @@ const none = { simulateTypeError: false };
 describe("prepareCommits (D34)", () => {
   it("normalizes line endings and adds the final newline", async () => {
     const { changed } = await prepareCommits(
-      [result(1, { "src/b.ts": "a\r\nb" })],
+      [result(1, { "notes/b.md": "a\r\nb" })],
       readFile,
       none,
     );
     expect(changed[0]!.files).toEqual([
-      { path: "src/b.ts", content: "a\nb\n" },
+      { path: "notes/b.md", content: "a\nb\n" },
     ]);
   });
 
@@ -65,7 +65,7 @@ describe("prepareCommits (D34)", () => {
     expect(out.changed[0]!.files[1]!.content).toBe(
       "export const a = 3;\n" + SIMULATED_TYPE_ERROR,
     );
-    expect(out.changed[1]!.files[0]!.content).toBe("c\n");
+    expect(out.changed[1]!.files[0]!.content).toBe("c;\n");
     expect(out.notes[0]!.message).toContain(
       "error de tipos añadido a src/a.ts",
     );
@@ -79,5 +79,84 @@ describe("prepareCommits (D34)", () => {
       "simulatedTypeError",
     );
     expect(later.notes).toEqual([]);
+  });
+});
+
+describe("simulated criterion failure (D40)", () => {
+  const filter = '<select data-testid="invoice-status-filter" />';
+  it("renames one data-testid of the plan before the commit", async () => {
+    const { changed, notes } = await prepareCommits(
+      [result(1, { "src/f.tsx": filter }), result(2, { "src/g.tsx": filter })],
+      readFile,
+      { ...none, breakTestIds: () => ["invoice-status-filter"] },
+    );
+    expect(changed[0]!.files[0]!.content).toContain(
+      'data-testid="invoice-status-filter-simulated"',
+    );
+    // Only one, so only one criterion fails.
+    expect(changed[1]!.files[0]!.content).toContain(
+      'data-testid="invoice-status-filter"',
+    );
+    expect(notes[0]!.message).toContain("Su criterio debe fallar");
+  });
+
+  it("says so when no data-testid is literal", async () => {
+    const { notes } = await prepareCommits(
+      [result(1, { "src/f.tsx": '<Field name="notes" />' })],
+      readFile,
+      { ...none, breakTestIds: () => ["field-notes"] },
+    );
+    expect(notes[0]!.message).toContain("sin efecto");
+  });
+});
+
+describe("Prettier's format, as crm-demo's format:check (D41)", () => {
+  it("formats TypeScript, JSON and CSS before the commit", async () => {
+    const { changed } = await prepareCommits(
+      [
+        result(1, {
+          "src/f.tsx": "export const F = ()=> <p className='x'>hola</p>",
+          "src/d.json": '{"a":1,\n"b":[1,2]}',
+        }),
+      ],
+      readFile,
+      none,
+    );
+    expect(changed[0]!.files.map((f) => f.content)).toEqual([
+      'export const F = () => <p className="x">hola</p>;\n',
+      '{ "a": 1, "b": [1, 2] }\n',
+    ]);
+  });
+
+  it("an answer that only differs in format changes nothing", async () => {
+    const { changed, unchanged } = await prepareCommits(
+      [result(2, { "src/a.ts": "export const a=1" }, 2)],
+      readFile,
+      none,
+    );
+    expect(changed).toEqual([]);
+    expect(unchanged).toHaveLength(1);
+  });
+
+  it("leaves Markdown and what crm-demo ignores alone", async () => {
+    const { changed } = await prepareCommits(
+      [result(1, { "AGENT.md": "*  x", "drizzle/meta/x.json": '{"a":1}' })],
+      readFile,
+      none,
+    );
+    expect(changed[0]!.files.map((f) => f.content)).toEqual([
+      "*  x\n",
+      '{"a":1}\n',
+    ]);
+  });
+
+  it("commits a file Prettier can't parse as it is, with a note", async () => {
+    const { changed, notes } = await prepareCommits(
+      [result(1, { "src/broken.ts": "export const = ;" })],
+      readFile,
+      none,
+    );
+    expect(changed[0]!.files[0]!.content).toBe("export const = ;\n");
+    expect(notes[0]!.message).toContain("Prettier no puede leer src/broken.ts");
   });
 });

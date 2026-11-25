@@ -1,3 +1,4 @@
+import { stepsSchema } from "@/server/agents/contracts";
 import { describe, expect, it, vi } from "vitest";
 import { planSchema } from "@/server/agents/contracts";
 import { AGENT_SETTINGS, ChainProvider, type QuotaMemory } from "./chain";
@@ -238,12 +239,15 @@ describe("Gemini then Groq (D36)", () => {
 
 describe("recorded answers of pnpm eval:plan with Groq (D30, D36)", () => {
   const recorded = import.meta.glob<unknown>(
-    "./fixtures/groq/recorded/*.json",
+    "./fixtures/groq/recorded/plan-*.json",
     {
       eager: true,
       import: "default",
     },
   );
+  // H4/H5 recordings are in recorded/h5: they predate testIds (D38).
+  if (Object.keys(recorded).length === 0)
+    it.skip("no recordings yet", () => {});
 
   it.each(Object.entries(recorded))(
     "%s parses as a feasible plan",
@@ -252,6 +256,43 @@ describe("recorded answers of pnpm eval:plan with Groq (D30, D36)", () => {
       expect(output.feasible).toBe(true);
       expect(output.tasks.length).toBeGreaterThanOrEqual(1);
       expect(calls[0]!.valid).toBe(true);
+    },
+  );
+});
+
+describe("recorded steps of pnpm eval:testing with Groq (D38, D40)", () => {
+  const recorded = import.meta.glob<unknown>(
+    "./fixtures/groq/recorded/steps-*.json",
+    { eager: true, import: "default" },
+  );
+  if (Object.keys(recorded).length === 0)
+    it.skip("no recordings yet", () => {});
+
+  it.each(Object.entries(recorded))(
+    "%s passes the steps contract",
+    async (_, body) => {
+      const provider = new ChainProvider({
+        links: [
+          new GroqClient("openai/gpt-oss-120b", {
+            apiKey: "test",
+            fetch: async () => new Response(JSON.stringify(body)),
+          }),
+        ],
+        quota: {
+          isExhausted: async () => false,
+          markExhausted: async () => {},
+        },
+        settings: AGENT_SETTINGS.testing,
+      });
+      const { output } = await provider.generateObject({
+        agent: "testing",
+        system: "sistema",
+        prompt: "criterios",
+        input: null,
+        schema: stepsSchema,
+      });
+      expect(output.criteria.length).toBeGreaterThanOrEqual(1);
+      for (const c of output.criteria) expect(c.steps[0]!.action).toBe("goto");
     },
   );
 });
