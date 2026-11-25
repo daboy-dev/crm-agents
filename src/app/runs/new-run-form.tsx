@@ -47,16 +47,14 @@ export function NewRunForm({ providers }: { providers: AgentProviders }) {
             </select>
           </label>
         )}
-        {mockScenario && (
-          <label className="check">
-            <input
-              type="checkbox"
-              name="simulateCrash"
-              data-testid="crash-checkbox"
-            />
-            Simular caída tras el commit
-          </label>
-        )}
+        <label className="check">
+          <input
+            type="checkbox"
+            name="simulateCrash"
+            data-testid="crash-checkbox"
+          />
+          Simular caída tras el commit
+        </label>
         <label className="check">
           <input
             type="checkbox"
@@ -64,6 +62,22 @@ export function NewRunForm({ providers }: { providers: AgentProviders }) {
             data-testid="plan-crash-checkbox"
           />
           Simular caída tras planificar
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            name="simulateTypeError"
+            data-testid="type-error-checkbox"
+          />
+          Simular error de tipos
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            name="simulateMaxTokens"
+            data-testid="max-tokens-checkbox"
+          />
+          Simular MAX_TOKENS
         </label>
       </div>
       {state.error && <p className="error">{state.error}</p>}

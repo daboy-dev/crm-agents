@@ -3,6 +3,7 @@ export const RUN_STATUS: Record<string, string> = {
   planning: "Planificando",
   awaiting_plan_approval: "Esperando aprobación del plan",
   developing: "Desarrollando",
+  awaiting_check: "Esperando la comprobación del PR",
   awaiting_preview: "Esperando vista previa",
   testing: "Probando",
   awaiting_final_approval: "Esperando aprobación final",
@@ -21,6 +22,7 @@ export const TASK_STATUS: Record<string, string> = {
   passed: "Pasa",
   failed: "Falla",
   blocked: "Bloqueada",
+  split: "Dividida",
 };
 
 export const ACTOR: Record<string, string> = {
