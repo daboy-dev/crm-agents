@@ -3,6 +3,7 @@ import type { AgentName } from "@/server/agents/contracts";
 import {
   InvalidOutput,
   OutputTruncated,
+  Overloaded,
   QuotaExhausted,
   RateLimited,
   type CallMeta,
@@ -215,8 +216,9 @@ export class ChainProvider implements LLMProvider {
   async generateObject<T>(request: GenerateRequest<T>): Promise<Generated<T>> {
     const { links, quota } = this.options;
     const skipped: string[] = [];
-    let overloaded: unknown = null;
-    for (const [i, link] of links.entries()) {
+    /** Links that answered 500, 503 or 504: busy, not out of quota. */
+    const busy: string[] = [];
+    for (const link of links) {
       if (await quota.isExhausted(link.id)) {
         skipped.push(`${link.id}: cuota diaria agotada`);
         continue;
@@ -238,16 +240,17 @@ export class ChainProvider implements LLMProvider {
           skipped.push(`${link.id}: la petición supera su límite`);
           continue;
         }
-        if (kind?.kind === "overloaded" && i < links.length - 1) {
+        if (kind?.kind === "overloaded") {
           // Not a quota: try the next link now, without marking this one.
-          overloaded = error;
+          busy.push(link.id);
           continue;
         }
         throw error;
       }
     }
     // The last links were out of quota but an earlier one was only busy.
-    if (overloaded) throw overloaded;
+    // Some links were busy and none answered: try again later (D26).
+    if (busy.length > 0) throw new Overloaded(busy);
     throw new QuotaExhausted(skipped);
   }
 
