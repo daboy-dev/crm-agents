@@ -1,33 +1,55 @@
 {
   "request": "Marca las facturas vencidas: las que siguen pendientes de pago con la fecha de vencimiento ya pasada deben destacarse en la lista de facturas.",
-  "baseSha": "fa884d7c22a43c5e545ef987c478b5df6dce9abe",
+  "baseSha": "b6c4a3c9c20aa9c8da8ab8b092e8ce995c239ba2",
   "plan": {
     "feasible": true,
-    "summary": "Se añadirá una utilidad para comprobar si una factura está vencida (estado pendiente y fecha de vencimiento previa a la fecha actual) y se actualizará la lista de facturas para marcar visualmente las facturas vencidas con un distintivo o texto de aviso.",
+    "summary": "Se añadirán indicadores visuales y de estado para resaltar las facturas vencidas. Las facturas en estado pendiente cuya fecha de vencimiento haya transcurrido con respecto al día actual mostrarán la etiqueta 'Vencida' con un estilo destacado tanto en la tabla principal de facturas como en la página de detalle.",
     "assumptions": [
-      "Una factura se considera vencida cuando su estado es 'pending' y su fecha 'dueAt' es estrictamente anterior a la fecha actual (YYYY-MM-DD en la zona horaria local/servidor).",
-      "Las facturas con estado 'paid' nunca se marcarán como vencidas.",
-      "El distintivo o etiqueta de vencida aparecerá junto al estado o fecha en la tabla de la lista de facturas sin alterar la estructura básica de los elementos existentes."
+      "Una factura se considera vencida únicamente si su estado actual es 'pending' y su fecha de vencimiento (`dueAt`) es estrictamente anterior a la fecha actual (`YYYY-MM-DD`).",
+      "No se requiere modificar el enum `invoiceStatus` en la base de datos para no alterar el esquema existente; la condición de vencida se computará dinámicamente en UI/helper o lib/status.",
+      "El componente StatusBadge se actualizará para aceptar la variante o estado 'overdue' / 'Vencida' manteniéndose compatible con data-status."
     ],
     "tasks": [
       {
-        "title": "Añadir función para calcular estado de vencimiento e integrarla en la interfaz de facturas",
-        "description": "Crea o amplía una función en `src/lib/dates.ts` (o `src/lib/status.ts`) que determine si una fecha `YYYY-MM-DD` está vencida respecto a hoy cuando la factura está en estado `pending`. Luego modifica `src/app/(crm)/facturas/page.tsx` para mostrar un distintivo o indicador 'Vencida' (usando `<StatusBadge>` o un badge de advertencia rojo/naranja) en las filas de la tabla `invoices-table` cuyas facturas cumplan dicha condición. Añade los tests unitarios correspondientes en `src/lib/dates.test.ts` si aplica.",
-        "files": [
-          "src/lib/dates.ts",
-          "src/lib/dates.test.ts",
-          "src/app/(crm)/facturas/page.tsx"
+        "title": "Añadir soporte y cálculo para facturas vencidas en utilidades y componentes UI",
+        "description": "Actualizar src/lib/status.ts y src/components/status-badge.tsx para calcular y mostrar el estado 'overdue' ('Vencida') cuando una factura esté pendiente (`pending`) y la fecha `dueAt` sea menor a la fecha actual (comparación `YYYY-MM-DD`). Asegurar que StatusBadge renderice la etiqueta 'Vencida' con data-status=\"overdue\" y clases de color rojo/destacado en Tailwind.",
+        "files": ["src/lib/status.ts", "src/components/status-badge.tsx"],
+        "references": [
+          "src/lib/status.ts",
+          "src/components/status-badge.tsx",
+          "src/lib/dates.ts"
         ],
         "acceptanceCriteria": [
           {
             "id": "c1",
             "type": "e2e",
-            "text": "La vista de facturas en /facturas carga correctamente la tabla invoices-table."
-          },
+            "text": "La página /facturas carga correctamente la lista de facturas identificada por invoices-table."
+          }
+        ]
+      },
+      {
+        "title": "Mostrar el distintivo de factura vencida en las vistas de listas y detalle de facturas",
+        "description": "Modificar src/app/(crm)/facturas/page.tsx, src/app/(crm)/facturas/[id]/page.tsx y src/app/(crm)/clientes/[id]/page.tsx (si muestra facturas) para pasar el estado computado u overdue a StatusBadge en las facturas pendientes con fecha de vencimiento pasada. Mantener los data-testid existentes (invoices-table, status-badge, etc.).",
+        "files": [
+          "src/app/(crm)/facturas/page.tsx",
+          "src/app/(crm)/facturas/[id]/page.tsx",
+          "src/app/(crm)/clientes/[id]/page.tsx"
+        ],
+        "references": [
+          "src/app/(crm)/facturas/page.tsx",
+          "src/app/(crm)/facturas/[id]/page.tsx",
+          "src/components/status-badge.tsx"
+        ],
+        "acceptanceCriteria": [
           {
             "id": "c2",
+            "type": "e2e",
+            "text": "En la página /facturas, si hay facturas pendientes con fecha de vencimiento pasada, el badge status-badge muestra el texto 'Vencida' y el atributo data-status=\"overdue\"."
+          },
+          {
+            "id": "c3",
             "type": "visual",
-            "text": "En la lista de facturas (/facturas), las facturas pendientes con fecha de vencimiento anterior a la fecha actual muestran una marca o badge indicando 'Vencida'."
+            "text": "En las capturas de la página facturas a 1280 px y 390 px, las facturas vencidas se destacan visiblemente con la etiqueta de estado Vencida."
           }
         ]
       }
@@ -35,11 +57,11 @@
   },
   "calls": [
     {
-      "model": "gemini-3.6-flash",
+      "model": "gemini:gemini-3.6-flash",
       "kind": "first",
-      "inputTokens": 5145,
-      "outputTokens": 547,
-      "latencyMs": 9253,
+      "inputTokens": 5732,
+      "outputTokens": 896,
+      "latencyMs": 5270,
       "valid": true
     }
   ]

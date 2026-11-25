@@ -1,12 +1,21 @@
 import { and, asc, desc, eq, isNull, notInArray, sql } from "drizzle-orm";
 import { z } from "zod";
-import { runDevelop, runOrchestrator, runTesting } from "@/server/agents";
+import {
+  runDevelop,
+  runOrchestrator,
+  runSplit,
+  runTesting,
+} from "@/server/agents";
 import { CONTEXT_FILES, readPlanContext } from "@/server/agents/context";
+import { readDevelopContext } from "@/server/agents/develop-context";
 import {
   developOutputSchema,
+  MAX_TASKS_AFTER_SPLIT,
   planSchema,
+  splitBaseSchema,
   verdictSchema,
   type AgentName,
+  type DevelopOutput,
   type E2eSummary,
   type PlanInput,
   type TaskBrief,
@@ -15,11 +24,13 @@ import { checkPaths } from "@/server/agents/paths";
 import { getDb, type Db } from "@/server/db/client";
 import {
   agentSteps,
+  prChecks,
   previews,
   runs,
   tasks,
   testReports,
 } from "@/server/db/schema";
+import { checkFeedback } from "@/server/pipeline/checks";
 import { runBranch } from "@/server/github/config";
 import {
   closePr,
@@ -31,14 +42,18 @@ import {
   findOpenPr,
   getBaseSha,
   getBranchSha,
+  getCommitParents,
   getCommitTree,
+  getFileText,
   getPr,
   mergePr,
   moveBranch,
 } from "@/server/github/repo";
 import { getProvider, runProviders } from "@/server/llm";
+import { AGENT_SETTINGS, leaseSecondsFor } from "@/server/llm/chain";
 import {
   InvalidOutput,
+  OutputTruncated,
   QuotaExhausted,
   RateLimited,
   type CallHooks,
@@ -53,6 +68,7 @@ import {
   type StepKey,
   type StepStore,
 } from "./cache";
+import { prepareCommits } from "./commits";
 import { llmCallsPerRun } from "./limits";
 import {
   AWAITING_HUMAN,
@@ -66,7 +82,6 @@ import {
 } from "./machine";
 import {
   acquireLease,
-  LEASE_SECONDS,
   appendEvent,
   checkpoint,
   commitTransition,
@@ -75,6 +90,7 @@ import {
   type Committed,
   type EventDraft,
   type LoadedRun,
+  type RunSet,
   type TaskRow,
 } from "./store";
 
@@ -83,6 +99,8 @@ const MAX_STEP_ATTEMPTS = 3;
 /** A step state without a lease for this long is considered dropped. */
 const STEP_GRACE_SECONDS = 30;
 const PREVIEW_TIMEOUT_MINUTES = 15;
+/** pr-check takes a minute or two (D33). */
+const CHECK_TIMEOUT_MINUTES = 15;
 /**
  * A failed deployment only counts as a broken build if no success replaces
  * it in this time: Vercel fails the first deployment of a new branch and
@@ -92,9 +110,15 @@ const BUILD_FAILURE_GRACE_SECONDS = 180;
 const APPROVAL_TIMEOUT_HOURS = 24;
 
 class BlockRun extends Error {}
+
+/** The step made its LLM call and leaves the rest to another call (D35). */
+type StepResult = Committed | { resume: true };
+
+/** What a Vercel function may use of its 300 s, with a margin. */
+const INVOCATION_BUDGET_MS = 280_000;
 class SimulatedCrash extends Error {}
 
-/** Margin on Gemini's retryDelay before the sweep resumes the step. */
+/** Margin on the retry delay of a 429 before the sweep resumes the step. */
 const RATE_LIMIT_MARGIN_MS = 2_000;
 
 type StepContext = {
@@ -111,6 +135,7 @@ const brief = (t: TaskRow): TaskBrief => ({
   title: t.title,
   description: t.description,
   files: t.files,
+  references: t.references,
   acceptanceCriteria: t.acceptanceCriteria,
 });
 
@@ -151,11 +176,11 @@ function stepStore(ctx: StepContext): StepStore {
       run.llmCalls = row?.llmCalls ?? run.llmCalls + 1;
       return run.llmCalls;
     },
-    async renewLease() {
+    async renewLease(seconds) {
       const [row] = await db
         .update(runs)
         .set({
-          leaseUntil: sql`now() + make_interval(secs => ${LEASE_SECONDS})`,
+          leaseUntil: sql`now() + make_interval(secs => ${seconds})`,
         })
         .where(and(eq(runs.id, run.id), eq(runs.leaseToken, token)))
         .returning({ id: runs.id });
@@ -222,6 +247,7 @@ async function previousPlan(
 
 async function stepPlanning(ctx: StepContext): Promise<Committed> {
   const { db, run, token } = ctx;
+  if (run.splitTaskId !== null) return stepSplit(ctx);
 
   // D27: every revision plans on the master sha read when the run started,
   // which is also the base of run/<id>.
@@ -306,6 +332,7 @@ async function stepPlanning(ctx: StepContext): Promise<Committed> {
         title: t.title,
         description: t.description,
         files: t.files,
+        references: t.references,
         acceptanceCriteria: t.acceptanceCriteria,
       })),
     )
@@ -331,31 +358,233 @@ async function stepPlanning(ctx: StepContext): Promise<Committed> {
   );
 }
 
-async function stepDeveloping(ctx: StepContext): Promise<Committed> {
+type DevelopResult = {
+  task: TaskRow;
+  output: DevelopOutput;
+  calls: ReturnType<typeof callData>;
+};
+
+/**
+ * Splits the task whose Develop answer did not fit (D34, extra of D29). The
+ * new revision keeps every other task as it was, with its stored outputs,
+ * and puts the subtasks in the place of the original. No new approval: the
+ * criteria are the same.
+ */
+async function stepSplit(ctx: StepContext): Promise<Committed> {
+  const { db, run, token } = ctx;
+  const previous = await db
+    .select()
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.runId, run.id),
+        eq(tasks.planRevision, run.planRevision - 1),
+      ),
+    )
+    .orderBy(asc(tasks.position));
+  const original = previous.find((t) => t.id === run.splitTaskId);
+  if (!original)
+    throw new Error(`No está la tarea ${run.splitTaskId} que dividir`);
+  // Tasks split in an older revision were not carried over.
+  const others = previous.filter((t) => t.id !== original.id);
+  const maxTasks = Math.min(3, MAX_TASKS_AFTER_SPLIT - others.length);
+  if (maxTasks < 2) {
+    throw new BlockRun(
+      `El plan ya tiene ${previous.length} tareas: no se puede dividir`,
+    );
+  }
+
+  // The subtasks may build on what earlier tasks already committed.
+  const readSha = run.headSha ?? run.baseSha ?? (await getBaseSha());
+  const result = await cachedCall(
+    ctx,
+    { agent: "orchestrator", taskId: null, iteration: run.planRevision },
+    splitBaseSchema,
+    async (hooks) =>
+      runSplit(
+        await ctx.llm("orchestrator"),
+        {
+          runId: run.id,
+          request: run.request,
+          mode: "split",
+          planRevision: run.planRevision,
+          task: brief(original),
+          reason: run.splitReason ?? "La respuesta de Develop se ha cortado",
+          others: others.map((t) => ({
+            position: t.position,
+            title: t.title,
+            files: t.files,
+          })),
+          maxTasks,
+          context: await readPlanContext(readSha),
+        },
+        hooks,
+      ),
+  );
+  const split = result.output;
+
+  // The new revision, in order: the subtasks in the place of the original.
+  const rows: (typeof tasks.$inferInsert & { from?: number })[] = [];
+  for (const t of previous) {
+    if (t.id === original.id) {
+      for (const sub of split.tasks) {
+        rows.push({
+          runId: run.id,
+          planRevision: run.planRevision,
+          position: rows.length + 1,
+          title: sub.title,
+          description: sub.description,
+          files: sub.files,
+          references: sub.references,
+          acceptanceCriteria: sub.acceptanceCriteria,
+          status: "developing",
+          iteration: 1,
+          maxIterations: original.maxIterations,
+          splitFrom: original.id,
+        });
+      }
+    } else {
+      rows.push({
+        runId: run.id,
+        planRevision: run.planRevision,
+        position: rows.length + 1,
+        title: t.title,
+        description: t.description,
+        files: t.files,
+        references: t.references,
+        acceptanceCriteria: t.acceptanceCriteria,
+        status: t.status,
+        iteration: t.iteration,
+        maxIterations: t.maxIterations,
+        lastFeedback: t.lastFeedback,
+        commitSha: t.commitSha,
+        splitFrom: t.splitFrom,
+        from: t.id,
+      });
+    }
+  }
+  await db
+    .insert(tasks)
+    .values(rows.map(({ from: _from, ...row }) => (void _from, row)))
+    .onConflictDoNothing();
+
+  // Tasks already developed keep their outputs: no second call (D34).
+  const inserted = await db
+    .select({ id: tasks.id, position: tasks.position })
+    .from(tasks)
+    .where(
+      and(eq(tasks.runId, run.id), eq(tasks.planRevision, run.planRevision)),
+    );
+  for (const row of rows) {
+    const to = inserted.find((t) => t.position === row.position)?.id;
+    if (!row.from || !to) continue;
+    await db.execute(sql`
+      insert into agent_steps (run_id, task_id, iteration, agent, output, model, input_tokens, output_tokens, latency_ms, calls)
+      select run_id, ${to}, iteration, agent, output, model, input_tokens, output_tokens, latency_ms, calls
+      from agent_steps where run_id = ${run.id} and task_id = ${row.from}
+      on conflict do nothing`);
+  }
+
+  const withTasks = (await loadRun(db, run.id))!;
+  return commitTransition(
+    db,
+    withTasks,
+    { type: "split_ready" },
+    {
+      leaseToken: token,
+      set: { splitTaskId: null, splitReason: null },
+      events: [
+        {
+          actor: "orchestrator",
+          kind: "split",
+          message: `Tarea ${original.position} dividida en ${split.tasks.length} subtareas con los mismos criterios (revisión ${run.planRevision}), sin nueva aprobación: ${split.reason}`,
+          data: { split, from: original.id, ...callData(result) },
+        },
+      ],
+    },
+  );
+}
+
+async function stepDeveloping(ctx: StepContext): Promise<StepResult> {
   const { db, run, token } = ctx;
   const branch = runBranch(run.id);
   const work = run.tasks.filter((t) => t.status === "developing");
   if (work.length === 0) throw new Error("No hay tareas en desarrollo");
 
-  const outputs = [];
+  // D32: read at the head of run/<id> (the base before the first push).
+  const readSha = run.headSha ?? run.baseSha ?? (await getBaseSha());
+  const store = stepStore(ctx);
+  const outputs: DevelopResult[] = [];
+  let called = false;
   for (const task of work) {
-    const result = await cachedCall(
-      ctx,
-      { agent: "develop", taskId: task.id, iteration: task.iteration },
-      developOutputSchema,
-      async (hooks) =>
-        runDevelop(
-          await ctx.llm("develop"),
-          {
-            runId: run.id,
-            request: run.request,
+    const key = {
+      agent: "develop" as const,
+      taskId: task.id,
+      iteration: task.iteration,
+    };
+    // D35: one LLM call per invocation; the next one gets its own 300 s.
+    if (called && !(await store.find(key))) return { resume: true };
+
+    let result: CachedResult<DevelopOutput>;
+    try {
+      result = await cachedCall(
+        ctx,
+        key,
+        developOutputSchema,
+        async (hooks) => {
+          const context = await readDevelopContext({
+            sha: readSha,
             task: brief(task),
-            iteration: task.iteration,
-            feedback: task.lastFeedback,
-          },
-          hooks,
-        ),
-    );
+            // Earlier tasks of this step are not committed yet.
+            overlay: outputs.flatMap((o) => o.output.files),
+          });
+          await appendEvent(db, run, {
+            actor: "develop",
+            kind: "context",
+            message: `Tarea ${task.position}: lee ${context.files.length} archivos${context.trimmed.length ? ` (${context.trimmed.length} recortados por tamaño)` : ""}`,
+            data: {
+              taskId: task.id,
+              iteration: task.iteration,
+              sha: context.sha,
+              files: context.files.map((f) => ({ path: f.path, role: f.role })),
+              trimmed: context.trimmed,
+              newFiles: context.newFiles,
+            },
+          });
+          if (run.simulateMaxTokens && !run.maxTokensSimulatedAt) {
+            // H5: the first call answers as cut, without spending a request.
+            run.maxTokensSimulatedAt = new Date();
+            await checkpoint(db, run, token, {
+              maxTokensSimulatedAt: run.maxTokensSimulatedAt,
+            });
+            throw new OutputTruncated(
+              "simulación",
+              AGENT_SETTINGS.develop.maxOutputTokens,
+              [],
+            );
+          }
+          return runDevelop(
+            await ctx.llm("develop"),
+            {
+              runId: run.id,
+              request: run.request,
+              task: brief(task),
+              iteration: task.iteration,
+              feedback: task.lastFeedback,
+              context,
+            },
+            hooks,
+          );
+        },
+      );
+    } catch (error) {
+      if (error instanceof OutputTruncated) {
+        return taskTooLarge(ctx, task, error);
+      }
+      throw error;
+    }
+    if (!result.cached) called = true;
+
     const output = result.output;
     // D16: checked where the commits are made, before anything is written.
     const check = checkPaths(output.files.map((f) => f.path));
@@ -383,6 +612,8 @@ async function stepDeveloping(ctx: StepContext): Promise<Committed> {
   // 1. Build the commit chain once and remember it before touching the ref.
   let targetSha = run.targetSha;
   let commits = run.targetCommits ?? {};
+  let unchanged: DevelopResult[] = [];
+  const notes: EventDraft[] = [];
   if (!targetSha) {
     const current = await getBranchSha(branch);
     if (current !== run.headSha) {
@@ -390,12 +621,38 @@ async function stepDeveloping(ctx: StepContext): Promise<Committed> {
         `La rama ${branch} no está en el commit esperado (${current ? short(current) : "no existe"})`,
       );
     }
+    const prepared = await prepareCommits(
+      outputs,
+      (path) => getFileText(path, readSha),
+      { simulateTypeError: run.simulateTypeError },
+    );
+    unchanged = prepared.unchanged;
+    notes.push(...prepared.notes);
+    if (prepared.changed.length === 0) {
+      return commitTransition(
+        db,
+        run,
+        { type: "develop_unchanged" },
+        {
+          leaseToken: token,
+          events: [
+            ...notes,
+            {
+              actor: "develop",
+              kind: "unchanged",
+              message:
+                "Develop no ha cambiado ningún archivo: la iteración cuenta como fallida.",
+            },
+          ],
+        },
+      );
+    }
     // The first commit sits on the sha the orchestrator read (D27).
-    let parent = run.headSha ?? run.baseSha ?? (await getBaseSha());
+    let parent = readSha;
     let tree = await getCommitTree(parent);
     commits = {};
-    for (const { task, output } of outputs) {
-      tree = await createTree(tree, output.files);
+    for (const { task, output, files } of prepared.changed) {
+      tree = await createTree(tree, files);
       parent = await createCommit({
         message: output.commitMessage,
         tree,
@@ -405,6 +662,8 @@ async function stepDeveloping(ctx: StepContext): Promise<Committed> {
     }
     targetSha = parent;
     await checkpoint(db, run, token, { targetSha, targetCommits: commits });
+  } else {
+    unchanged = outputs.filter((o) => !commits[String(o.task.id)]);
   }
 
   // 2. Point the branch at the chain: a single push, so a single build (D20).
@@ -439,6 +698,7 @@ async function stepDeveloping(ctx: StepContext): Promise<Committed> {
     prUrl = pr.url;
   }
 
+  const committed = outputs.filter((o) => commits[String(o.task.id)]);
   return commitTransition(
     db,
     run,
@@ -453,22 +713,88 @@ async function stepDeveloping(ctx: StepContext): Promise<Committed> {
         prUrl,
       },
       taskSet: Object.fromEntries(
-        outputs.map(({ task }) => [
+        committed.map(({ task }) => [
           task.id,
           { commitSha: commits[String(task.id)] ?? null },
         ]),
       ),
       events: [
-        ...outputs.map(({ task, output, calls }) => ({
+        ...notes,
+        ...committed.map(({ task, output, calls }) => ({
           actor: "develop" as const,
           kind: "commit",
           message: `Tarea ${task.position}, iteración ${task.iteration}: commit ${short(commits[String(task.id)] ?? "")} · ${output.commitMessage}`,
-          data: { files: output.files.map((f) => f.path), ...calls },
+          data: {
+            taskId: task.id,
+            iteration: task.iteration,
+            files: output.files.map((f) => f.path),
+            outsidePlan: output.files
+              .map((f) => f.path)
+              .filter((p) => !task.files.includes(p)),
+            notes: output.notes,
+            evidence: output.evidence ?? [],
+            ...calls,
+          },
+        })),
+        ...unchanged.map(({ task, calls }) => ({
+          actor: "develop" as const,
+          kind: "unchanged",
+          message: `Tarea ${task.position}, iteración ${task.iteration}: Develop no ha cambiado nada; sin commit.`,
+          data: calls,
         })),
         {
           actor: "system",
           kind: "pushed",
-          message: `Rama ${branch} en ${short(targetSha)} · PR #${prNumber}. Esperando la vista previa.`,
+          message: `Rama ${branch} en ${short(targetSha)} · PR #${prNumber}. Esperando la comprobación del PR.`,
+        },
+      ],
+    },
+  );
+}
+
+/**
+ * Develop's answer was cut (D34): the orchestrator splits the task, unless
+ * it is already a subtask or the plan has no room left.
+ */
+async function taskTooLarge(
+  ctx: StepContext,
+  task: TaskRow,
+  error: OutputTruncated,
+): Promise<Committed> {
+  const { db, run, token } = ctx;
+  const live = run.tasks.filter((t) => t.status !== "split").length;
+  const reason =
+    task.splitFrom !== null
+      ? `La tarea ${task.position} ya viene de una división y tampoco cabe en la respuesta: decide el humano.`
+      : live + 1 > MAX_TASKS_AFTER_SPLIT
+        ? `La tarea ${task.position} no cabe en la respuesta y el plan ya tiene ${live} tareas: no se puede dividir más.`
+        : null;
+  const calls = { calls: error.calls, cached: false };
+  if (reason) {
+    return commitTransition(
+      db,
+      run,
+      { type: "block", reason },
+      {
+        leaseToken: token,
+        events: [
+          { actor: "develop", kind: "too_large", message: reason, data: calls },
+        ],
+      },
+    );
+  }
+  return commitTransition(
+    db,
+    run,
+    { type: "task_too_large", taskId: task.id, reason: error.message },
+    {
+      leaseToken: token,
+      events: [
+        {
+          actor: "develop",
+          kind: "too_large",
+          message: `Tarea ${task.position}: ${error.message}. El Orquestador la divide en subtareas con los mismos criterios.`,
+          data: calls,
         },
       ],
     },
@@ -593,7 +919,11 @@ const STEPS = {
  * any time and from anywhere: it does nothing when there is no step to run
  * or another process holds it.
  */
-export async function runStep(runId: number): Promise<void> {
+export async function runStep(
+  runId: number,
+  /** When the invocation started: it decides whether another call fits. */
+  startedAt = Date.now(),
+): Promise<void> {
   const db = getDb();
   const run = await loadRun(db, runId);
   if (!run || !isStep(run.status as RunStatus)) return;
@@ -606,13 +936,25 @@ export async function runStep(runId: number): Promise<void> {
     llm: (agent) => getProvider(runProviders(run)[agent], agent, run.scenario),
   };
 
-  let committed: Committed;
+  let outcome: StepResult;
   try {
-    committed = await STEPS[run.status as keyof typeof STEPS](ctx);
+    outcome = await STEPS[run.status as keyof typeof STEPS](ctx);
   } catch (error) {
-    committed = await stepFailed(ctx, error);
+    outcome = await stepFailed(ctx, error);
   }
-  if (committed.applied) await executeEffects(runId, committed.effects);
+  if ("resume" in outcome) {
+    // D35: free the step for the next call. It runs here if a whole call
+    // still fits in this invocation, or in the next sweep otherwise.
+    await db
+      .update(runs)
+      .set({ leaseUntil: sql`now()`, leaseToken: null, stepAttempts: 0 })
+      .where(and(eq(runs.id, run.id), eq(runs.leaseToken, token)));
+    const next = Date.now() + leaseSecondsFor("develop") * 1000;
+    if (next - startedAt < INVOCATION_BUDGET_MS)
+      await runStep(runId, startedAt);
+    return;
+  }
+  if (outcome.applied) await executeEffects(runId, outcome.effects);
 }
 
 async function stepFailed(
@@ -643,7 +985,7 @@ async function stepFailed(
     await appendEvent(db, run, {
       actor: "system",
       kind: "rate_limited",
-      message: `Gemini: ${error.message}. El paso se reanuda solo.`,
+      message: `${error.message}. El paso se reanuda solo.`,
       data: { model: error.model, retryAfterMs: error.retryAfterMs },
     });
     return { applied: false };
@@ -694,7 +1036,10 @@ async function stepFailed(
     kind: "error",
     message: `Error en el paso ${run.status} (intento ${attempts} de ${MAX_STEP_ATTEMPTS}): ${message.slice(0, 500)}`,
     // An answer that failed the contract still cost calls: show them.
-    data: error instanceof InvalidOutput ? { calls: error.calls } : undefined,
+    data:
+      error instanceof InvalidOutput || error instanceof OutputTruncated
+        ? { calls: error.calls }
+        : undefined,
   });
   return { applied: false };
 }
@@ -717,6 +1062,12 @@ export async function executeEffects(runId: number, effects: Effect[]) {
         const db = getDb();
         const [run] = await db.select().from(runs).where(eq(runs.id, runId));
         if (run) await checkPreview(db, run, { timeout: false });
+        break;
+      }
+      case "check_pr": {
+        const db = getDb();
+        const [run] = await db.select().from(runs).where(eq(runs.id, runId));
+        if (run) await checkPrCheck(db, run, { timeout: false });
         break;
       }
     }
@@ -790,6 +1141,8 @@ export async function applyEvent(
     expectedVersion?: number;
     /** false: the caller runs the effects later (in after()). */
     runEffects?: boolean;
+    /** Run columns set with the transition. */
+    set?: RunSet;
   } = {},
 ): Promise<Committed> {
   const db = getDb();
@@ -797,7 +1150,10 @@ export async function applyEvent(
   if (!run) return { applied: false };
   const version = options.expectedVersion ?? run.version;
   if (run.version !== version) return { applied: false };
-  const committed = await commitTransition(db, run, event, { events });
+  const committed = await commitTransition(db, run, event, {
+    events,
+    set: options.set,
+  });
   if (committed.applied && options.runEffects !== false) {
     await executeEffects(runId, committed.effects);
   }
@@ -919,6 +1275,131 @@ async function checkPreview(
   }
 }
 
+async function latestCheck(db: Db, sha: string) {
+  const [check] = await db
+    .select()
+    .from(prChecks)
+    .where(eq(prChecks.triggerSha, sha))
+    .orderBy(desc(prChecks.completedAt), desc(prChecks.runAttempt))
+    .limit(1);
+  return check ?? null;
+}
+
+/** A pr-check result arrived for this sha: move the run waiting on it. */
+export async function checkPrCheckFor(db: Db, sha: string) {
+  const [run] = await db
+    .select()
+    .from(runs)
+    .where(and(eq(runs.headSha, sha), eq(runs.status, "awaiting_check")));
+  if (run) await checkPrCheck(db, run, { timeout: false });
+}
+
+/**
+ * For a run waiting on pr-check (D31, D33): adopts the migration commit as
+ * the head once the branch confirms it, and moves on to the preview or back
+ * to Develop with the errors. Applies the 15-minute timeout.
+ */
+async function checkPrCheck(
+  db: Db,
+  run: typeof runs.$inferSelect,
+  options: { timeout: boolean },
+) {
+  if (run.status !== "awaiting_check" || !run.headSha) return;
+  const expectedVersion = run.version;
+  const check = await latestCheck(db, run.headSha);
+  if (!check) {
+    if (
+      options.timeout &&
+      olderThan(run.statusChangedAt, CHECK_TIMEOUT_MINUTES * 60)
+    ) {
+      await applyEvent(
+        run.id,
+        { type: "check_timeout" },
+        [
+          {
+            actor: "system",
+            kind: "timeout",
+            message: `La comprobación del PR no ha llegado en ${CHECK_TIMEOUT_MINUTES} minutos.`,
+          },
+        ],
+        { expectedVersion },
+      );
+    }
+    return;
+  }
+
+  // check.json comes from a job that runs the branch's code: the migration
+  // commit only counts if the branch points to it and it sits on our head.
+  let headSha = run.headSha;
+  if (check.migrationSha) {
+    const branch = runBranch(run.id);
+    const current = await getBranchSha(branch);
+    const parents =
+      current === check.migrationSha
+        ? await getCommitParents(check.migrationSha)
+        : [];
+    if (parents[0] !== run.headSha) {
+      await applyEvent(
+        run.id,
+        {
+          type: "block",
+          reason: `La rama ${branch} no está en el commit de la migración (${short(check.migrationSha)})`,
+        },
+        [
+          {
+            actor: "system",
+            kind: "blocked",
+            message: `pr-check dice que subió la migración ${short(check.migrationSha)}, pero ${branch} está en ${current ? short(current) : "ningún commit"}.`,
+          },
+        ],
+        { expectedVersion },
+      );
+      return;
+    }
+    headSha = check.migrationSha;
+  }
+
+  const migration =
+    headSha !== run.headSha
+      ? ` Migración generada en ${short(headSha)} (github-actions[bot]).`
+      : "";
+  const data = { runUrl: check.runUrl, migrationSha: check.migrationSha };
+  if (check.status === "passed") {
+    await applyEvent(
+      run.id,
+      { type: "check_passed" },
+      [
+        {
+          actor: "github",
+          kind: "check_passed",
+          message: `pr-check de ${short(run.headSha)} en verde.${migration} Esperando la vista previa de ${short(headSha)}.`,
+          data,
+        },
+      ],
+      { expectedVersion, set: { headSha } },
+    );
+    return;
+  }
+  const feedback =
+    check.status === "error"
+      ? `${checkFeedback(null)}\n${check.error ?? ""}`.trim()
+      : checkFeedback(check.errors);
+  await applyEvent(
+    run.id,
+    { type: "check_failed", feedback },
+    [
+      {
+        actor: "github",
+        kind: "check_failed",
+        message: `pr-check de ${short(run.headSha)} con errores: vuelven a Develop.${migration}`,
+        data: { ...data, errors: check.errors, error: check.error },
+      },
+    ],
+    // Adopted even on errors: the next commits go on top of the migration.
+    { expectedVersion, set: { headSha } },
+  );
+}
+
 async function sweepRun(db: Db, run: typeof runs.$inferSelect) {
   const status = run.status as RunStatus;
   if (isFinal(status)) {
@@ -936,6 +1417,10 @@ async function sweepRun(db: Db, run: typeof runs.$inferSelect) {
   }
   if (status === "awaiting_preview") {
     await checkPreview(db, run, { timeout: true });
+    return;
+  }
+  if (status === "awaiting_check") {
+    await checkPrCheck(db, run, { timeout: true });
     return;
   }
   if (

@@ -41,6 +41,8 @@ const newRunSchema = z.object({
   scenario: z.enum(MOCK_SCENARIOS).optional(),
   simulateCrash: z.literal("on").optional(),
   simulatePlanCrash: z.literal("on").optional(),
+  simulateTypeError: z.literal("on").optional(),
+  simulateMaxTokens: z.literal("on").optional(),
 });
 
 /** New request from the client (D25). It waits in the queue if a run is active. */
@@ -56,6 +58,8 @@ export async function createRun(
     scenario: mock ? (formData.get("scenario") ?? "ok") : undefined,
     simulateCrash: formData.get("simulateCrash") ?? undefined,
     simulatePlanCrash: formData.get("simulatePlanCrash") ?? undefined,
+    simulateTypeError: formData.get("simulateTypeError") ?? undefined,
+    simulateMaxTokens: formData.get("simulateMaxTokens") ?? undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos no válidos." };
@@ -73,8 +77,11 @@ export async function createRun(
       provider: providerSummary(providers),
       providers,
       scenario: parsed.data.scenario ?? null,
-      simulateCrash: mock && parsed.data.simulateCrash === "on",
+      // H5: the crash after the commit also works with a real Develop.
+      simulateCrash: parsed.data.simulateCrash === "on",
       simulatePlanCrash: parsed.data.simulatePlanCrash === "on",
+      simulateTypeError: parsed.data.simulateTypeError === "on",
+      simulateMaxTokens: parsed.data.simulateMaxTokens === "on",
     })
     .returning();
   if (!run) return { error: "No se ha podido crear el run." };
@@ -87,6 +94,8 @@ export async function createRun(
       scenario: run.scenario,
       simulateCrash: run.simulateCrash,
       simulatePlanCrash: run.simulatePlanCrash,
+      simulateTypeError: run.simulateTypeError,
+      simulateMaxTokens: run.simulateMaxTokens,
     },
   });
   after(() => startNext());

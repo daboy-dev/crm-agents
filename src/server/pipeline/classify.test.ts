@@ -179,6 +179,29 @@ describe("classifyEvent · workflow_run filter", () => {
   });
 });
 
+describe("classifyEvent · pr-check (D33)", () => {
+  const PR_CHECK = ".github/workflows/pr-check.yml";
+
+  it("classifies a completed pr-check run, failed or not", () => {
+    const payload = workflowRun(PR_CHECK);
+    expect(classifyEvent("workflow_run", payload)).toMatchObject({
+      kind: "pr_check",
+      run: { sha: SHA, conclusion: "success", runId: 45403048280 },
+    });
+    payload.workflow_run.conclusion = "failure";
+    expect(classifyEvent("workflow_run", payload).kind).toBe("pr_check");
+  });
+
+  it.each(["action_required", "cancelled", "skipped"])(
+    "ignores a pr-check run that ended %s",
+    (conclusion) => {
+      const payload = workflowRun(PR_CHECK);
+      payload.workflow_run.conclusion = conclusion;
+      expect(classifyEvent("workflow_run", payload).kind).toBe("ignored");
+    },
+  );
+});
+
 describe("classifyEvent · other", () => {
   it("ignores other repositories", () => {
     const payload = {

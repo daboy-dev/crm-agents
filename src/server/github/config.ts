@@ -6,6 +6,11 @@ export const PREVIEW_WORKFLOW_PATH = ".github/workflows/preview-e2e.yml";
 
 export const E2E_ARTIFACT_NAME = "e2e-results";
 
+/** Migration, typecheck and lint of every PR push (D31, D33). */
+export const PR_CHECK_WORKFLOW_PATH = ".github/workflows/pr-check.yml";
+
+export const PR_CHECK_ARTIFACT_NAME = "pr-check";
+
 /** crm-demo's production branch, where approved runs are merged. */
 export const BASE_BRANCH = "master";
 

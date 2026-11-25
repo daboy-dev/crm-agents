@@ -361,6 +361,28 @@ select {
   gap: 0.25rem;
 }
 
+.event-details {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+}
+
+.event-details pre {
+  max-height: 16rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 0.75rem;
+}
+
+.files-read {
+  margin: 0.2rem 0 0;
+  padding-left: 1rem;
+  font-size: 0.8rem;
+}
+
+.files code[data-outside] {
+  outline: 1px dashed #b06000;
+}
+
 .calls {
   margin: 0.2rem 0 0;
   padding-left: 1rem;

@@ -1,22 +1,29 @@
 import { ApiError, type GenerateContentParameters } from "@google/genai";
 import { describe, expect, it, vi } from "vitest";
-import { planSchema } from "@/server/agents/contracts";
+import { developOutputSchema, planSchema } from "@/server/agents/contracts";
+import {
+  AGENT_SETTINGS,
+  ChainProvider,
+  type AgentSettings,
+  type QuotaMemory,
+} from "./chain";
 import {
   classifyQuotaError,
-  GeminiProvider,
+  GeminiClient,
   toGeminiSchema,
   type GeminiResponse,
-  type QuotaMemory,
 } from "./gemini";
 import daily429 from "./fixtures/gemini/error-429-daily.json";
 import minute429 from "./fixtures/gemini/error-429-minute.json";
 import thinking400 from "./fixtures/gemini/error-400-thinking.json";
+import developMaxTokens from "./fixtures/gemini/develop-max-tokens.json";
 import planInfeasible from "./fixtures/gemini/plan-infeasible.json";
 import planInvalid from "./fixtures/gemini/plan-invalid.json";
 import planOk from "./fixtures/gemini/plan-ok.json";
 import planTruncated from "./fixtures/gemini/plan-truncated.json";
 import {
   InvalidOutput,
+  OutputTruncated,
   QuotaExhausted,
   RateLimited,
   type CallMeta,
@@ -29,7 +36,11 @@ const apiError = (body: unknown) =>
 
 type Step = GeminiResponse | Error;
 
-function setup(steps: Step[], exhausted: string[] = []) {
+function setup(
+  steps: Step[],
+  exhausted: string[] = [],
+  options: { models?: string[]; settings?: AgentSettings } = {},
+) {
   const queue = [...steps];
   const requests: GenerateContentParameters[] = [];
   const marked = new Set(exhausted);
@@ -44,10 +55,11 @@ function setup(steps: Step[], exhausted: string[] = []) {
     if (next instanceof Error) throw next;
     return next;
   });
-  const provider = new GeminiProvider({
-    generate,
-    models: ["flash-a", "flash-b", "lite"],
+  const models = options.models ?? ["flash-a", "flash-b", "lite"];
+  const provider = new ChainProvider({
+    links: models.map((m) => new GeminiClient(m, generate)),
     quota,
+    settings: options.settings ?? AGENT_SETTINGS.orchestrator,
   });
   const counted: CallMeta[] = [];
   const before = vi.fn(async () => {});
@@ -103,14 +115,14 @@ describe("classifyQuotaError", () => {
   });
 });
 
-describe("GeminiProvider", () => {
+describe("Gemini links of the chain", () => {
   it("parses a valid plan and records model, tokens and latency", async () => {
     const t = setup([planOk]);
     const { output, calls } = await t.run();
     expect(output.tasks).toHaveLength(2);
     expect(calls).toEqual([
       expect.objectContaining({
-        model: "flash-a",
+        model: "gemini:flash-a",
         kind: "first",
         inputTokens: 1800,
         outputTokens: 420,
@@ -126,6 +138,7 @@ describe("GeminiProvider", () => {
     expect(config.responseJsonSchema).toBeTruthy();
     expect(config.systemInstruction).toBe("sistema");
     expect(config.thinkingConfig?.thinkingLevel).toBe("MINIMAL");
+    expect(config.maxOutputTokens).toBe(16_384);
     expect(config.httpOptions).toEqual({
       timeout: 60_000,
       retryOptions: { attempts: 1 },
@@ -167,7 +180,10 @@ describe("GeminiProvider", () => {
     const t = setup([apiError(minute429)]);
     const error = await t.run().catch((e: unknown) => e);
     expect(error).toBeInstanceOf(RateLimited);
-    expect(error).toMatchObject({ model: "flash-a", retryAfterMs: 37_000 });
+    expect(error).toMatchObject({
+      model: "gemini:flash-a",
+      retryAfterMs: 37_000,
+    });
     expect(t.requests).toHaveLength(1);
     expect(t.counted).toHaveLength(0);
     expect(t.marked.size).toBe(0);
@@ -177,16 +193,16 @@ describe("GeminiProvider", () => {
     const t = setup([apiError(daily429), planOk]);
     const { calls } = await t.run();
     expect(t.requests.map((r) => r.model)).toEqual(["flash-a", "flash-b"]);
-    expect(calls.map((c) => c.model)).toEqual(["flash-b"]);
+    expect(calls.map((c) => c.model)).toEqual(["gemini:flash-b"]);
     expect(t.counted).toHaveLength(1);
-    expect([...t.marked]).toEqual(["flash-a"]);
+    expect([...t.marked]).toEqual(["gemini:flash-a"]);
   });
 
   it("a 503 tries the next model without marking it exhausted", async () => {
     const busy = new ApiError({ message: "high demand", status: 503 });
     const t = setup([busy, planOk]);
     const { calls } = await t.run();
-    expect(calls.map((c) => c.model)).toEqual(["flash-b"]);
+    expect(calls.map((c) => c.model)).toEqual(["gemini:flash-b"]);
     expect(t.marked.size).toBe(0);
 
     // Every model busy: the step fails and the sweep retries it later.
@@ -195,27 +211,35 @@ describe("GeminiProvider", () => {
   });
 
   it("skips models already exhausted today", async () => {
-    const t = setup([planOk], ["flash-a", "flash-b"]);
+    const t = setup([planOk], ["gemini:flash-a", "gemini:flash-b"]);
     await t.run();
     expect(t.requests.map((r) => r.model)).toEqual(["lite"]);
   });
 
   it("throws QuotaExhausted when no model is left", async () => {
-    const t = setup([apiError(daily429)], ["flash-a", "flash-b"]);
+    const t = setup([apiError(daily429)], ["gemini:flash-a", "gemini:flash-b"]);
     const error = await t.run().catch((e: unknown) => e);
     expect(error).toBeInstanceOf(QuotaExhausted);
-    expect((error as Error).message).toBe(
-      "Cuota de Gemini agotada; se renueva a las 9:00",
-    );
-    expect([...t.marked]).toEqual(["flash-a", "flash-b", "lite"]);
+    expect((error as Error).message).toContain("se renueva a las 9:00");
+    expect((error as QuotaExhausted).reasons).toHaveLength(3);
+    expect([...t.marked]).toEqual([
+      "gemini:flash-a",
+      "gemini:flash-b",
+      "gemini:lite",
+    ]);
   });
 
   it("falls back to LOW when the model refuses MINIMAL thinking", async () => {
-    const t = setup([
-      new ApiError({ message: JSON.stringify(thinking400), status: 400 }),
-      planOk,
-      planOk,
-    ]);
+    // A model of its own: the accepted level is remembered per model.
+    const t = setup(
+      [
+        new ApiError({ message: JSON.stringify(thinking400), status: 400 }),
+        planOk,
+        planOk,
+      ],
+      [],
+      { models: ["no-minimal"] },
+    );
     const { calls } = await t.run();
     expect(calls).toHaveLength(1);
     expect(t.counted).toHaveLength(1);
@@ -225,6 +249,31 @@ describe("GeminiProvider", () => {
     // Remembered for the model: the next call goes straight to LOW.
     await t.run();
     expect(t.requests[2]!.config?.thinkingConfig?.thinkingLevel).toBe("LOW");
+  });
+
+  it("Develop starts at LOW thinking with 32K output tokens (D35)", async () => {
+    const t = setup([planOk], [], {
+      models: ["dev"],
+      settings: AGENT_SETTINGS.develop,
+    });
+    await t.run();
+    const config = t.requests[0]!.config!;
+    expect(config.thinkingConfig?.thinkingLevel).toBe("LOW");
+    expect(config.maxOutputTokens).toBe(32_768);
+    expect(config.httpOptions?.timeout).toBe(150_000);
+  });
+
+  it("a MAX_TOKENS answer is not repaired: OutputTruncated (D34)", async () => {
+    const t = setup([developMaxTokens, planOk]);
+    const error = await t.run().catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(OutputTruncated);
+    expect(error).toMatchObject({ model: "gemini:flash-a" });
+    // The cut answer counts in LLM_CALLS_PER_RUN; no second request.
+    expect(t.requests).toHaveLength(1);
+    expect(t.counted).toEqual([
+      expect.objectContaining({ valid: false, outputTokens: 32_768 }),
+    ]);
+    expect((error as OutputTruncated).calls).toHaveLength(1);
   });
 
   it("does not call the model when the budget hook refuses", async () => {
@@ -237,7 +286,7 @@ describe("GeminiProvider", () => {
 
 describe("recorded answers of pnpm eval:plan (D30)", () => {
   const recorded = import.meta.glob<GeminiResponse>(
-    "./fixtures/gemini/recorded/*.json",
+    "./fixtures/gemini/recorded/plan-*.json",
     { eager: true, import: "default" },
   );
 
@@ -249,6 +298,36 @@ describe("recorded answers of pnpm eval:plan (D30)", () => {
       expect(output.feasible).toBe(true);
       expect(output.tasks.length).toBeGreaterThanOrEqual(1);
       expect(output.tasks.length).toBeLessThanOrEqual(4);
+    },
+  );
+});
+
+describe("recorded answers of pnpm eval:develop (H5)", () => {
+  const recorded = import.meta.glob<GeminiResponse>(
+    "./fixtures/gemini/recorded/develop-*.json",
+    { eager: true, import: "default" },
+  );
+
+  it.each(Object.entries(recorded))(
+    "%s passes Develop's contract",
+    async (_, r) => {
+      const provider = new ChainProvider({
+        links: [new GeminiClient("dev", async () => r)],
+        quota: {
+          isExhausted: async () => false,
+          markExhausted: async () => {},
+        },
+        settings: AGENT_SETTINGS.develop,
+      });
+      const { output } = await provider.generateObject({
+        agent: "develop",
+        system: "sistema",
+        prompt: "tarea",
+        input: null,
+        schema: developOutputSchema,
+      });
+      expect(output.files.length).toBeGreaterThanOrEqual(1);
+      expect(output.notes.length).toBeGreaterThan(0);
     },
   );
 });

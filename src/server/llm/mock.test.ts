@@ -28,9 +28,17 @@ const planInput = (over: Partial<PlanInput> = {}): PlanInput => ({
   mode: "replace",
   feedback: null,
   previous: null,
-  context: { baseSha: "abc", tree: [], files: [] },
+  context: { baseSha: "abc", tree: ["AGENTS.md"], files: [] },
   ...over,
 });
+
+const emptyContext = {
+  sha: "abc",
+  tree: [],
+  files: [],
+  newFiles: [],
+  trimmed: [],
+};
 
 async function brief(n: number): Promise<TaskBrief> {
   const { output: plan } = await runOrchestrator(
@@ -82,6 +90,7 @@ describe("MockProvider", () => {
       task: await brief(1),
       iteration: 1,
       feedback: null,
+      context: emptyContext,
     });
     expect(out.files.map((f) => f.path)).toEqual(["agent-runs/7/task-1.md"]);
     expect(checkPaths(out.files.map((f) => f.path)).ok).toBe(true);
@@ -94,6 +103,7 @@ describe("MockProvider", () => {
       task: await brief(2),
       iteration: 1,
       feedback: null,
+      context: emptyContext,
     });
     expect(checkPaths(out.files.map((f) => f.path)).ok).toBe(false);
   });

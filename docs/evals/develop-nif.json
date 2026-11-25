@@ -1,0 +1,159 @@
+{
+  "slug": "nif",
+  "request": "Añade el NIF a los clientes: se introduce en el formulario de alta y edición y se ve en el detalle y en la lista.",
+  "baseSha": "b6c4a3c9c20aa9c8da8ab8b092e8ce995c239ba2",
+  "tasks": [
+    {
+      "position": 1,
+      "title": "Añadir campo nif al esquema de base de datos y validaciones",
+      "context": {
+        "files": [
+          "base:AGENTS.md",
+          "base:src/db/schema.ts",
+          "planned:src/app/(crm)/clientes/validation.ts"
+        ],
+        "trimmed": [],
+        "newFiles": []
+      },
+      "status": "committed",
+      "commitMessage": "feat(clients): add nif field to database schema and validation",
+      "notes": "He añadido la columna `nif` como `text()` opcional (nullable) en el esquema de Drizzle `clients`. También se ha actualizado el validador Zod y la constante `clientFields` en `validation.ts` para incluir `nif` como campo de texto opcional.",
+      "files": ["src/db/schema.ts", "src/app/(crm)/clientes/validation.ts"],
+      "outsidePlan": [],
+      "evidence": [
+        {
+          "criterion": "c1",
+          "hint": "/clientes"
+        }
+      ],
+      "calls": [
+        {
+          "model": "gemini:gemini-3.6-flash",
+          "kind": "first",
+          "inputTokens": 5620,
+          "outputTokens": 1717,
+          "latencyMs": 8563,
+          "valid": true
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "title": "Añadir campo NIF al formulario de alta y edición de clientes",
+      "context": {
+        "files": [
+          "base:AGENTS.md",
+          "base:src/db/schema.ts",
+          "planned:src/app/(crm)/clientes/client-form.tsx",
+          "planned:src/app/(crm)/clientes/[id]/editar/page.tsx",
+          "import:src/components/button.tsx",
+          "import:src/components/field.tsx",
+          "import:src/lib/forms.ts",
+          "import:src/components/reset-on-hide.tsx",
+          "import:src/components/page-header.tsx",
+          "import:src/lib/ids.ts",
+          "import:src/app/(crm)/clientes/actions.ts",
+          "import:src/app/(crm)/clientes/queries.ts"
+        ],
+        "trimmed": [],
+        "newFiles": []
+      },
+      "status": "committed",
+      "commitMessage": "feat(clients): add nif field to client form and edit page",
+      "notes": "Se ha añadido el campo NIF al formulario de clientes (con data-testid='field-nif' generado automáticamente por Field) y se ha pasado el valor inicial en la página de edición de clientes.",
+      "files": [
+        "src/app/(crm)/clientes/client-form.tsx",
+        "src/app/(crm)/clientes/[id]/editar/page.tsx"
+      ],
+      "outsidePlan": [],
+      "evidence": [
+        {
+          "criterion": "c2",
+          "hint": "field-nif en /clientes/nuevo y en /clientes/[id]/editar"
+        }
+      ],
+      "calls": [
+        {
+          "model": "gemini:gemini-3.8-flash",
+          "kind": "first",
+          "inputTokens": 9380,
+          "outputTokens": 1182,
+          "latencyMs": 43129,
+          "valid": true
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "title": "Mostrar el NIF en la lista y detalle de clientes",
+      "context": {
+        "files": [
+          "base:AGENTS.md",
+          "base:src/db/schema.ts",
+          "planned:src/app/(crm)/clientes/page.tsx",
+          "planned:src/app/(crm)/clientes/[id]/page.tsx",
+          "planned:src/db/seed.ts",
+          "import:src/components/button.tsx",
+          "import:src/components/page-header.tsx",
+          "import:src/components/table.tsx",
+          "import:src/app/(crm)/clientes/queries.ts",
+          "import:src/components/status-badge.tsx",
+          "import:src/lib/dates.ts",
+          "import:src/lib/ids.ts",
+          "import:src/db/client.ts"
+        ],
+        "trimmed": [],
+        "newFiles": []
+      },
+      "status": "committed",
+      "commitMessage": "feat(clients): display NIF in list and detail views",
+      "notes": "He añadido la columna NIF a la tabla de clientes en `/clientes` y el elemento correspondiente en la lista de detalles (`DetailList`) en `/clientes/[id]` con el data-testid `client-nif`. Además, he actualizado los datos del seed (`src/db/seed.ts`) para incluir NIFs de prueba en los clientes.",
+      "files": [
+        "src/app/(crm)/clientes/page.tsx",
+        "src/app/(crm)/clientes/[id]/page.tsx",
+        "src/db/seed.ts"
+      ],
+      "outsidePlan": [],
+      "evidence": [
+        {
+          "criterion": "c3",
+          "hint": "Tabla clients-table en /clientes incluye columna NIF"
+        },
+        {
+          "criterion": "c4",
+          "hint": "data-testid=\"client-nif\" en /clientes/[id]"
+        }
+      ],
+      "calls": [
+        {
+          "model": "gemini:gemini-3.6-flash",
+          "kind": "first",
+          "inputTokens": 14081,
+          "outputTokens": 6953,
+          "latencyMs": 45612,
+          "valid": true
+        }
+      ]
+    }
+  ],
+  "check": {
+    "ok": true,
+    "migrate": {
+      "ok": true,
+      "output": null
+    },
+    "typecheck": {
+      "ok": true,
+      "output": null
+    },
+    "lint": {
+      "ok": true,
+      "output": null
+    },
+    "migrations": [
+      "rizzle/meta/_journal.json",
+      "drizzle/0001_jazzy_khan.sql",
+      "drizzle/meta/0001_snapshot.json"
+    ]
+  }
+}

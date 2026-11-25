@@ -1,0 +1,37 @@
+{
+  "id": "chatcmpl-104cdc25-2292-4459-b76e-b4d7c04eb0cf",
+  "object": "chat.completion",
+  "created": 1795595829,
+  "model": "openai/gpt-oss-120b",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"feasible\": true,\n  \"summary\": \"Se añade el campo NIF a los clientes. El formulario de alta y edición incluye un nuevo input NIF, la tabla de clientes muestra el NIF en la lista y en la página de detalle del cliente.\",\n  \"assumptions\": [\n    \"El NIF es un texto opcional (nullable) y se guarda tal cual.\",\n    \"Se usa el mismo estilo de validación que para otros campos de texto.\",\n    \"No es necesario actualizar el seed con valores de NIF.\"\n  ],\n  \"tasks\": [\n    {\n      \"title\": \"Añadir columna NIF y actualizar UI de clientes\",\n      \"description\": \"1. En src/db/schema.ts añade la columna `nif: text()` a la tabla `clients` (nullable). 2. En src/app/(crm)/clientes/queries.ts incluye `nif` en la selección de columnas para la lista y detalle. 3. En src/app/(crm)/clientes/validation.ts agrega `nif: z.string().optional()` al schema Zod y añádelo a `clientFields`. 4. En src/app/(crm)/clientes/client-form.tsx agrega un `<Field label=\\\"NIF\\\" name=\\\"nif\\\" data-testid=\\\"field-nif\\\" />` dentro del formulario. 5. En src/app/(crm)/clientes/[id]/page.tsx muestra el NIF bajo el nombre del cliente usando `data-testid=\\\"client-nif\\\"`. 6. En src/app/(crm)/clientes/page.tsx muestra una columna NIF en la tabla con `data-testid=\\\"client-nif-cell\\\"`. 7. Actualiza src/app/(crm)/clientes/[id]/editar/page.tsx para que el formulario de edición reciba y muestre el valor `nif`. 8. Añade `client-nif` a la lista de pages en e2e/pages.ts para que se capture la vista de detalle con el NIF visible.\",\n      \"files\": [\n        \"src/db/schema.ts\",\n        \"src/app/(crm)/clientes/queries.ts\",\n        \"src/app/(crm)/clientes/validation.ts\",\n        \"src/app/(crm)/clientes/client-form.tsx\",\n        \"src/app/(crm)/clientes/[id]/page.tsx\",\n        \"src/app/(crm)/clientes/page.tsx\",\n        \"src/app/(crm)/clientes/[id]/editar/page.tsx\",\n        \"e2e/pages.ts\"\n      ],\n      \"references\": [\n        \"src/app/(crm)/clientes/client-form.tsx\",\n        \"src/app/(crm)/clientes/validation.ts\",\n        \"src/app/(crm)/clientes/queries.ts\"\n      ],\n      \"acceptanceCriteria\": [\n        {\n          \"id\": \"c1\",\n          \"type\": \"e2e\",\n          \"text\": \"En la página de alta de cliente (/clientes/nuevo), el formulario muestra un campo con data-testid \\\"field-nif\\\" y permite escribir un NIF.\"\n        },\n        {\n          \"id\": \"c2\",\n          \"type\": \"e2e\",\n          \"text\": \"En la página de edición de cliente (/clientes/{id}/editar), el campo \\\"field-nif\\\" está presente y muestra el valor actual del NIF.\"\n        },\n        {\n          \"id\": \"c3\",\n          \"type\": \"e2e\",\n          \"text\": \"En la lista de clientes (/clientes), cada fila incluye una celda con data-testid \\\"client-nif-cell\\\" que muestra el NIF del cliente (o está vacía si no tiene).\"\n        },\n        {\n          \"id\": \"c4\",\n          \"type\": \"e2e\",\n          \"text\": \"En la página de detalle del cliente (/clientes/{id}), el NIF se muestra bajo el nombre con data-testid \\\"client-nif\\\".\"\n        },\n        {\n          \"id\": \"c5\",\n          \"type\": \"visual\",\n          \"text\": \"La captura \\\"cliente-detalle-1280.jpg\\\" muestra el NIF visible en la sección del detalle.\"\n        },\n        {\n          \"id\": \"c6\",\n          \"type\": \"visual\",\n          \"text\": \"La captura \\\"clientes-1280.jpg\\\" muestra la columna NIF en la tabla de clientes.\"\n        }\n      ]\n    }\n  ]\n}",
+        "reasoning": "Need plan. Add NIF field. Modify schema, queries, validation, form, list display, detail. One task maybe enough. Provide references: client-form.tsx, validation.ts, queries.ts. Acceptance criteria: e2e check NIF appears in form, detail, list. Provide summary."
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "queue_time": 0.284457114,
+    "prompt_tokens": 5757,
+    "prompt_time": 0.267969363,
+    "completion_tokens": 972,
+    "completion_time": 2.036549332,
+    "total_tokens": 6729,
+    "total_time": 2.304518695,
+    "completion_tokens_details": {
+      "reasoning_tokens": 62
+    }
+  },
+  "usage_breakdown": null,
+  "system_fingerprint": "fp_a655021f7d",
+  "x_groq": {
+    "id": "req_01m88xky44ed0aqe20vcb0fpgs",
+    "seed": 1228992506
+  },
+  "service_tier": "on_demand"
+}

@@ -1,0 +1,714 @@
+diff --git a/drizzle/0001_jazzy_khan.sql b/drizzle/0001_jazzy_khan.sql
+new file mode 100644
+index 0000000..388afd0
+--- /dev/null
++++ b/drizzle/0001_jazzy_khan.sql
+@@ -0,0 +1 @@
++ALTER TABLE "clients" ADD COLUMN "nif" text;
+\ No newline at end of file
+diff --git a/drizzle/meta/0001_snapshot.json b/drizzle/meta/0001_snapshot.json
+new file mode 100644
+index 0000000..1fa14d6
+--- /dev/null
++++ b/drizzle/meta/0001_snapshot.json
+@@ -0,0 +1,455 @@
++{
++  "id": "9a61d2fa-4937-473b-b424-ca45e909fadc",
++  "prevId": "c71a9aab-9940-471e-90c7-ee17b2c348ea",
++  "version": "7",
++  "dialect": "postgresql",
++  "tables": {
++    "public.clients": {
++      "name": "clients",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "integer",
++          "primaryKey": true,
++          "notNull": true,
++          "identity": {
++            "type": "always",
++            "name": "clients_id_seq",
++            "schema": "public",
++            "increment": "1",
++            "startWith": "1",
++            "minValue": "1",
++            "maxValue": "2147483647",
++            "cache": "1",
++            "cycle": false
++          }
++        },
++        "name": {
++          "name": "name",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "email": {
++          "name": "email",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "nif": {
++          "name": "nif",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "phone": {
++          "name": "phone",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "company": {
++          "name": "company",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {},
++      "foreignKeys": {},
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {
++        "clients_email_unique": {
++          "name": "clients_email_unique",
++          "nullsNotDistinct": false,
++          "columns": [
++            "email"
++          ]
++        }
++      },
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.invoice_items": {
++      "name": "invoice_items",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "integer",
++          "primaryKey": true,
++          "notNull": true,
++          "identity": {
++            "type": "always",
++            "name": "invoice_items_id_seq",
++            "schema": "public",
++            "increment": "1",
++            "startWith": "1",
++            "minValue": "1",
++            "maxValue": "2147483647",
++            "cache": "1",
++            "cycle": false
++          }
++        },
++        "invoice_id": {
++          "name": "invoice_id",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "description": {
++          "name": "description",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "quantity": {
++          "name": "quantity",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "unit_price": {
++          "name": "unit_price",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "tax_rate": {
++          "name": "tax_rate",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        }
++      },
++      "indexes": {},
++      "foreignKeys": {
++        "invoice_items_invoice_id_invoices_id_fk": {
++          "name": "invoice_items_invoice_id_invoices_id_fk",
++          "tableFrom": "invoice_items",
++          "tableTo": "invoices",
++          "columnsFrom": [
++            "invoice_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "cascade",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.invoices": {
++      "name": "invoices",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "integer",
++          "primaryKey": true,
++          "notNull": true,
++          "identity": {
++            "type": "always",
++            "name": "invoices_id_seq",
++            "schema": "public",
++            "increment": "1",
++            "startWith": "1",
++            "minValue": "1",
++            "maxValue": "2147483647",
++            "cache": "1",
++            "cycle": false
++          }
++        },
++        "number": {
++          "name": "number",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "quote_id": {
++          "name": "quote_id",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "client_id": {
++          "name": "client_id",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "status": {
++          "name": "status",
++          "type": "invoice_status",
++          "typeSchema": "public",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'pending'"
++        },
++        "issued_at": {
++          "name": "issued_at",
++          "type": "date",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "due_at": {
++          "name": "due_at",
++          "type": "date",
++          "primaryKey": false,
++          "notNull": true
++        }
++      },
++      "indexes": {},
++      "foreignKeys": {
++        "invoices_quote_id_quotes_id_fk": {
++          "name": "invoices_quote_id_quotes_id_fk",
++          "tableFrom": "invoices",
++          "tableTo": "quotes",
++          "columnsFrom": [
++            "quote_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        },
++        "invoices_client_id_clients_id_fk": {
++          "name": "invoices_client_id_clients_id_fk",
++          "tableFrom": "invoices",
++          "tableTo": "clients",
++          "columnsFrom": [
++            "client_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {
++        "invoices_number_unique": {
++          "name": "invoices_number_unique",
++          "nullsNotDistinct": false,
++          "columns": [
++            "number"
++          ]
++        },
++        "invoices_quote_id_unique": {
++          "name": "invoices_quote_id_unique",
++          "nullsNotDistinct": false,
++          "columns": [
++            "quote_id"
++          ]
++        }
++      },
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.quote_items": {
++      "name": "quote_items",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "integer",
++          "primaryKey": true,
++          "notNull": true,
++          "identity": {
++            "type": "always",
++            "name": "quote_items_id_seq",
++            "schema": "public",
++            "increment": "1",
++            "startWith": "1",
++            "minValue": "1",
++            "maxValue": "2147483647",
++            "cache": "1",
++            "cycle": false
++          }
++        },
++        "quote_id": {
++          "name": "quote_id",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "description": {
++          "name": "description",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "quantity": {
++          "name": "quantity",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "unit_price": {
++          "name": "unit_price",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "tax_rate": {
++          "name": "tax_rate",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        }
++      },
++      "indexes": {},
++      "foreignKeys": {
++        "quote_items_quote_id_quotes_id_fk": {
++          "name": "quote_items_quote_id_quotes_id_fk",
++          "tableFrom": "quote_items",
++          "tableTo": "quotes",
++          "columnsFrom": [
++            "quote_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "cascade",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.quotes": {
++      "name": "quotes",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "integer",
++          "primaryKey": true,
++          "notNull": true,
++          "identity": {
++            "type": "always",
++            "name": "quotes_id_seq",
++            "schema": "public",
++            "increment": "1",
++            "startWith": "1",
++            "minValue": "1",
++            "maxValue": "2147483647",
++            "cache": "1",
++            "cycle": false
++          }
++        },
++        "number": {
++          "name": "number",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "client_id": {
++          "name": "client_id",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "status": {
++          "name": "status",
++          "type": "quote_status",
++          "typeSchema": "public",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'draft'"
++        },
++        "issued_at": {
++          "name": "issued_at",
++          "type": "date",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "notes": {
++          "name": "notes",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        }
++      },
++      "indexes": {},
++      "foreignKeys": {
++        "quotes_client_id_clients_id_fk": {
++          "name": "quotes_client_id_clients_id_fk",
++          "tableFrom": "quotes",
++          "tableTo": "clients",
++          "columnsFrom": [
++            "client_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {
++        "quotes_number_unique": {
++          "name": "quotes_number_unique",
++          "nullsNotDistinct": false,
++          "columns": [
++            "number"
++          ]
++        }
++      },
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    }
++  },
++  "enums": {
++    "public.invoice_status": {
++      "name": "invoice_status",
++      "schema": "public",
++      "values": [
++        "pending",
++        "paid"
++      ]
++    },
++    "public.quote_status": {
++      "name": "quote_status",
++      "schema": "public",
++      "values": [
++        "draft",
++        "sent",
++        "accepted",
++        "rejected"
++      ]
++    }
++  },
++  "schemas": {},
++  "sequences": {},
++  "roles": {},
++  "policies": {},
++  "views": {},
++  "_meta": {
++    "columns": {},
++    "schemas": {},
++    "tables": {}
++  }
++}
+\ No newline at end of file
+diff --git a/drizzle/meta/_journal.json b/drizzle/meta/_journal.json
+index aa5ca21..11a8ae8 100644
+--- a/drizzle/meta/_journal.json
++++ b/drizzle/meta/_journal.json
+@@ -8,6 +8,13 @@
+       "when": 1795475315111,
+       "tag": "0000_init",
+       "breakpoints": true
++    },
++    {
++      "idx": 1,
++      "version": "7",
++      "when": 1795599579953,
++      "tag": "0001_jazzy_khan",
++      "breakpoints": true
+     }
+   ]
+ }
+\ No newline at end of file
+diff --git a/src/app/(crm)/clientes/[id]/editar/page.tsx b/src/app/(crm)/clientes/[id]/editar/page.tsx
+index 70c32a8..9d95ff5 100644
+--- a/src/app/(crm)/clientes/[id]/editar/page.tsx
++++ b/src/app/(crm)/clientes/[id]/editar/page.tsx
+@@ -35,6 +35,7 @@ async function EditClient({
+           cancelHref={`/clientes/${client.id}`}
+           initial={{
+             name: client.name,
++            nif: client.nif ?? "",
+             email: client.email,
+             phone: client.phone ?? "",
+             company: client.company ?? "",
+diff --git a/src/app/(crm)/clientes/[id]/page.tsx b/src/app/(crm)/clientes/[id]/page.tsx
+index 8acedfc..b8a719d 100644
+--- a/src/app/(crm)/clientes/[id]/page.tsx
++++ b/src/app/(crm)/clientes/[id]/page.tsx
+@@ -54,6 +54,7 @@ async function ClientDetail({
+       <div className="space-y-8" data-testid="client-detail">
+         <DetailList
+           items={[
++            { label: "NIF", value: client.nif, testId: "client-nif" },
+             { label: "Email", value: client.email, testId: "client-email" },
+             { label: "Teléfono", value: client.phone, testId: "client-phone" },
+             {
+diff --git a/src/app/(crm)/clientes/client-form.tsx b/src/app/(crm)/clientes/client-form.tsx
+index d839464..3abd875 100644
+--- a/src/app/(crm)/clientes/client-form.tsx
++++ b/src/app/(crm)/clientes/client-form.tsx
+@@ -32,6 +32,12 @@ export function ClientForm({
+         error={state.errors.name}
+         required
+       />
++      <Field
++        label="NIF / CIF"
++        name="nif"
++        defaultValue={value("nif")}
++        error={state.errors.nif}
++      />
+       <Field
+         label="Email"
+         name="email"
+diff --git a/src/app/(crm)/clientes/page.tsx b/src/app/(crm)/clientes/page.tsx
+index b570211..3d05351 100644
+--- a/src/app/(crm)/clientes/page.tsx
++++ b/src/app/(crm)/clientes/page.tsx
+@@ -36,6 +36,7 @@ async function ClientsTable() {
+       <thead>
+         <tr>
+           <Th>Nombre</Th>
++          <Th className="hidden sm:table-cell">NIF</Th>
+           <Th className="hidden sm:table-cell">Empresa</Th>
+           <Th className="hidden md:table-cell">Email</Th>
+           <Th className="hidden md:table-cell">Teléfono</Th>
+@@ -43,7 +44,7 @@ async function ClientsTable() {
+       </thead>
+       <tbody className="divide-y divide-slate-100">
+         {clients.length === 0 && (
+-          <EmptyRow colSpan={4}>Todavía no hay clientes.</EmptyRow>
++          <EmptyRow colSpan={5}>Todavía no hay clientes.</EmptyRow>
+         )}
+         {clients.map((client) => (
+           <Tr key={client.id} data-testid="client-row" data-id={client.id}>
+@@ -55,9 +56,13 @@ async function ClientsTable() {
+                 {client.name}
+               </Link>
+               <div className="text-xs text-slate-500 sm:hidden">
++                {client.nif ? `${client.nif} · ` : ""}
+                 {client.company ?? client.email}
+               </div>
+             </Td>
++            <Td className="hidden whitespace-nowrap sm:table-cell">
++              {client.nif ?? "—"}
++            </Td>
+             <Td className="hidden sm:table-cell">{client.company ?? "—"}</Td>
+             <Td className="hidden md:table-cell">{client.email}</Td>
+             <Td className="hidden whitespace-nowrap md:table-cell">
+diff --git a/src/app/(crm)/clientes/validation.ts b/src/app/(crm)/clientes/validation.ts
+index 0cea262..308f604 100644
+--- a/src/app/(crm)/clientes/validation.ts
++++ b/src/app/(crm)/clientes/validation.ts
+@@ -5,7 +5,13 @@ const optionalText = z
+   .trim()
+   .transform((value) => (value === "" ? null : value));
+ 
+-export const clientFields = ["name", "email", "phone", "company"] as const;
++export const clientFields = [
++  "name",
++  "email",
++  "nif",
++  "phone",
++  "company",
++] as const;
+ 
+ export const clientSchema = z.object({
+   name: z.string().trim().min(1, "El nombre es obligatorio."),
+@@ -14,6 +20,7 @@ export const clientSchema = z.object({
+     .trim()
+     .toLowerCase()
+     .pipe(z.email("Introduce un email válido.")),
++  nif: optionalText,
+   phone: optionalText,
+   company: optionalText,
+ });
+diff --git a/src/db/schema.ts b/src/db/schema.ts
+index 5095705..9e840f6 100644
+--- a/src/db/schema.ts
++++ b/src/db/schema.ts
+@@ -24,6 +24,7 @@ export const clients = pgTable("clients", {
+   id: integer().primaryKey().generatedAlwaysAsIdentity(),
+   name: text().notNull(),
+   email: text().notNull().unique(),
++  nif: text(),
+   phone: text(),
+   company: text(),
+   createdAt: timestamp("created_at", { withTimezone: true })
+diff --git a/src/db/seed.ts b/src/db/seed.ts
+index cec9d52..1bcbfe4 100644
+--- a/src/db/seed.ts
++++ b/src/db/seed.ts
+@@ -31,90 +31,105 @@ const CLIENTS = [
+   {
+     name: "Lucía Fernández Ruiz",
+     email: "lucia.fernandez@example.com",
++    nif: "B12345678",
+     phone: "+34 611 204 318",
+     company: "Estudio Alba Arquitectura",
+   },
+   {
+     name: "Javier Moreno Castillo",
+     email: "javier.moreno@example.com",
++    nif: "B87654321",
+     phone: "+34 622 731 095",
+     company: "Talleres Moreno",
+   },
+   {
+     name: "Carmen Navarro Gil",
+     email: "carmen.navarro@example.com",
++    nif: "B55443322",
+     phone: "+34 633 418 772",
+     company: "Navarro Abogados",
+   },
+   {
+     name: "Pablo Jiménez Ortega",
+     email: "pablo.jimenez@example.com",
++    nif: "12345678Z",
+     phone: "+34 644 905 136",
+     company: null,
+   },
+   {
+     name: "Marta Romero Delgado",
+     email: "marta.romero@example.com",
++    nif: "B99887766",
+     phone: "+34 655 120 487",
+     company: "Panadería La Espiga",
+   },
+   {
+     name: "Sergio Torres Vidal",
+     email: "sergio.torres@example.com",
++    nif: "B11223344",
+     phone: null,
+     company: "Torres Logística",
+   },
+   {
+     name: "Elena Ramírez Soto",
+     email: "elena.ramirez@example.com",
++    nif: "B66778899",
+     phone: "+34 677 349 210",
+     company: "Clínica Dental Sonríe",
+   },
+   {
+     name: "Daniel Herrera Molina",
+     email: "daniel.herrera@example.com",
++    nif: "B44332211",
+     phone: "+34 688 562 903",
+     company: "Herrera Reformas",
+   },
+   {
+     name: "Laura Muñoz Prieto",
+     email: "laura.munoz@example.com",
++    nif: "B77889900",
+     phone: "+34 699 083 641",
+     company: "Librería El Faro",
+   },
+   {
+     name: "Alberto Díaz Santos",
+     email: "alberto.diaz@example.com",
++    nif: "87654321X",
+     phone: "+34 610 774 529",
+     company: null,
+   },
+   {
+     name: "Nuria Castro Peña",
+     email: "nuria.castro@example.com",
++    nif: "B33221144",
+     phone: "+34 621 436 870",
+     company: "Castro & Peña Consultores",
+   },
+   {
+     name: "Raúl Ortiz Marín",
+     email: "raul.ortiz@example.com",
++    nif: "B66554433",
+     phone: "+34 632 918 054",
+     company: "Bodegas Ortiz",
+   },
+   {
+     name: "Isabel Rubio Campos",
+     email: "isabel.rubio@example.com",
++    nif: "B88990011",
+     phone: "+34 643 207 615",
+     company: "Escuela de Idiomas Babel",
+   },
+   {
+     name: "Andrés Molina Vega",
+     email: "andres.molina@example.com",
++    nif: "B22334455",
+     phone: null,
+     company: "Gimnasio Atlas",
+   },
+   {
+     name: "Sofía Gallego León",
+     email: "sofia.gallego@example.com",
++    nif: "B44556677",
+     phone: "+34 665 851 392",
+     company: "Floristería Jazmín",
+   },

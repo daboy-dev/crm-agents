@@ -1,0 +1,76 @@
+{
+  "request": "Añade el NIF a los clientes: se introduce en el formulario de alta y edición y se ve en el detalle y en la lista.",
+  "baseSha": "b6c4a3c9c20aa9c8da8ab8b092e8ce995c239ba2",
+  "plan": {
+    "feasible": true,
+    "summary": "Se añade el campo NIF a los clientes. El formulario de alta y edición incluye un nuevo input NIF, la tabla de clientes muestra el NIF en la lista y en la página de detalle del cliente.",
+    "assumptions": [
+      "El NIF es un texto opcional (nullable) y se guarda tal cual.",
+      "Se usa el mismo estilo de validación que para otros campos de texto.",
+      "No es necesario actualizar el seed con valores de NIF."
+    ],
+    "tasks": [
+      {
+        "title": "Añadir columna NIF y actualizar UI de clientes",
+        "description": "1. En src/db/schema.ts añade la columna `nif: text()` a la tabla `clients` (nullable). 2. En src/app/(crm)/clientes/queries.ts incluye `nif` en la selección de columnas para la lista y detalle. 3. En src/app/(crm)/clientes/validation.ts agrega `nif: z.string().optional()` al schema Zod y añádelo a `clientFields`. 4. En src/app/(crm)/clientes/client-form.tsx agrega un `<Field label=\"NIF\" name=\"nif\" data-testid=\"field-nif\" />` dentro del formulario. 5. En src/app/(crm)/clientes/[id]/page.tsx muestra el NIF bajo el nombre del cliente usando `data-testid=\"client-nif\"`. 6. En src/app/(crm)/clientes/page.tsx muestra una columna NIF en la tabla con `data-testid=\"client-nif-cell\"`. 7. Actualiza src/app/(crm)/clientes/[id]/editar/page.tsx para que el formulario de edición reciba y muestre el valor `nif`. 8. Añade `client-nif` a la lista de pages en e2e/pages.ts para que se capture la vista de detalle con el NIF visible.",
+        "files": [
+          "src/db/schema.ts",
+          "src/app/(crm)/clientes/queries.ts",
+          "src/app/(crm)/clientes/validation.ts",
+          "src/app/(crm)/clientes/client-form.tsx",
+          "src/app/(crm)/clientes/[id]/page.tsx",
+          "src/app/(crm)/clientes/page.tsx",
+          "src/app/(crm)/clientes/[id]/editar/page.tsx",
+          "e2e/pages.ts"
+        ],
+        "references": [
+          "src/app/(crm)/clientes/client-form.tsx",
+          "src/app/(crm)/clientes/validation.ts",
+          "src/app/(crm)/clientes/queries.ts"
+        ],
+        "acceptanceCriteria": [
+          {
+            "id": "c1",
+            "type": "e2e",
+            "text": "En la página de alta de cliente (/clientes/nuevo), el formulario muestra un campo con data-testid \"field-nif\" y permite escribir un NIF."
+          },
+          {
+            "id": "c2",
+            "type": "e2e",
+            "text": "En la página de edición de cliente (/clientes/{id}/editar), el campo \"field-nif\" está presente y muestra el valor actual del NIF."
+          },
+          {
+            "id": "c3",
+            "type": "e2e",
+            "text": "En la lista de clientes (/clientes), cada fila incluye una celda con data-testid \"client-nif-cell\" que muestra el NIF del cliente (o está vacía si no tiene)."
+          },
+          {
+            "id": "c4",
+            "type": "e2e",
+            "text": "En la página de detalle del cliente (/clientes/{id}), el NIF se muestra bajo el nombre con data-testid \"client-nif\"."
+          },
+          {
+            "id": "c5",
+            "type": "visual",
+            "text": "La captura \"cliente-detalle-1280.jpg\" muestra el NIF visible en la sección del detalle."
+          },
+          {
+            "id": "c6",
+            "type": "visual",
+            "text": "La captura \"clientes-1280.jpg\" muestra la columna NIF en la tabla de clientes."
+          }
+        ]
+      }
+    ]
+  },
+  "calls": [
+    {
+      "model": "groq:openai/gpt-oss-120b",
+      "kind": "first",
+      "inputTokens": 5757,
+      "outputTokens": 972,
+      "latencyMs": 2756,
+      "valid": true
+    }
+  ]
+}

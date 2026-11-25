@@ -1,0 +1,44 @@
+{
+  "request": "Marca las facturas vencidas: las que siguen pendientes de pago con la fecha de vencimiento ya pasada deben destacarse en la lista de facturas.",
+  "baseSha": "b6c4a3c9c20aa9c8da8ab8b092e8ce995c239ba2",
+  "plan": {
+    "feasible": true,
+    "summary": "Se resaltarán las facturas vencidas en la lista de facturas mostrando un badge con el texto \"Vencida\" cuando la factura esté pendiente y la fecha de vencimiento sea anterior a hoy.",
+    "assumptions": [
+      "Se añadirá una lógica de cálculo de vencimiento en la página de listado de facturas.",
+      "El badge existente `status-badge` se reutilizará para mostrar el texto \"Vencida\".",
+      "Se usará la utilidad `formatDate` y la fecha actual del servidor (`new Date()`).",
+      "El seed no contiene facturas vencidas, pero los tests crearán una factura pendiente con `dueAt` pasado."
+    ],
+    "tasks": [
+      {
+        "title": "Resaltar facturas vencidas en la lista",
+        "description": "Modifica `src/app/(crm)/facturas/page.tsx` para que, al renderizar cada fila, se calcule si la factura está vencida (status === \"pending\" y dueAt < hoy). Si es así, pasa el texto \"Vencida\" al componente `StatusBadge` en vez del estado real. Añade la lógica de comparación usando `new Date()` y `new Date(invoice.dueAt)` (las fechas vienen como string `YYYY-MM-DD`). Mantén el `data-testid=\"status-badge\"` existente. No cambies otros archivos.",
+        "files": ["src/app/(crm)/facturas/page.tsx"],
+        "references": ["src/app/(crm)/facturas/page.tsx"],
+        "acceptanceCriteria": [
+          {
+            "id": "c1",
+            "type": "e2e",
+            "text": "En la página \"/facturas\", una factura pendiente con fecha de vencimiento pasada muestra un badge con el texto \"Vencida\" y el data-testid \"status-badge\"."
+          },
+          {
+            "id": "c2",
+            "type": "visual",
+            "text": "En la captura de la página \"facturas\" (1280px), el badge de una factura vencida se ve con el estilo de `StatusBadge` y contiene el texto \"Vencida\"."
+          }
+        ]
+      }
+    ]
+  },
+  "calls": [
+    {
+      "model": "groq:openai/gpt-oss-120b",
+      "kind": "first",
+      "inputTokens": 5759,
+      "outputTokens": 812,
+      "latencyMs": 2167,
+      "valid": true
+    }
+  ]
+}

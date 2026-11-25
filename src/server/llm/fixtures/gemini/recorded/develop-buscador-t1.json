@@ -1,0 +1,47 @@
+{
+  "sdkHttpResponse": {
+    "headers": {
+      "alt-svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000",
+      "content-encoding": "gzip",
+      "content-type": "application/json; charset=UTF-8",
+      "date": "Wed, 25 Nov 2026 09:42:00 GMT",
+      "server": "scaffolding on HTTPServer2",
+      "server-timing": "gfet4t7; dur=26448",
+      "transfer-encoding": "chunked",
+      "vary": "Origin, X-Origin, Referer",
+      "x-content-type-options": "nosniff",
+      "x-frame-options": "SAMEORIGIN",
+      "x-gemini-service-tier": "standard",
+      "x-xss-protection": "0"
+    }
+  },
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "{\n  \"commitMessage\": \"feat(clients): add search filter by name or email\",\n  \"files\": [\n    {\n      \"path\": \"src/app/(crm)/clientes/queries.ts\",\n      \"content\": \"import { asc, desc, eq, ilike, or } from \\\"drizzle-orm\\\";\\nimport { getDb } from \\\"@/db/client\\\";\\nimport { clients, invoices, quotes } from \\\"@/db/schema\\\";\\n\\nexport async function listClients(query?: string) {\\n  const cleanQuery = query?.trim();\\n  const queryFilter = cleanQuery\\n    ? or(\\n        ilike(clients.name, `%${cleanQuery}%`),\\n        ilike(clients.email, `%${cleanQuery}%`)\\n      )\\n    : undefined;\\n\\n  return getDb()\\n    .select()\\n    .from(clients)\\n    .where(queryFilter)\\n    .orderBy(asc(clients.name));\\n}\\n\\n/** Clients for a <select>: id and display name only. */\\nexport async function listClientOptions() {\\n  return getDb()\\n    .select({ id: clients.id, name: clients.name, company: clients.company })\\n    .from(clients)\\n    .orderBy(asc(clients.name));\\n}\\n\\nexport async function getClient(id: number) {\\n  const [client] = await getDb()\\n    .select()\\n    .from(clients)\\n    .where(eq(clients.id, id));\\n  return client ?? null;\\n}\\n\\n/** A client with its quotes and invoices, newest first. */\\nexport async function getClientWithDocuments(id: number) {\\n  const client = await getDb().query.clients.findFirst({\\n    where: eq(clients.id, id),\\n    with: {\\n      quotes: { orderBy: [desc(quotes.issuedAt), desc(quotes.id)] },\\n      invoices: { orderBy: [desc(invoices.issuedAt), desc(invoices.id)] },\\n    },\\n  });\\n  return client ?? null;\\n}\\n\"\n    },\n    {\n      \"path\": \"src/app/(crm)/clientes/page.tsx\",\n      \"content\": \"import type { Metadata } from \\\"next\\\";\\nimport Link from \\\"next/link\\\";\\nimport { connection } from \\\"next/server\\\";\\nimport { Suspense } from \\\"react\\\";\\nimport { ButtonLink } from \\\"@/components/button\\\";\\nimport { Loading, PageHeader } from \\\"@/components/page-header\\\";\\nimport { EmptyRow, Table, Td, Th, Tr } from \\\"@/components/table\\\";\\nimport { listClients } from \\\"./queries\\\";\\n\\nexport const metadata: Metadata = { title: \\\"Clientes · crm-demo\\\" };\\n\\ninterface Props {\\n  searchParams: Promise<{ q?: string; query?: string }>;\\n}\\n\\nexport default function ClientsPage({ searchParams }: Props) {\\n  return (\\n    <>\\n      <PageHeader\\n        title=\\\"Clientes\\\"\\n        actions={\\n          <ButtonLink href=\\\"/clientes/nuevo\\\" data-testid=\\\"new-client-button\\\">\\n            Nuevo cliente\\n          </ButtonLink>\\n        }\\n      />\\n      <Suspense fallback={<Loading />}>\\n        <ClientSearchAndTable searchParams={searchParams} />\\n      </Suspense>\\n    </>\\n  );\\n}\\n\\nasync function ClientSearchAndTable({ searchParams }: Props) {\\n  await connection();\\n  const resolvedParams = await searchParams;\\n  const query = resolvedParams.q ?? resolvedParams.query ?? \\\"\\\";\\n  const clients = await listClients(query);\\n\\n  return (\\n    <div className=\\\"space-y-4\\\">\\n      <form method=\\\"get\\\" className=\\\"flex max-w-sm items-center gap-2\\\">\\n        <input\\n          type=\\\"search\\\"\\n          name=\\\"q\\\"\\n          defaultValue={query}\\n          placeholder=\\\"Buscar cliente por nombre o email...\\\"\\n          data-testid=\\\"client-search-input\\\"\\n          className=\\\"block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-xs focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600\\\"\\n        />\\n      </form>\\n\\n      <Table data-testid=\\\"clients-table\\\">\\n        <thead>\\n          <tr>\\n            <Th>Nombre</Th>\\n            <Th className=\\\"hidden sm:table-cell\\\">Empresa</Th>\\n            <Th className=\\\"hidden md:table-cell\\\">Email</Th>\\n            <Th className=\\\"hidden md:table-cell\\\">Teléfono</Th>\\n          </tr>\\n        </thead>\\n        <tbody className=\\\"divide-y divide-slate-100\\\">\\n          {clients.length === 0 && (\\n            <EmptyRow colSpan={4}>Todavía no hay clientes.</EmptyRow>\\n          )}\\n          {clients.map((client) => (\\n            <Tr key={client.id} data-testid=\\\"client-row\\\" data-id={client.id}>\\n              <Td>\\n                <Link\\n                  href={`/clientes/${client.id}`}\\n                  className=\\\"font-medium text-blue-700 hover:underline\\\"\\n                >\\n                  {client.name}\\n                </Link>\\n                <div className=\\\"text-xs text-slate-500 sm:hidden\\\">\\n                  {client.company ?? client.email}\\n                </div>\\n              </Td>\\n              <Td className=\\\"hidden sm:table-cell\\\">{client.company ?? \\\"—\\\"}</Td>\\n              <Td className=\\\"hidden md:table-cell\\\">{client.email}</Td>\\n              <Td className=\\\"hidden whitespace-nowrap md:table-cell\\\">\\n                {client.phone ?? \\\"—\\\"}\\n              </Td>\\n            </Tr>\\n          ))}\\n        </tbody>\\n      </Table>\\n    </div>\\n  );\\n}\\n\"\n    }\n  ],\n  \"notes\": \"He actualizado la función listClients para aceptar un término de búsqueda opcional y filtrar mediante ilike por nombre o email. En la UI de /clientes, he añadido un formulario GET con el input con data-testid=\\\"client-search-input\\\", leyendo los searchParams dentro del componente envuelto en Suspense y llamando a connection() según los requerimientos de Next.js 16.\",\n  \"evidence\": [\n    {\n      \"criterion\": \"c1\",\n      \"hint\": \"[data-testid=\\\"client-search-input\\\"] en la página /clientes\"\n    },\n    {\n      \"criterion\": \"c2\",\n      \"hint\": \"[data-testid=\\\"clients-table\\\"] al filtrar con [data-testid=\\\"client-search-input\\\"]\"\n    },\n    {\n      \"criterion\": \"c3\",\n      \"hint\": \"Buscador situado sobre la tabla en /clientes\"\n    }\n  ]\n}",
+            "thoughtSignature": "Ep8BCpwBAWkUfRO5S8wWINAcorpK0GkUIFuT0X1fZIZ90ApFj08M8Q2YO74mBRv7dtg8fWdW4CfjKiaheiyqCTF5lMYsNUHQe9eJ8rA1dDmSY9wCk3WJG6tmGnKlpQmVUiwa3Arf27ctWHNmQg9HtAFaZy0C5+9uez/2n+VDOtjl14sDErV1fUyb/LJvW8hoYF80+eNthbyV9jF/JuXbEk0D"
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "modelVersion": "gemini-3.6-flash",
+  "responseId": "Tq0Ga8DqCtWzkdUPg6zYwA0",
+  "usageMetadata": {
+    "promptTokenCount": 8708,
+    "candidatesTokenCount": 1623,
+    "totalTokenCount": 10331,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 8708
+      }
+    ],
+    "serviceTier": "standard"
+  }
+}

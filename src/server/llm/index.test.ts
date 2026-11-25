@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  modelsFor,
   providersForNewRun,
   providerSummary,
   runProviders,
@@ -55,10 +54,5 @@ describe("providers per agent (D26)", () => {
       develop: "mock",
       testing: "mock",
     });
-  });
-
-  it("parses the model list in order", () => {
-    vi.stubEnv("GEMINI_MODELS_ORCHESTRATOR", " a , b,,c ");
-    expect(modelsFor("orchestrator")).toEqual(["a", "b", "c"]);
   });
 });

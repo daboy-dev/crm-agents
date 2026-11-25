@@ -1,0 +1,1 @@
+ALTER TABLE "tasks" ADD COLUMN "references" jsonb DEFAULT '[]'::jsonb NOT NULL;

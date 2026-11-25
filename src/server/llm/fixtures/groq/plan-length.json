@@ -1,0 +1,20 @@
+{
+  "id": "chatcmpl-test",
+  "object": "chat.completion",
+  "model": "openai/gpt-oss-120b",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"feasible\":true,\"summary\":\"Añad"
+      },
+      "finish_reason": "length"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 5300,
+    "completion_tokens": 2600,
+    "total_tokens": 7900
+  }
+}

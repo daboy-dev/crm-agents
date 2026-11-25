@@ -1,9 +1,29 @@
 /**
- * Paths Develop may never write (D16, D24): the workflows and the e2e helpers
- * run with crm-demo's secrets. Listed in crm-demo's AGENTS.md.
+ * Paths Develop may never write, all listed in crm-demo's AGENTS.md:
+ * - The workflows and the e2e helpers, which run with crm-demo's secrets (D16).
+ * - drizzle/: migrations are written by pr-check, never by the LLM (D31).
+ * - package.json and the lockfile: Develop cannot update the lockfile (D31).
+ * - The build, lint and test config: changing it could hide the errors that
+ *   pr-check sends back to Develop (D33).
+ * - AGENTS.md and CLAUDE.md: Develop reads them on every task, so rewriting
+ *   them would change the instructions of later runs (D32).
  */
-export const FORBIDDEN_PREFIXES = [".github/"];
-export const FORBIDDEN_FILES = ["e2e/helpers.ts", "e2e/screenshots.spec.ts"];
+export const FORBIDDEN_PREFIXES = [".github/", "drizzle/"];
+export const FORBIDDEN_FILES = [
+  "e2e/helpers.ts",
+  "e2e/screenshots.spec.ts",
+  "package.json",
+  "pnpm-lock.yaml",
+  "pnpm-workspace.yaml",
+  "drizzle.config.ts",
+  "next.config.ts",
+  "tsconfig.json",
+  "eslint.config.mjs",
+  "playwright.config.ts",
+  "vitest.config.ts",
+  "AGENTS.md",
+  "CLAUDE.md",
+];
 
 /** List of captured pages: a task that creates a page adds it here (D28). */
 export const PAGES_FILE = "e2e/pages.ts";
@@ -31,7 +51,7 @@ export function checkPaths(paths: string[]): PathCheck {
     const lower = normalized.toLowerCase();
     if (
       FORBIDDEN_PREFIXES.some((p) => lower.startsWith(p)) ||
-      FORBIDDEN_FILES.includes(lower)
+      FORBIDDEN_FILES.some((f) => f.toLowerCase() === lower)
     ) {
       return {
         ok: false,

@@ -1,0 +1,85 @@
+{
+  "request": "Añade una página de contacto con el email y el teléfono de la empresa, enlazada desde el menú.",
+  "baseSha": "b6c4a3c9c20aa9c8da8ab8b092e8ce995c239ba2",
+  "plan": {
+    "feasible": true,
+    "summary": "Se añadirá una nueva página /contacto que muestra el email y el teléfono de la empresa, y se incluirá un enlace en el menú de navegación. La página aparecerá en las capturas de vista previa tanto en escritorio como en móvil.",
+    "assumptions": [
+      "El email de la empresa será 'info@empresa.com' y el teléfono '+34 123 456 789'.",
+      "El menú de navegación se gestiona en el componente src/components/nav-links.tsx.",
+      "Se usará el mismo estilo y estructura que las páginas existentes (p.ej. src/app/(crm)/clientes/page.tsx).",
+      "No se requiere un formulario ni datos dinámicos; la información será estática.",
+      "El data‑testid para la página será \"contact-page\" y para los campos \"contact-email\" y \"contact-phone\"."
+    ],
+    "tasks": [
+      {
+        "title": "Crear página de contacto",
+        "description": "Crear src/app/contact/page.tsx con una vista que muestra el email y el teléfono de la empresa. Añadir los data‑testid \"contact-page\", \"contact-email\" y \"contact-phone\". Utilizar los componentes existentes (PageHeader, Field) para mantener consistencia. Exportar la página como default y usar layout del CRM (src/app/(crm)/layout.tsx).",
+        "files": ["src/app/contact/page.tsx", "e2e/pages.ts"],
+        "references": [
+          "src/app/(crm)/clientes/page.tsx",
+          "src/components/nav-links.tsx",
+          "src/components/page-header.tsx"
+        ],
+        "acceptanceCriteria": [
+          {
+            "id": "c1",
+            "type": "e2e",
+            "text": "Al visitar /contacto, el elemento con data-testid=\"contact-page\" está visible."
+          },
+          {
+            "id": "c2",
+            "type": "e2e",
+            "text": "El email se muestra en un elemento con data-testid=\"contact-email\" y contiene \"info@empresa.com\"."
+          },
+          {
+            "id": "c3",
+            "type": "e2e",
+            "text": "El teléfono se muestra en un elemento con data-testid=\"contact-phone\" y contiene \"+34 123 456 789\"."
+          },
+          {
+            "id": "c4",
+            "type": "visual",
+            "text": "La captura desktop (1280px) de la página \"contacto\" muestra el encabezado y los datos de contacto."
+          },
+          {
+            "id": "c5",
+            "type": "visual",
+            "text": "La captura mobile (390px) de la página \"contacto\" muestra el mismo contenido de forma responsive."
+          }
+        ]
+      },
+      {
+        "title": "Añadir enlace al menú de navegación",
+        "description": "Actualizar src/components/nav-links.tsx para incluir un nuevo enlace al route \"/contacto\" con el texto \"Contacto\". Añadir data‑testid \"nav-contact\" al enlace para poder seleccionarlo en los tests.",
+        "files": ["src/components/nav-links.tsx"],
+        "references": [
+          "src/components/nav-links.tsx",
+          "src/components/button.tsx"
+        ],
+        "acceptanceCriteria": [
+          {
+            "id": "c6",
+            "type": "e2e",
+            "text": "El enlace de navegación con data-testid=\"nav-contact\" está presente y apunta a \"/contacto\"."
+          },
+          {
+            "id": "c7",
+            "type": "e2e",
+            "text": "Al hacer click en el enlace \"Contacto\", la vista previa navega a la página /contacto y muestra el data-testid=\"contact-page\"."
+          }
+        ]
+      }
+    ]
+  },
+  "calls": [
+    {
+      "model": "groq:openai/gpt-oss-120b",
+      "kind": "first",
+      "inputTokens": 5750,
+      "outputTokens": 895,
+      "latencyMs": 2489,
+      "valid": true
+    }
+  ]
+}

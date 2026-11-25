@@ -78,6 +78,16 @@ export async function getCommitTree(sha: string): Promise<string> {
   return z.object({ tree: shaObject }).parse(expectOk(r, path)).tree.sha;
 }
 
+/** Parent shas of a commit, in order. */
+export async function getCommitParents(sha: string): Promise<string[]> {
+  const path = `/git/commits/${sha}`;
+  const r = await call("GET", path);
+  return z
+    .object({ parents: z.array(shaObject) })
+    .parse(expectOk(r, path))
+    .parents.map((p) => p.sha);
+}
+
 export type FileWrite = { path: string; content: string };
 
 /** New tree on top of baseTree with the given complete files. */

@@ -3,7 +3,7 @@ import type { Db } from "@/server/db/client";
 import { runs } from "@/server/db/schema";
 import { runIdFromBranch } from "@/server/github/config";
 import type { Classified } from "@/server/pipeline/classify";
-import { applyEvent } from "./engine";
+import { applyEvent, checkPrCheckFor } from "./engine";
 import type { RunEvent } from "./machine";
 import { appendEvent, type EventDraft } from "./store";
 
@@ -78,6 +78,8 @@ export function noticeFor(c: Classified): RunNotice | null {
         },
       };
     }
+    // Needs GitHub to verify the migration commit: see notifyRuns.
+    case "pr_check":
     case "ignored":
       return null;
   }
@@ -88,6 +90,11 @@ export function noticeFor(c: Classified): RunNotice | null {
  * count for the run waiting on that exact sha; older commits are ignored.
  */
 export async function notifyRuns(db: Db, c: Classified): Promise<void> {
+  if (c.kind === "pr_check") {
+    // Only the run waiting on that exact head sha (D33).
+    await checkPrCheckFor(db, c.run.sha);
+    return;
+  }
   const notice = noticeFor(c);
   if (!notice) return;
 

@@ -5,7 +5,6 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { Nav } from "@/app/nav";
 import { getDb } from "@/server/db/client";
-import type { CallMeta } from "@/server/llm/provider";
 import { runProviders } from "@/server/llm";
 import { DEMO_REPO, runBranch } from "@/server/github/config";
 import { isFinal, type RunStatus } from "@/server/runs/machine";
@@ -18,6 +17,13 @@ import {
   TASK_STATUS,
 } from "../labels";
 import { RunPoller } from "../run-poller";
+import {
+  Calls,
+  contextData,
+  ContextFiles,
+  EventDetails,
+  type ContextData,
+} from "./event-details";
 import { RunActions } from "./run-actions";
 
 export const metadata: Metadata = { title: "Run · crm-agents" };
@@ -40,21 +46,15 @@ const CRITERION_TYPE: Record<string, string> = {
   visual: "Visual",
 };
 
-const CALL_KIND: Record<string, string> = {
-  first: "llamada",
-  repair: "reparación",
-};
-
-const tokens = new Intl.NumberFormat("es-ES");
-const seconds = new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 });
-
-/** Calls stored in an event's data by the engine (D26), if any. */
-function eventCalls(data: unknown): { calls: CallMeta[]; cached: boolean } {
-  const d = data as { calls?: unknown; cached?: unknown } | null;
-  return {
-    calls: Array.isArray(d?.calls) ? (d.calls as CallMeta[]) : [],
-    cached: d?.cached === true,
-  };
+/** Last files Develop read for each task (D32). */
+function lastContexts(detail: RunDetail): Map<number, ContextData> {
+  const byTask = new Map<number, ContextData>();
+  for (const e of detail.events) {
+    if (e.kind !== "context") continue;
+    const context = contextData(e.data);
+    if (context.taskId !== undefined) byTask.set(context.taskId, context);
+  }
+  return byTask;
 }
 
 function Summary({ detail }: { detail: RunDetail }) {
@@ -78,6 +78,12 @@ function Summary({ detail }: { detail: RunDetail }) {
         {run.scenario && <code>{SCENARIO[run.scenario] ?? run.scenario}</code>}
         {run.simulateCrash && (
           <code>caída simulada{run.crashedAt ? " (hecha)" : ""}</code>
+        )}
+        {run.simulateTypeError && <code>error de tipos simulado</code>}
+        {run.simulateMaxTokens && (
+          <code>
+            MAX_TOKENS simulado{run.maxTokensSimulatedAt ? " (hecho)" : ""}
+          </code>
         )}
       </p>
       <p className="run-request">{run.request}</p>
@@ -140,6 +146,7 @@ function Summary({ detail }: { detail: RunDetail }) {
 
 function Plan({ detail }: { detail: RunDetail }) {
   const { run, tasks } = detail;
+  const contexts = lastContexts(detail);
   if (run.status === "planning") {
     // The stored summary still belongs to the previous revision.
     return (
@@ -196,6 +203,11 @@ function Plan({ detail }: { detail: RunDetail }) {
                   </a>
                 )}
               </p>
+              {t.splitFrom !== null && (
+                <p className="muted" data-testid="task-split-from">
+                  Subtarea: sale de dividir una tarea cuya respuesta no cabía.
+                </p>
+              )}
               <p className="muted">{t.description}</p>
               {t.files.length > 0 && (
                 <p className="files" data-testid="task-files">
@@ -203,6 +215,23 @@ function Plan({ detail }: { detail: RunDetail }) {
                     <code key={f}>{f}</code>
                   ))}
                 </p>
+              )}
+              {t.references.length > 0 && (
+                <p className="files" data-testid="task-references">
+                  <span className="muted">Referencias:</span>
+                  {t.references.map((f) => (
+                    <code key={f}>{f}</code>
+                  ))}
+                </p>
+              )}
+              {contexts.has(t.id) && (
+                <details>
+                  <summary>
+                    Archivos leídos por Develop (
+                    {contexts.get(t.id)!.files.length})
+                  </summary>
+                  <ContextFiles context={contexts.get(t.id)!} />
+                </details>
               )}
               <ul className="criteria">
                 {t.acceptanceCriteria.map((c) => (
@@ -254,30 +283,6 @@ function Context({ detail }: { detail: RunDetail }) {
   );
 }
 
-/** Model, tokens and latency of each LLM call of an event (D26). */
-function Calls({ data }: { data: unknown }) {
-  const { calls, cached } = eventCalls(data);
-  if (calls.length === 0) return null;
-  return (
-    <ul className="calls">
-      {calls.map((c, i) => (
-        <li
-          key={i}
-          data-testid="llm-call"
-          data-model={c.model}
-          data-cached={cached}
-        >
-          <code>{c.model}</code> · {CALL_KIND[c.kind] ?? c.kind}
-          {c.valid ? "" : " (no válida)"} · {tokens.format(c.inputTokens)} →{" "}
-          {tokens.format(c.outputTokens)} tokens ·{" "}
-          {seconds.format(c.latencyMs / 1000)} s
-          {cached && " · de la caché, sin llamar de nuevo"}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 function Timeline({ detail }: { detail: RunDetail }) {
   return (
     <section className="card" data-testid="run-timeline">
@@ -296,6 +301,7 @@ function Timeline({ detail }: { detail: RunDetail }) {
             </span>
             <span>
               {e.message}
+              <EventDetails kind={e.kind} data={e.data} />
               <Calls data={e.data} />
             </span>
           </li>

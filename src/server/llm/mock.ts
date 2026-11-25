@@ -3,6 +3,8 @@ import type {
   DevelopOutput,
   Plan,
   PlanInput,
+  Split,
+  SplitInput,
   TestingInput,
   TestingVerdict,
 } from "@/server/agents/contracts";
@@ -45,6 +47,12 @@ export function mockPlan(input: PlanInput): Plan {
       title: amend ? `Tarea correctiva ${n}` : `Tarea simulada ${n}`,
       description: `Escribe agent-runs/${input.runId}/task-${n}.md. No cambia la app.`,
       files: [`agent-runs/${input.runId}/task-${n}.md`],
+      // Any file of the tree will do: the mock does not imitate anything.
+      references: [
+        input.context.tree.includes("AGENTS.md")
+          ? "AGENTS.md"
+          : (input.context.tree[0] ?? "AGENTS.md"),
+      ],
       acceptanceCriteria: [
         {
           id: `c${2 * n - 1}`,
@@ -57,6 +65,31 @@ export function mockPlan(input: PlanInput): Plan {
           text: "Los tests E2E de la vista previa pasan",
         },
       ],
+    })),
+  };
+}
+
+/** Halves the files and the criteria of the task (D34). */
+export function mockSplit(input: SplitInput): Split {
+  const { task } = input;
+  const half = <T>(items: T[]) => Math.ceil(items.length / 2);
+  const files = [
+    task.files.slice(0, half(task.files)),
+    task.files.slice(half(task.files)),
+  ];
+  const criteria = [
+    task.acceptanceCriteria.slice(0, half(task.acceptanceCriteria)),
+    task.acceptanceCriteria.slice(half(task.acceptanceCriteria)),
+  ];
+  return {
+    reason:
+      "División simulada: la mitad de los archivos y de los criterios en cada parte.",
+    tasks: [0, 1].map((i) => ({
+      title: `${task.title} (parte ${i + 1} de 2)`,
+      description: task.description,
+      files: files[i]!.length > 0 ? files[i]! : task.files,
+      references: task.references,
+      acceptanceCriteria: criteria[i]!,
     })),
   };
 }
@@ -89,6 +122,7 @@ export function mockDevelop(
   return {
     commitMessage: `chore(agent-runs): run ${input.runId} task ${n} (iteration ${input.iteration})`,
     files,
+    notes: `Archivo simulado de la tarea ${n}; no cambia la app.`,
   };
 }
 
@@ -145,7 +179,9 @@ export class MockProvider implements LLMProvider {
     const raw = (() => {
       switch (request.agent) {
         case "orchestrator":
-          return mockPlan(request.input as PlanInput);
+          return (request.input as { mode?: string }).mode === "split"
+            ? mockSplit(request.input as SplitInput)
+            : mockPlan(request.input as PlanInput);
         case "develop":
           return mockDevelop(request.input as DevelopInput, this.scenario);
         case "testing":

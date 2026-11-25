@@ -1,12 +1,17 @@
 import type { CallHooks, Generated, LLMProvider } from "@/server/llm/provider";
+import { DEVELOP_SYSTEM, developPrompt } from "./prompts/develop";
+import { SPLIT_SYSTEM, splitPrompt } from "./prompts/split";
 import {
   ORCHESTRATOR_SYSTEM,
   orchestratorPrompt,
 } from "./prompts/orchestrator";
 import {
-  developOutputSchema,
+  developSchemaFor,
   planSchemaFor,
+  splitSchemaFor,
   verdictSchema,
+  type Split,
+  type SplitInput,
   type DevelopInput,
   type DevelopOutput,
   type Plan,
@@ -15,8 +20,7 @@ import {
   type TestingVerdict,
 } from "./contracts";
 
-// Develop and Testing prompts are placeholders until H5 and H6; the mock
-// reads `input` instead.
+// The Testing prompt is a placeholder until H6; the mock reads `input`.
 
 export function runOrchestrator(
   llm: LLMProvider,
@@ -34,19 +38,44 @@ export function runOrchestrator(
   });
 }
 
+/** Splits a task whose Develop answer did not fit (D34). */
+export function runSplit(
+  llm: LLMProvider,
+  input: SplitInput,
+  hooks?: CallHooks,
+): Promise<Generated<Split>> {
+  return llm.generateObject({
+    agent: "orchestrator",
+    system: SPLIT_SYSTEM,
+    prompt: splitPrompt(input),
+    input,
+    hooks,
+    schema: splitSchemaFor(input.task, input.context.tree, input.maxTasks),
+  });
+}
+
 export function runDevelop(
   llm: LLMProvider,
   input: DevelopInput,
   hooks?: CallHooks,
 ): Promise<Generated<DevelopOutput>> {
+  const { context, task } = input;
   return llm.generateObject({
     agent: "develop",
-    system:
-      "Eres Develop. Devuelve los archivos completos de la tarea y el mensaje de commit.",
-    prompt: JSON.stringify(input),
+    system: DEVELOP_SYSTEM,
+    prompt: developPrompt(input),
     input,
     hooks,
-    schema: developOutputSchema,
+    // D34: never an existing file it has not seen.
+    schema: developSchemaFor({
+      tree: context.tree,
+      seen: context.files.map((f) => f.path),
+      criteria: task.acceptanceCriteria.map((c) => c.id),
+      current: Object.fromEntries(
+        context.files.map((f) => [f.path, f.content]),
+      ),
+      requireChange: input.iteration === 1,
+    }),
   });
 }
 

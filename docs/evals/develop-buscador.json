@@ -1,0 +1,74 @@
+{
+  "slug": "buscador",
+  "request": "Añade un buscador en la lista de clientes que filtre por nombre o por email.",
+  "baseSha": "b6c4a3c9c20aa9c8da8ab8b092e8ce995c239ba2",
+  "tasks": [
+    {
+      "position": 1,
+      "title": "Añadir filtro por nombre o email en consultas de clientes y UI de búsqueda",
+      "context": {
+        "files": [
+          "base:AGENTS.md",
+          "base:src/db/schema.ts",
+          "planned:src/app/(crm)/clientes/queries.ts",
+          "planned:src/app/(crm)/clientes/page.tsx",
+          "reference:src/components/field.tsx",
+          "import:src/db/client.ts",
+          "import:src/components/button.tsx",
+          "import:src/components/page-header.tsx",
+          "import:src/components/table.tsx"
+        ],
+        "trimmed": [],
+        "newFiles": []
+      },
+      "status": "committed",
+      "commitMessage": "feat(clients): add search filter by name or email",
+      "notes": "He actualizado la función listClients para aceptar un término de búsqueda opcional y filtrar mediante ilike por nombre o email. En la UI de /clientes, he añadido un formulario GET con el input con data-testid=\"client-search-input\", leyendo los searchParams dentro del componente envuelto en Suspense y llamando a connection() según los requerimientos de Next.js 16.",
+      "files": [
+        "src/app/(crm)/clientes/queries.ts",
+        "src/app/(crm)/clientes/page.tsx"
+      ],
+      "outsidePlan": [],
+      "evidence": [
+        {
+          "criterion": "c1",
+          "hint": "[data-testid=\"client-search-input\"] en la página /clientes"
+        },
+        {
+          "criterion": "c2",
+          "hint": "[data-testid=\"clients-table\"] al filtrar con [data-testid=\"client-search-input\"]"
+        },
+        {
+          "criterion": "c3",
+          "hint": "Buscador situado sobre la tabla en /clientes"
+        }
+      ],
+      "calls": [
+        {
+          "model": "gemini:gemini-3.6-flash",
+          "kind": "first",
+          "inputTokens": 8708,
+          "outputTokens": 1623,
+          "latencyMs": 26470,
+          "valid": true
+        }
+      ]
+    }
+  ],
+  "check": {
+    "ok": true,
+    "migrate": {
+      "ok": true,
+      "output": null
+    },
+    "typecheck": {
+      "ok": true,
+      "output": null
+    },
+    "lint": {
+      "ok": true,
+      "output": null
+    },
+    "migrations": []
+  }
+}

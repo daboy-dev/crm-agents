@@ -9,6 +9,8 @@ export const RUN_STATUSES = [
   "planning",
   "awaiting_plan_approval",
   "developing",
+  /** pr-check of the pushed head: migration, types and lint (D31, D33). */
+  "awaiting_check",
   "awaiting_preview",
   "testing",
   "awaiting_final_approval",
@@ -42,7 +44,14 @@ export const AWAITING_HUMAN: readonly RunStatus[] = [
 ];
 
 export type TaskStatus =
-  "pending" | "developing" | "testing" | "passed" | "failed" | "blocked";
+  | "pending"
+  | "developing"
+  | "testing"
+  | "passed"
+  | "failed"
+  | "blocked"
+  /** Final: replaced by its subtasks in the next revision (D34). */
+  | "split";
 
 export type TaskState = {
   id: number;
@@ -70,7 +79,17 @@ export type RunEvent =
   | { type: "approve_plan" }
   | { type: "reject"; feedback: string | null }
   | { type: "develop_done" }
+  /** No task of the iteration changed a file: nothing to push (D34). */
+  | { type: "develop_unchanged" }
+  /** Develop's answer was cut: the orchestrator splits the task (D34). */
+  | { type: "task_too_large"; taskId: number; reason: string }
+  /** The subtasks replace the task, without a new approval (D34). */
+  | { type: "split_ready" }
   | { type: "forbidden"; taskId: number; reason: string }
+  | { type: "check_passed" }
+  /** pr-check found errors: they go back to Develop (D33). */
+  | { type: "check_failed"; feedback: string }
+  | { type: "check_timeout" }
   | { type: "build_failed" }
   | { type: "report_ready" }
   | { type: "testing_done"; verdicts: Verdict[] }
@@ -104,7 +123,9 @@ export type Effect =
    * The preview or its report may have arrived before the run was waiting
    * for it (the webhook found no run): look for them now.
    */
-  | { type: "check_preview" };
+  | { type: "check_preview" }
+  /** Same for the result of pr-check (D33). */
+  | { type: "check_pr" };
 
 export type Transition = {
   status: RunStatus;
@@ -115,6 +136,8 @@ export type Transition = {
   blockedReason: string | null;
   /** Client feedback that sends the run back to planning (D9). */
   replan: { feedback: string } | null;
+  /** A task to split in the next revision (D34). */
+  split: { taskId: number; reason: string } | null;
 };
 
 export const isFinal = (s: RunStatus) => FINAL_STATUSES.includes(s);
@@ -124,6 +147,7 @@ export const isStep = (s: RunStatus) => STEP_STATUSES.includes(s);
 function effectsFor(to: RunStatus, from: RunState): Effect[] {
   if (isStep(to)) return [{ type: "run_step" }];
   if (to === "awaiting_preview") return [{ type: "check_preview" }];
+  if (to === "awaiting_check") return [{ type: "check_pr" }];
   if (isFinal(to)) {
     const effects: Effect[] = [{ type: "start_next" }];
     if (to !== "done" && from.hasBranch) effects.unshift({ type: "cleanup" });
@@ -143,6 +167,7 @@ function result(
     blockedFrom: null,
     blockedReason: null,
     replan: null,
+    split: null,
     ...extra,
     effects: effectsFor(to, from),
   };
@@ -202,6 +227,16 @@ function afterFailures(from: RunState, failed: Verdict[]): Transition {
   return result(from, "developing", { tasks: changes });
 }
 
+/** Every task in a status fails with the same feedback. */
+const failing = (
+  run: RunState,
+  status: TaskStatus,
+  feedback: string,
+): Verdict[] =>
+  run.tasks
+    .filter((t) => t.status === status)
+    .map((t) => ({ taskId: t.id, passed: false, feedback }));
+
 /**
  * Computes the next state. Returns null when the event does not apply to the
  * current status: the caller treats it as a no-op (D22).
@@ -241,11 +276,45 @@ export function transition(run: RunState, event: RunEvent): Transition | null {
 
     case "develop_done":
       if (s !== "developing") return null;
-      return result(run, "awaiting_preview", {
+      // pr-check runs before the preview counts (D31, D33).
+      return result(run, "awaiting_check", {
         tasks: run.tasks
           .filter((t) => t.status === "developing")
           .map((t) => ({ id: t.id, status: "testing" })),
       });
+
+    case "develop_unchanged":
+      if (s !== "developing") return null;
+      return afterFailures(
+        run,
+        failing(run, "developing", "Develop no cambió nada"),
+      );
+
+    case "task_too_large": {
+      if (s !== "developing") return null;
+      if (!run.tasks.some((t) => t.id === event.taskId)) return null;
+      return result(run, "planning", {
+        tasks: [{ id: event.taskId, status: "split" }],
+        split: { taskId: event.taskId, reason: event.reason },
+      });
+    }
+
+    case "split_ready":
+      if (s !== "planning") return null;
+      if (!run.tasks.some((t) => t.status === "developing")) return null;
+      return result(run, "developing");
+
+    case "check_passed":
+      return s === "awaiting_check" ? result(run, "awaiting_preview") : null;
+
+    case "check_failed":
+      if (s !== "awaiting_check") return null;
+      return afterFailures(run, failing(run, "testing", event.feedback));
+
+    case "check_timeout":
+      return s === "awaiting_check"
+        ? blocked(run, "La comprobación del PR no ha llegado en 15 minutos")
+        : null;
 
     case "forbidden":
       if (s !== "developing") return null;
@@ -257,13 +326,7 @@ export function transition(run: RunState, event: RunEvent): Transition | null {
       if (s !== "awaiting_preview") return null;
       return afterFailures(
         run,
-        run.tasks
-          .filter((t) => t.status === "testing")
-          .map((t) => ({
-            taskId: t.id,
-            passed: false,
-            feedback: "El build de la vista previa ha fallado",
-          })),
+        failing(run, "testing", "El build de la vista previa ha fallado"),
       );
 
     case "report_ready":
@@ -329,7 +392,10 @@ export function transition(run: RunState, event: RunEvent): Transition | null {
       return AWAITING_HUMAN.includes(s) ? result(run, "cancelled") : null;
 
     case "block":
-      return isStep(s) ? blocked(run, event.reason) : null;
+      // awaiting_check too: a migration commit that does not check out (D31).
+      return isStep(s) || s === "awaiting_check"
+        ? blocked(run, event.reason)
+        : null;
 
     case "step_failed":
       return isStep(s) ? result(run, "failed") : null;
