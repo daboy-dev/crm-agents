@@ -175,15 +175,17 @@ describe("eval:plan (D14, D30)", () => {
         previous: null,
         context,
       };
+      // A local script may wait on a per-minute 429: the app never does
+      // (D26). Groq's 8K tokens per minute hold about one plan a minute.
       let generated;
-      try {
-        generated = await runOrchestrator(provider, input);
-      } catch (error) {
-        if (!(error instanceof RateLimited)) throw error;
-        // A local script may wait: the app never does (D26).
-        console.log(`${slug}: ${error.message}`);
-        await sleep(error.retryAfterMs + 2_000);
-        generated = await runOrchestrator(provider, input);
+      for (let attempt = 1; !generated; attempt++) {
+        try {
+          generated = await runOrchestrator(provider, input);
+        } catch (error) {
+          if (!(error instanceof RateLimited) || attempt >= 5) throw error;
+          console.log(`${slug}: ${error.message}`);
+          await sleep(error.retryAfterMs + 2_000);
+        }
       }
       requests += generated.calls.length;
       const { output: plan, calls } = generated;
