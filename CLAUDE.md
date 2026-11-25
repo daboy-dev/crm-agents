@@ -11,7 +11,7 @@ Decisiones: `docs/DECISIONES.md` · Proceso e hitos: `docs/PROCESO.md`.
 ## Stack
 - Next.js (App Router) + TypeScript estricto, desplegado en Vercel Hobby.
 - Neon (Postgres) con Drizzle ORM y el driver serverless de Neon. Proyecto de Neon propio, distinto del de `crm-demo`.
-- LLM: interfaz `LLMProvider` con `GeminiProvider` (`@google/genai`) y `MockProvider`, elegido por agente. Salidas validadas con Zod.
+- LLM: interfaz `LLMProvider`, elegida por agente: `ChainProvider` con una cadena de eslabones Gemini (`@google/genai`), Groq y Anthropic (D36, D37, D40), o `MockProvider`. Salidas validadas con Zod.
 - Tests: Vitest (dominio) y Playwright (E2E del panel). CI en GitHub Actions.
 
 ## Restricciones importantes
@@ -33,21 +33,21 @@ Decisiones: `docs/DECISIONES.md` · Proceso e hitos: `docs/PROCESO.md`.
 ## Estructura
 - `src/app`: UI y rutas API.
   - `/login` (sesión HMAC, D19; lleva a `/runs`) y `/pipeline` (PRs de `crm-demo`, vista previa, tests y capturas; polling cada 5 s, vista de depuración).
-  - `/runs` (petición nueva, activo, cola y terminados) y `/runs/[id]` (decisión, tareas y línea de tiempo). Su polling llama a `sweep()` (D22) y solo corre con la pestaña visible.
+  - `/runs` (petición nueva con sus simulaciones, activo, cola y terminados) y `/runs/[id]` (decisión, tareas con sus `data-testid` y línea de tiempo con los pasos de Testing y el resultado de cada criterio). Su polling llama a `sweep()` (D22) y solo corre con la pestaña visible.
   - `/api/health`, `/api/webhooks/github` (D17) y `/api/screenshots/[id]` (D18).
 - `src/proxy.ts`: protege todo salvo `/login`, `/api/health` y `/api/webhooks/github`.
 - `src/server/auth.ts` (copia de `crm-demo`) y `src/server/session.ts`.
 - `src/server/db`: esquema y cliente de Drizzle. Migraciones en `drizzle/`.
 - `src/server/github`: firma de webhooks, registro idempotente de eventos, cliente de artifacts y configuración (`DEMO_REPO`, `preview-e2e.yml`).
-- `src/server/pipeline`: clasificación de eventos, upserts de `previews`, lectura del artifact, informes y capturas en Blob, resultados de `pr-check` en `pr_checks` (`checks.ts`, D33), consultas de `/pipeline` y reprocesado.
-- `src/server/runs`: `machine.ts` (transiciones puras, D21; `awaiting_check` y la división de D34), `store.ts` (CAS en una sentencia con CTE y lease, D22), `cache.ts` (salidas de `agent_steps` y cuenta de llamadas), `engine.ts` (pasos, una llamada de Develop por invocación de D35, espera a `pr-check`, división, efectos, cola, limpieza y `sweep()`), `commits.ts` (archivos normalizados y tareas sin cambios, D34), `notify.ts` (eventos de GitHub → run por sha o por rama `run/<id>`), `queries.ts` y `limits.ts`.
-- `src/server/agents`: contratos Zod (`contracts.ts`: plan de D28 con `references`, división y salida de Develop de D34), llamadas a los agentes (`index.ts`), contexto del Orquestador (`context.ts`, D27) y de Develop (`develop-context.ts`, D32), prompts (`prompts/`: orquestador, división y Develop) y rutas prohibidas para Develop (`paths.ts`, D16 y D31).
+- `src/server/pipeline`: clasificación de eventos, upserts de `previews`, lectura del artifact (con los resultados de cada criterio y la prueba del fallo, D38), informes y capturas en Blob, resultados de `pr-check` en `pr_checks` (`checks.ts`, D33), consultas de `/pipeline` y reprocesado.
+- `src/server/runs`: `machine.ts` (transiciones puras, D21; `awaiting_check` y la división de D34), `store.ts` (CAS en una sentencia con CTE y lease, D22), `cache.ts` (salidas de `agent_steps` y cuenta de llamadas), `engine.ts` (pasos, una llamada de Develop por invocación de D35, espera a `pr-check`, división, efectos, cola, limpieza y `sweep()`), `commits.ts` (archivos normalizados, tareas sin cambios de D34 y simulación de fallo de criterio de D40), `criteria.ts` (JSON de `e2e/criteria/run-<id>.json`, revisiones vigentes, veredicto del ejecutor y feedback para Develop, D38 y D39), `notify.ts` (eventos de GitHub → run por sha o por rama `run/<id>`), `queries.ts` y `limits.ts`.
+- `src/server/agents`: contratos Zod (`contracts.ts`: plan de D28 con `references` y `testIds` por criterio, división y salida de Develop de D34, pasos y explicación de Testing de D38 y D39), `data-testid` en el código y simulación (`test-ids.ts`), llamadas a los agentes (`index.ts`), contexto del Orquestador (`context.ts`, D27) y de Develop (`develop-context.ts`, D32), prompts (`prompts/`: orquestador, división, Develop, Testing y el mapa de `data-testid` de `crm-demo` en `app-map.ts`) y rutas prohibidas para Develop (`paths.ts`, D16, D31 y D38).
 - `src/server/llm`: `LLMProvider` y sus errores (`provider.ts`), `MockProvider` con escenarios (D24), `ChainProvider` con la cadena por agente, ajustes por agente y reparación (`chain.ts`, D36), eslabones `GeminiClient` (`gemini.ts`, D26), `AnthropicClient` (`anthropic.ts`, D37) y `GroqClient` (`groq.ts`), eslabones agotados en `app_meta` (`quota.ts`), proveedor por agente y `getProvider()` (`index.ts`). Respuestas en `fixtures/gemini/`, `fixtures/anthropic/` y `fixtures/groq/`.
 - `src/server/github/repo.ts`: Git Data API y PRs de `crm-demo` (ramas `run/<id>`, merge squash fijado al sha).
 - Next.js 16: la doc de la versión instalada está en `node_modules/next/dist/docs/` (ver `AGENTS.md`). `cacheComponents` está activo: los route handlers que deban ejecutarse en cada petición llaman a `connection()`, y los componentes que leen la base de datos van dentro de `<Suspense>`.
 
 ## Variables
-Ver `.env.example`. En Vercel y en `.env.local` (`vercel env pull`): `DATABASE_URL`, `AUTH_SECRET`, `DEMO_USER`, `DEMO_PASSWORD`, `GH_TOKEN` (PAT de `crm-demo` con Actions: lectura), `GH_WEBHOOK_SECRET`, `BLOB_STORE_ID` y `VERCEL_OIDC_TOKEN` (caduca en local; el store solo tiene OIDC fuera de `development`, así que Blob se prueba en producción). H4: `GEMINI_API_KEY` y `LLM_PROVIDER_ORCHESTRATOR=gemini`. H5: `GROQ_API_KEY` (respaldo del Orquestador, D36) y `ANTHROPIC_API_KEY` (respaldo de pago de los tres agentes, D37). Opcionales: `LLM_PROVIDER=mock` (fuerza el mock en todos), `LLM_PROVIDER_DEVELOP` y `LLM_PROVIDER_TESTING` (`mock`; `gemini` es la cadena real del agente), `LLM_CHAIN_<AGENTE>` (cadena `proveedor:modelo`, D36), `RUNS_PER_DAY` (5) y `LLM_CALLS_PER_RUN` (12). El PAT necesita *Contents* y *Pull requests* de lectura y escritura y *Actions* de lectura.
+Ver `.env.example`. En Vercel y en `.env.local` (`vercel env pull`): `DATABASE_URL`, `AUTH_SECRET`, `DEMO_USER`, `DEMO_PASSWORD`, `GH_TOKEN` (PAT de `crm-demo` con Actions: lectura), `GH_WEBHOOK_SECRET`, `BLOB_STORE_ID` y `VERCEL_OIDC_TOKEN` (caduca en local; el store solo tiene OIDC fuera de `development`, así que Blob se prueba en producción). H4: `GEMINI_API_KEY` y `LLM_PROVIDER_ORCHESTRATOR=gemini`. H5: `GROQ_API_KEY` (respaldo del Orquestador, D36) y `ANTHROPIC_API_KEY` (respaldo de pago de los tres agentes, D37). Opcionales: `LLM_PROVIDER=mock` (fuerza el mock en todos), `LLM_PROVIDER_DEVELOP` y `LLM_PROVIDER_TESTING` (`mock`; `gemini` es la cadena real del agente), `LLM_CHAIN_<AGENTE>` (cadena `proveedor:modelo`, D36), `RUNS_PER_DAY` (5) y `LLM_CALLS_PER_RUN` (16, D40). H6: `LLM_PROVIDER_TESTING=gemini`. El PAT necesita *Contents* y *Pull requests* de lectura y escritura y *Actions* de lectura.
 
 ## Comandos
 - `pnpm dev` · servidor de desarrollo.
@@ -57,6 +57,7 @@ Ver `.env.example`. En Vercel y en `.env.local` (`vercel env pull`): `DATABASE_U
 - `pnpm typecheck` · `next typegen` + `tsc --noEmit`.
 - `pnpm test` · Vitest (`src/**/*.test.ts`). Nada llama a Gemini.
 - `pnpm eval:plan` · a mano: las 4 peticiones de D14 contra Gemini → `docs/evals/` (gasta cuota; `EVAL_FORCE=1` repite las ya hechas).
+- `pnpm eval:testing` · a mano: las 4 peticiones de H6 (extra de D14), plan y pasos de Testing → `docs/evals/TESTING.md` (gasta cuota; `EVAL_FORCE=1`, `EVAL_ONLY=<slug>` y `EVAL_TAG=groq` con `LLM_CHAIN_TESTING`).
 - `pnpm db:generate` · genera una migración a partir de `src/server/db/schema.ts`.
 - `pnpm db:migrate` · aplica las migraciones (lee `DATABASE_URL` de `.env.local` o `.env`).
 
