@@ -1,12 +1,18 @@
 import { and, asc, desc, eq, isNull, notInArray, sql } from "drizzle-orm";
 import { z } from "zod";
-import { runDevelop, runOrchestrator, runTesting } from "@/server/agents";
+import {
+  runDevelop,
+  runOrchestrator,
+  runSplit,
+  runTesting,
+} from "@/server/agents";
 import { CONTEXT_FILES, readPlanContext } from "@/server/agents/context";
 import { readDevelopContext } from "@/server/agents/develop-context";
 import {
   developOutputSchema,
   MAX_TASKS_AFTER_SPLIT,
   planSchema,
+  splitBaseSchema,
   verdictSchema,
   type AgentName,
   type DevelopOutput,
@@ -241,6 +247,7 @@ async function previousPlan(
 
 async function stepPlanning(ctx: StepContext): Promise<Committed> {
   const { db, run, token } = ctx;
+  if (run.splitTaskId !== null) return stepSplit(ctx);
 
   // D27: every revision plans on the master sha read when the run started,
   // which is also the base of run/<id>.
@@ -356,6 +363,147 @@ type DevelopResult = {
   output: DevelopOutput;
   calls: ReturnType<typeof callData>;
 };
+
+/**
+ * Splits the task whose Develop answer did not fit (D34, extra of D29). The
+ * new revision keeps every other task as it was, with its stored outputs,
+ * and puts the subtasks in the place of the original. No new approval: the
+ * criteria are the same.
+ */
+async function stepSplit(ctx: StepContext): Promise<Committed> {
+  const { db, run, token } = ctx;
+  const previous = await db
+    .select()
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.runId, run.id),
+        eq(tasks.planRevision, run.planRevision - 1),
+      ),
+    )
+    .orderBy(asc(tasks.position));
+  const original = previous.find((t) => t.id === run.splitTaskId);
+  if (!original)
+    throw new Error(`No está la tarea ${run.splitTaskId} que dividir`);
+  // Tasks split in an older revision were not carried over.
+  const others = previous.filter((t) => t.id !== original.id);
+  const maxTasks = Math.min(3, MAX_TASKS_AFTER_SPLIT - others.length);
+  if (maxTasks < 2) {
+    throw new BlockRun(
+      `El plan ya tiene ${previous.length} tareas: no se puede dividir`,
+    );
+  }
+
+  // The subtasks may build on what earlier tasks already committed.
+  const readSha = run.headSha ?? run.baseSha ?? (await getBaseSha());
+  const result = await cachedCall(
+    ctx,
+    { agent: "orchestrator", taskId: null, iteration: run.planRevision },
+    splitBaseSchema,
+    async (hooks) =>
+      runSplit(
+        await ctx.llm("orchestrator"),
+        {
+          runId: run.id,
+          request: run.request,
+          mode: "split",
+          planRevision: run.planRevision,
+          task: brief(original),
+          reason: run.splitReason ?? "La respuesta de Develop se ha cortado",
+          others: others.map((t) => ({
+            position: t.position,
+            title: t.title,
+            files: t.files,
+          })),
+          maxTasks,
+          context: await readPlanContext(readSha),
+        },
+        hooks,
+      ),
+  );
+  const split = result.output;
+
+  // The new revision, in order: the subtasks in the place of the original.
+  const rows: (typeof tasks.$inferInsert & { from?: number })[] = [];
+  for (const t of previous) {
+    if (t.id === original.id) {
+      for (const sub of split.tasks) {
+        rows.push({
+          runId: run.id,
+          planRevision: run.planRevision,
+          position: rows.length + 1,
+          title: sub.title,
+          description: sub.description,
+          files: sub.files,
+          references: sub.references,
+          acceptanceCriteria: sub.acceptanceCriteria,
+          status: "developing",
+          iteration: 1,
+          maxIterations: original.maxIterations,
+          splitFrom: original.id,
+        });
+      }
+    } else {
+      rows.push({
+        runId: run.id,
+        planRevision: run.planRevision,
+        position: rows.length + 1,
+        title: t.title,
+        description: t.description,
+        files: t.files,
+        references: t.references,
+        acceptanceCriteria: t.acceptanceCriteria,
+        status: t.status,
+        iteration: t.iteration,
+        maxIterations: t.maxIterations,
+        lastFeedback: t.lastFeedback,
+        commitSha: t.commitSha,
+        splitFrom: t.splitFrom,
+        from: t.id,
+      });
+    }
+  }
+  await db
+    .insert(tasks)
+    .values(rows.map(({ from: _from, ...row }) => (void _from, row)))
+    .onConflictDoNothing();
+
+  // Tasks already developed keep their outputs: no second call (D34).
+  const inserted = await db
+    .select({ id: tasks.id, position: tasks.position })
+    .from(tasks)
+    .where(
+      and(eq(tasks.runId, run.id), eq(tasks.planRevision, run.planRevision)),
+    );
+  for (const row of rows) {
+    const to = inserted.find((t) => t.position === row.position)?.id;
+    if (!row.from || !to) continue;
+    await db.execute(sql`
+      insert into agent_steps (run_id, task_id, iteration, agent, output, model, input_tokens, output_tokens, latency_ms, calls)
+      select run_id, ${to}, iteration, agent, output, model, input_tokens, output_tokens, latency_ms, calls
+      from agent_steps where run_id = ${run.id} and task_id = ${row.from}
+      on conflict do nothing`);
+  }
+
+  const withTasks = (await loadRun(db, run.id))!;
+  return commitTransition(
+    db,
+    withTasks,
+    { type: "split_ready" },
+    {
+      leaseToken: token,
+      set: { splitTaskId: null, splitReason: null },
+      events: [
+        {
+          actor: "orchestrator",
+          kind: "split",
+          message: `Tarea ${original.position} dividida en ${split.tasks.length} subtareas con los mismos criterios (revisión ${run.planRevision}), sin nueva aprobación: ${split.reason}`,
+          data: { split, from: original.id, ...callData(result) },
+        },
+      ],
+    },
+  );
+}
 
 async function stepDeveloping(ctx: StepContext): Promise<StepResult> {
   const { db, run, token } = ctx;

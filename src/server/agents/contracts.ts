@@ -216,6 +216,9 @@ const splitObject = z.object({
 });
 export type Split = z.infer<typeof splitObject>;
 
+/** The split without the checks against the original task and the tree. */
+export const splitBaseSchema = splitObject;
+
 /**
  * Subtasks of a task whose answer did not fit (D34). The criteria are shared
  * out but never change: each criterion of the original ends up, unchanged,
@@ -275,6 +278,23 @@ export type PlanContext = {
   /** Every file path of the repo, minus agent-runs/. */
   tree: string[];
   files: { path: string; content: string }[];
+};
+
+/** Input of a split (D34, extra of D29). */
+export type SplitInput = {
+  runId: number;
+  request: string;
+  mode: "split";
+  planRevision: number;
+  /** The task whose answer did not fit. */
+  task: TaskBrief;
+  /** Why: the cut answer and its output limit. */
+  reason: string;
+  /** The other tasks of the plan, untouched. */
+  others: { position: number; title: string; files: string[] }[];
+  /** 2 or 3, fewer when the plan is near MAX_TASKS_AFTER_SPLIT. */
+  maxTasks: number;
+  context: PlanContext;
 };
 
 /** Task of the previous revision, for an amend replan (D29). */

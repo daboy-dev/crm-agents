@@ -1,5 +1,6 @@
 import type { CallHooks, Generated, LLMProvider } from "@/server/llm/provider";
 import { DEVELOP_SYSTEM, developPrompt } from "./prompts/develop";
+import { SPLIT_SYSTEM, splitPrompt } from "./prompts/split";
 import {
   ORCHESTRATOR_SYSTEM,
   orchestratorPrompt,
@@ -7,7 +8,10 @@ import {
 import {
   developSchemaFor,
   planSchemaFor,
+  splitSchemaFor,
   verdictSchema,
+  type Split,
+  type SplitInput,
   type DevelopInput,
   type DevelopOutput,
   type Plan,
@@ -31,6 +35,22 @@ export function runOrchestrator(
     hooks,
     // With the tree: a new page must be added to e2e/pages.ts (D28).
     schema: planSchemaFor(input.context.tree),
+  });
+}
+
+/** Splits a task whose Develop answer did not fit (D34). */
+export function runSplit(
+  llm: LLMProvider,
+  input: SplitInput,
+  hooks?: CallHooks,
+): Promise<Generated<Split>> {
+  return llm.generateObject({
+    agent: "orchestrator",
+    system: SPLIT_SYSTEM,
+    prompt: splitPrompt(input),
+    input,
+    hooks,
+    schema: splitSchemaFor(input.task, input.context.tree, input.maxTasks),
   });
 }
 
