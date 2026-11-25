@@ -111,6 +111,7 @@ const brief = (t: TaskRow): TaskBrief => ({
   title: t.title,
   description: t.description,
   files: t.files,
+  references: t.references,
   acceptanceCriteria: t.acceptanceCriteria,
 });
 
@@ -306,6 +307,7 @@ async function stepPlanning(ctx: StepContext): Promise<Committed> {
         title: t.title,
         description: t.description,
         files: t.files,
+        references: t.references,
         acceptanceCriteria: t.acceptanceCriteria,
       })),
     )

@@ -1,4 +1,4 @@
-import { MAX_PLAN_TASKS, type PlanInput } from "../contracts";
+import { MAX_PLAN_TASKS, MAX_REFERENCES, type PlanInput } from "../contracts";
 import { FORBIDDEN_FILES, FORBIDDEN_PREFIXES, PAGES_FILE } from "../paths";
 
 /**
@@ -18,7 +18,8 @@ export const ORCHESTRATOR_SYSTEM = `Eres el Orquestador de un equipo de agentes 
 Responde con feasible: false y un rejectionReason claro para el cliente cuando la petición:
 - no es un cambio del CRM (otra aplicación, preguntas generales, tareas fuera del repositorio);
 - exige tocar rutas prohibidas: ${forbidden} (workflows de GitHub Actions incluidos);
-- exige tocar lo que AGENTS.md marca como «No tocar»: autenticación, configuración de build y despliegue, migraciones ya subidas o /api/health;
+- exige tocar lo que AGENTS.md marca como «No tocar»: autenticación, configuración de build y despliegue o /api/health;
+- exige renombrar o borrar tablas, columnas o valores de un enum (solo se admiten cambios de esquema que añaden);
 - necesita claves, servicios externos o de pago, o dependencias nuevas que la petición no justifica;
 - pide borrar o alterar datos reales de producción.
 Si la petición es ambigua pero razonable, no la rechaces: elige la interpretación más sencilla y anótala en assumptions.
@@ -26,7 +27,9 @@ Si la petición es ambigua pero razonable, no la rechaces: elige la interpretaci
 ## Plan
 - De 1 a ${MAX_PLAN_TASKS} tareas, en el orden en que se aplican. Cada tarea es un commit: pequeña, coherente y comprobable por sí sola. Prefiere pocas tareas.
 - title: corto. description: instrucciones concretas para Develop, con rutas, nombres de columnas y los data-testid nuevos. Sigue las convenciones de AGENTS.md (estructura por entidad, dinero en céntimos, fechas YYYY-MM-DD, cacheComponents, data-testid existentes intactos).
-- files: rutas exactas del repositorio que la tarea crea o modifica. Usa rutas del árbol que recibes o rutas nuevas que sigan su estructura. Un cambio de esquema incluye src/db/schema.ts y su migración nueva en drizzle/.
+- files: rutas exactas del repositorio que la tarea crea o modifica. Usa rutas del árbol que recibes o rutas nuevas que sigan su estructura.
+- Un cambio de esquema solo toca src/db/schema.ts: la migración la genera la comprobación del PR. Nunca pidas ejecutar comandos ni escribir en drizzle/. Una columna nueva es nullable o lleva valor por defecto.
+- references: de 1 a ${MAX_REFERENCES} archivos que ya existen en el árbol y sirven de modelo a Develop, que los lee enteros y copia su forma de trabajar. Elige el más parecido a lo que pide la tarea: para una página nueva, una página existente y sus actions o queries; para un campo nuevo, el formulario y la validación de la misma entidad. Puede coincidir con files cuando la tarea modifica ese archivo.
 - Si una tarea crea una página nueva (un page.tsx que no está en el árbol), esa tarea incluye ${PAGES_FILE} en files y añade la página a la lista para que salga en las capturas.
 - acceptanceCriteria: de 1 a 6 por tarea, con id único en todo el plan (c1, c2, c3…) y tipo:
   - e2e: se comprueba en el DOM de la vista previa; nombra la página, el data-testid y el texto o el valor que debe aparecer.

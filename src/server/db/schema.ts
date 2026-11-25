@@ -204,6 +204,8 @@ export const tasks = pgTable(
     description: text().notNull(),
     /** Files the task expects to touch, checked against paths.ts (D28). */
     files: jsonb().$type<string[]>().notNull().default([]),
+    /** Existing files Develop imitates (extra of D28, D32). */
+    references: jsonb().$type<string[]>().notNull().default([]),
     acceptanceCriteria: jsonb("acceptance_criteria")
       .$type<Criterion[]>()
       .notNull(),

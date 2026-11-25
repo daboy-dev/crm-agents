@@ -45,6 +45,12 @@ export function mockPlan(input: PlanInput): Plan {
       title: amend ? `Tarea correctiva ${n}` : `Tarea simulada ${n}`,
       description: `Escribe agent-runs/${input.runId}/task-${n}.md. No cambia la app.`,
       files: [`agent-runs/${input.runId}/task-${n}.md`],
+      // Any file of the tree will do: the mock does not imitate anything.
+      references: [
+        input.context.tree.includes("AGENTS.md")
+          ? "AGENTS.md"
+          : (input.context.tree[0] ?? "AGENTS.md"),
+      ],
       acceptanceCriteria: [
         {
           id: `c${2 * n - 1}`,
@@ -89,6 +95,7 @@ export function mockDevelop(
   return {
     commitMessage: `chore(agent-runs): run ${input.runId} task ${n} (iteration ${input.iteration})`,
     files,
+    notes: `Archivo simulado de la tarea ${n}; no cambia la app.`,
   };
 }
 

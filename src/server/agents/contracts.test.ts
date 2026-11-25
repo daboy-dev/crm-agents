@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  developOutputSchema,
+  developSchemaFor,
   planSchema,
   planSchemaFor,
+  splitSchemaFor,
+  type Criterion,
+  type DevelopOutput,
   type Plan,
   type PlanTask,
 } from "./contracts";
@@ -10,6 +15,7 @@ const task = (over: Partial<PlanTask> = {}): PlanTask => ({
   title: "Añadir el NIF",
   description: "Añade la columna nif a clients",
   files: ["src/db/schema.ts"],
+  references: ["src/db/schema.ts"],
   acceptanceCriteria: [{ id: "c1", type: "e2e", text: "Se ve el NIF" }],
   ...over,
 });
@@ -22,9 +28,17 @@ const plan = (over: Partial<Plan> = {}): Plan => ({
   ...over,
 });
 
-const messages = (value: unknown, schema = planSchema) => {
+const messages = (
+  value: unknown,
+  schema: {
+    safeParse: (v: unknown) => {
+      success: boolean;
+      error?: { issues: { message: string }[] };
+    };
+  } = planSchema,
+) => {
   const r = schema.safeParse(value);
-  return r.success ? [] : r.error.issues.map((i) => i.message);
+  return r.success ? [] : (r.error?.issues ?? []).map((i) => i.message);
 };
 
 describe("planSchema (D28)", () => {
@@ -87,7 +101,11 @@ describe("planSchema (D28)", () => {
   });
 
   it("a new page must be added to e2e/pages.ts", () => {
-    const tree = ["src/app/(crm)/clientes/page.tsx", "e2e/pages.ts"];
+    const tree = [
+      "src/app/(crm)/clientes/page.tsx",
+      "e2e/pages.ts",
+      "src/db/schema.ts",
+    ];
     const schema = planSchemaFor(tree);
     const page = "src/app/(crm)/contacto/page.tsx";
     expect(
@@ -108,5 +126,200 @@ describe("planSchema (D28)", () => {
         schema,
       ),
     ).toEqual([]);
+  });
+});
+
+describe("references (extra of D28)", () => {
+  const tree = ["src/db/schema.ts", "src/app/(crm)/clientes/client-form.tsx"];
+
+  it("need 1 to 3 files", () => {
+    expect(messages(plan({ tasks: [task({ references: [] })] }))).toHaveLength(
+      1,
+    );
+    expect(
+      planSchema.safeParse(
+        plan({ tasks: [task({ references: ["a", "b", "c", "d"] })] }),
+      ).success,
+    ).toBe(false);
+  });
+
+  it("must exist in the tree", () => {
+    const schema = planSchemaFor(tree);
+    expect(messages(plan(), schema)).toEqual([]);
+    expect(
+      messages(
+        plan({ tasks: [task({ references: ["src/app/(crm)/nope.tsx"] })] }),
+        schema,
+      ),
+    ).toEqual([
+      "La referencia src/app/(crm)/nope.tsx no existe en el árbol: elige un archivo que ya exista",
+    ]);
+  });
+});
+
+describe("splitSchemaFor (D34)", () => {
+  const criteria: Criterion[] = [
+    { id: "c3", type: "e2e", text: "El formulario tiene field-nif" },
+    { id: "c4", type: "visual", text: "La lista muestra el NIF" },
+  ];
+  const tree = ["src/db/schema.ts"];
+  const sub = (cs: Criterion[]) => task({ acceptanceCriteria: cs });
+  const split = (tasks: PlanTask[]) => ({ reason: "No cabía", tasks });
+  const schema = splitSchemaFor({ acceptanceCriteria: criteria }, tree);
+
+  it("shares the criteria out, unchanged, one subtask each", () => {
+    expect(
+      messages(split([sub([criteria[0]!]), sub([criteria[1]!])]), schema),
+    ).toEqual([]);
+  });
+
+  it("a subtask may have no criterion of its own", () => {
+    expect(messages(split([sub(criteria), sub([])]), schema)).toEqual([]);
+  });
+
+  it("rejects missing, repeated, changed and new criteria", () => {
+    expect(messages(split([sub([criteria[0]!]), sub([])]), schema)).toEqual([
+      "Faltan criterios de la tarea original: c4",
+    ]);
+    expect(
+      messages(split([sub(criteria), sub([criteria[1]!])]), schema),
+    ).toEqual(["El criterio c4 está en más de una subtarea"]);
+    expect(
+      messages(
+        split([sub([criteria[0]!]), sub([{ ...criteria[1]!, text: "Otro" }])]),
+        schema,
+      ),
+    ).toEqual([
+      "El criterio c4 ha cambiado: cópialo tal cual (visual: La lista muestra el NIF)",
+    ]);
+    expect(
+      messages(
+        split([sub(criteria), sub([{ id: "c9", type: "e2e", text: "Nuevo" }])]),
+        schema,
+      ),
+    ).toEqual([
+      "El criterio c9 no es de la tarea original: no añadas criterios",
+    ]);
+  });
+
+  it("takes 2 or 3 subtasks, fewer when the plan is near 6 tasks", () => {
+    expect(
+      splitSchemaFor({ acceptanceCriteria: criteria }, tree).safeParse(
+        split([sub(criteria)]),
+      ).success,
+    ).toBe(false);
+    const tight = splitSchemaFor({ acceptanceCriteria: criteria }, tree, 2);
+    expect(
+      messages(
+        split([sub([criteria[0]!]), sub([criteria[1]!]), sub([])]),
+        tight,
+      ),
+    ).toEqual([
+      "El plan no puede pasar de 6 tareas: divide en 2 subtareas como mucho",
+    ]);
+  });
+
+  it("checks paths and references like the plan", () => {
+    expect(
+      messages(
+        split([
+          task({ files: ["drizzle/0005.sql"], acceptanceCriteria: criteria }),
+          task({ references: ["nope.ts"], acceptanceCriteria: [] }),
+        ]),
+        schema,
+      ),
+    ).toEqual([
+      "Develop no puede modificar drizzle/0005.sql (D16)",
+      "La referencia nope.ts no existe en el árbol: elige un archivo que ya exista",
+    ]);
+  });
+});
+
+describe("Develop output (D34)", () => {
+  const output = (over: Partial<DevelopOutput> = {}): DevelopOutput => ({
+    commitMessage: "feat(clients): add tax id field",
+    files: [{ path: "src/db/schema.ts", content: "export {};\n" }],
+    notes: "Añadida la columna nif.",
+    ...over,
+  });
+  const scope = {
+    tree: ["src/db/schema.ts", "src/lib/money.ts"],
+    seen: ["src/db/schema.ts"],
+    criteria: ["c1"],
+  };
+
+  it("accepts files it has seen and new files", () => {
+    const schema = developSchemaFor(scope);
+    expect(messages(output(), schema)).toEqual([]);
+    expect(
+      messages(
+        output({
+          files: [
+            { path: "src/db/schema.ts", content: "x" },
+            { path: "src/app/(crm)/contacto/page.tsx", content: "y" },
+          ],
+          evidence: [{ criterion: "c1", hint: "data-testid=field-nif" }],
+        }),
+        schema,
+      ),
+    ).toEqual([]);
+  });
+
+  it("never overwrites an existing file it has not seen", () => {
+    expect(
+      messages(
+        output({ files: [{ path: "src/lib/money.ts", content: "x" }] }),
+        developSchemaFor(scope),
+      ),
+    ).toEqual([
+      "src/lib/money.ts ya existe y no lo has recibido: no lo sobrescribas. Escribe solo archivos que hayas recibido o archivos nuevos",
+    ]);
+  });
+
+  it("checks the commit message, paths, sizes and evidence ids", () => {
+    const schema = developSchemaFor(scope);
+    expect(
+      messages(output({ commitMessage: "Added the NIF" }), schema),
+    ).toHaveLength(1);
+    expect(
+      messages(
+        output({ commitMessage: "feat: add nif\n\nLonger body." }),
+        schema,
+      ),
+    ).toEqual([]);
+    expect(
+      messages(
+        output({
+          files: [
+            { path: "../x.ts", content: "" },
+            { path: "a.ts", content: "" },
+            { path: "a.ts", content: "" },
+            { path: "big.ts", content: "x".repeat(61 * 1024) },
+          ],
+          evidence: [{ criterion: "c7", hint: "x" }],
+        }),
+        schema,
+      ),
+    ).toEqual([
+      "Ruta no válida: ../x.ts",
+      "El archivo a.ts está repetido",
+      "big.ts pasa de 60 KB",
+      "El criterio c7 no es de esta tarea",
+    ]);
+  });
+
+  it("without the scope only checks the shape, and leaves forbidden paths to the engine (D16)", () => {
+    expect(
+      messages(
+        output({ files: [{ path: ".github/workflows/x.yml", content: "" }] }),
+        developOutputSchema,
+      ),
+    ).toEqual([]);
+    expect(developOutputSchema.safeParse(output({ files: [] })).success).toBe(
+      false,
+    );
+    expect(
+      developOutputSchema.safeParse({ ...output(), notes: undefined }).success,
+    ).toBe(false);
   });
 });

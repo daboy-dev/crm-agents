@@ -28,7 +28,7 @@ const planInput = (over: Partial<PlanInput> = {}): PlanInput => ({
   mode: "replace",
   feedback: null,
   previous: null,
-  context: { baseSha: "abc", tree: [], files: [] },
+  context: { baseSha: "abc", tree: ["AGENTS.md"], files: [] },
   ...over,
 });
 
