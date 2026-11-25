@@ -1,0 +1,11 @@
+{
+  "status": 429,
+  "headers": { "retry-after": "12" },
+  "body": {
+    "type": "error",
+    "error": {
+      "type": "rate_limit_error",
+      "message": "This request would exceed the rate limit for your organization of 2,000,000 output tokens per minute."
+    }
+  }
+}

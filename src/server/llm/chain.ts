@@ -20,7 +20,7 @@ import {
  * spending a request.
  */
 
-export const LINK_PROVIDERS = ["gemini", "groq"] as const;
+export const LINK_PROVIDERS = ["gemini", "groq", "anthropic"] as const;
 export type LinkProvider = (typeof LINK_PROVIDERS)[number];
 
 export type Link = { provider: LinkProvider; model: string };
@@ -74,14 +74,18 @@ export const leaseSecondsFor = (agent: AgentName) =>
 const GEMINI_FALLBACK =
   "gemini:gemini-3.8-flash,gemini:gemini-3.6-flash,gemini:gemini-3.5-flash-lite";
 
+/** Paid backup of every agent when Gemini has no model left (D37). */
+const ANTHROPIC_FALLBACK = "anthropic:claude-sonnet-5-5";
+
 /**
  * Default chains. Groq backs up only the orchestrator: Develop's context does
- * not fit its 8K tokens per minute, and Testing needs images (D36).
+ * not fit its 8K tokens per minute, and Testing needs images (D36). Anthropic
+ * goes after Gemini in every chain (D37).
  */
 export const DEFAULT_CHAINS: Record<AgentName, string> = {
-  orchestrator: `${GEMINI_FALLBACK},groq:openai/gpt-oss-120b`,
-  develop: GEMINI_FALLBACK,
-  testing: GEMINI_FALLBACK,
+  orchestrator: `${GEMINI_FALLBACK},${ANTHROPIC_FALLBACK},groq:openai/gpt-oss-120b`,
+  develop: `${GEMINI_FALLBACK},${ANTHROPIC_FALLBACK}`,
+  testing: `${GEMINI_FALLBACK},${ANTHROPIC_FALLBACK}`,
 };
 
 /** LLM_CHAIN_<AGENT>, or the default chain of the agent. */

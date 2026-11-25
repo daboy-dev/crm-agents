@@ -1,0 +1,36 @@
+{
+  "status": 200,
+  "body": {
+    "model": "claude-sonnet-5-5",
+    "id": "msg_011ChQ88UrDjQSkqiYx1Jvze",
+    "type": "message",
+    "role": "assistant",
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"commitMessage\":\"feat(clients): add search by name or email to client list\",\"files\":[{\"path\":\"src/app/(crm)/clientes/page.tsx\",\"content\":\"import type { Metadata } from \\\"next\\\";\\nimport Link from \\\"next/link\\\";\\nimport { connection } from \\\"next/server\\\";\\nimport { Suspense } from \\\"react\\\";\\nimport { ButtonLink } from \\\"@/components/button\\\";\\nimport { Loading, PageHeader } from \\\"@/components/page-header\\\";\\nimport { EmptyRow, Table, Td, Th, Tr } from \\\"@/components/table\\\";\\nimport { listClients } from \\\"./queries\\\";\\n\\nexport const metadata: Metadata = { title: \\\"Clientes · crm-demo\\\" };\\n\\ntype SearchParams = Promise<{ search?: string | string[] }>;\\n\\nexport default function ClientsPage({\\n  searchParams,\\n}: {\\n  searchParams: SearchParams;\\n}) {\\n  return (\\n    <>\\n      <PageHeader\\n        title=\\\"Clientes\\\"\\n        actions={\\n          <ButtonLink href=\\\"/clientes/nuevo\\\" data-testid=\\\"new-client-button\\\">\\n            Nuevo cliente\\n          </ButtonLink>\\n        }\\n      />\\n      <Suspense fallback={<Loading />}>\\n        <ClientsContent searchParams={searchParams} />\\n      </Suspense>\\n    </>\\n  );\\n}\\n\\nasync function ClientsContent({\\n  searchParams,\\n}: {\\n  searchParams: SearchParams;\\n}) {\\n  // Read the database at request time, never at build time.\\n  await connection();\\n  const params = await searchParams;\\n  const raw = params.search;\\n  const search = (Array.isArray(raw) ? raw[0] : raw) ?? \\\"\\\";\\n  const clients = filterClients(await listClients(), search);\\n  return (\\n    <>\\n      <form\\n        method=\\\"get\\\"\\n        action=\\\"/clientes\\\"\\n        className=\\\"mb-4 flex w-full justify-end\\\"\\n      >\\n        <input\\n          type=\\\"text\\\"\\n          name=\\\"search\\\"\\n          defaultValue={search}\\n          placeholder=\\\"Buscar por nombre o email\\\"\\n          aria-label=\\\"Buscar por nombre o email\\\"\\n          data-testid=\\\"client-search-input\\\"\\n          className=\\\"w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm sm:w-72\\\"\\n        />\\n      </form>\\n      <ClientsTable clients={clients} />\\n    </>\\n  );\\n}\\n\\nfunction filterClients<T extends { name: string; email: string }>(\\n  clients: T[],\\n  search: string,\\n): T[] {\\n  const term = search.trim().toLowerCase();\\n  if (!term) return clients;\\n  return clients.filter(\\n    (c) =>\\n      c.name.toLowerCase().includes(term) ||\\n      c.email.toLowerCase().includes(term),\\n  );\\n}\\n\\nfunction ClientsTable({\\n  clients,\\n}: {\\n  clients: Awaited<ReturnType<typeof listClients>>;\\n}) {\\n  return (\\n    <Table data-testid=\\\"clients-table\\\">\\n      <thead>\\n        <tr>\\n          <Th>Nombre</Th>\\n          <Th className=\\\"hidden sm:table-cell\\\">NIF</Th>\\n          <Th className=\\\"hidden sm:table-cell\\\">Empresa</Th>\\n          <Th className=\\\"hidden md:table-cell\\\">Email</Th>\\n          <Th className=\\\"hidden md:table-cell\\\">Teléfono</Th>\\n        </tr>\\n      </thead>\\n      <tbody className=\\\"divide-y divide-slate-100\\\">\\n        {clients.length === 0 && (\\n          <EmptyRow colSpan={5}>Todavía no hay clientes.</EmptyRow>\\n        )}\\n        {clients.map((client) => (\\n          <Tr key={client.id} data-testid=\\\"client-row\\\" data-id={client.id}>\\n            <Td>\\n              <Link\\n                href={`/clientes/${client.id}`}\\n                className=\\\"font-medium text-blue-700 hover:underline\\\"\\n              >\\n                {client.name}\\n              </Link>\\n              <div className=\\\"text-xs text-slate-500 sm:hidden\\\">\\n                {client.company ?? client.email}\\n              </div>\\n            </Td>\\n            <Td className=\\\"hidden whitespace-nowrap sm:table-cell\\\">\\n              {client.nif ?? \\\"—\\\"}\\n            </Td>\\n            <Td className=\\\"hidden sm:table-cell\\\">{client.company ?? \\\"—\\\"}</Td>\\n            <Td className=\\\"hidden md:table-cell\\\">{client.email}</Td>\\n            <Td className=\\\"hidden whitespace-nowrap md:table-cell\\\">\\n              {client.phone ?? \\\"—\\\"}\\n            </Td>\\n          </Tr>\\n        ))}\\n      </tbody>\\n    </Table>\\n  );\\n}\\n\"}],\"notes\":\"He añadido un buscador en /clientes con un formulario GET nativo (Enter envía ?search=...), y la página lo lee vía searchParams dentro de Suspense con connection(), en lugar de useSearchParams/useRouter, para evitar convertir la página en componente cliente y problemas con cacheComponents. El filtrado es insensible a mayúsculas sobre nombre y email. El input va encima de la tabla, alineado a la derecha en escritorio y a ancho completo en móvil, no dentro del PageHeader. Asumo que listClients no cambia; el filtrado se hace en memoria.\",\"evidence\":[{\"criterion\":\"c1\",\"hint\":\"/clientes: input client-search-input vacío y filas client-row\"},{\"criterion\":\"c2\",\"hint\":\"/clientes?search=juan: filas client-row filtradas\"},{\"criterion\":\"c3\",\"hint\":\"placeholder 'Buscar por nombre o email', alineado a la derecha\"},{\"criterion\":\"c4\",\"hint\":\"input w-full en 390 px\"}]}"
+      }
+    ],
+    "container": null,
+    "stop_reason": "end_turn",
+    "stop_sequence": null,
+    "stop_details": null,
+    "usage": {
+      "input_tokens": 12670,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 2105,
+      "output_tokens_details": {
+        "thinking_tokens": 0
+      },
+      "service_tier": "standard",
+      "inference_geo": "global",
+      "speed": "standard"
+    },
+    "diagnostics": null
+  }
+}

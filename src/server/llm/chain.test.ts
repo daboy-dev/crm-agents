@@ -40,8 +40,21 @@ describe("chainFor", () => {
       "gemini",
       "gemini",
       "gemini",
+      "anthropic",
     ]);
     expect(DEFAULT_CHAINS.testing).not.toContain("groq:");
+  });
+
+  it("Anthropic follows Gemini in every chain (D37)", () => {
+    vi.stubEnv("LLM_CHAIN_ORCHESTRATOR", "");
+    vi.stubEnv("LLM_CHAIN_TESTING", "");
+    const orchestrator = chainFor("orchestrator").map((l) => l.provider);
+    expect(orchestrator.indexOf("anthropic")).toBe(3);
+    expect(orchestrator.indexOf("groq")).toBe(4);
+    expect(chainFor("testing").at(-1)).toEqual({
+      provider: "anthropic",
+      model: "claude-sonnet-5-5",
+    });
   });
 
   it("LLM_CHAIN_<AGENT> replaces the default", () => {
