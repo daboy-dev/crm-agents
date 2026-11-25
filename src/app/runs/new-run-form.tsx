@@ -79,6 +79,22 @@ export function NewRunForm({ providers }: { providers: AgentProviders }) {
           />
           Simular MAX_TOKENS
         </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            name="simulateCriterionFail"
+            data-testid="criterion-fail-checkbox"
+          />
+          Simular fallo de criterio
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            name="simulatePersistentFail"
+            data-testid="persistent-fail-checkbox"
+          />
+          Simular fallo persistente
+        </label>
       </div>
       {state.error && <p className="error">{state.error}</p>}
       <div className="row">

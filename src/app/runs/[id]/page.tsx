@@ -85,6 +85,11 @@ function Summary({ detail }: { detail: RunDetail }) {
             MAX_TOKENS simulado{run.maxTokensSimulatedAt ? " (hecho)" : ""}
           </code>
         )}
+        {run.simulatePersistentFail ? (
+          <code>fallo persistente simulado</code>
+        ) : (
+          run.simulateCriterionFail && <code>fallo de criterio simulado</code>
+        )}
       </p>
       <p className="run-request">{run.request}</p>
       {run.blockedReason && run.status === "blocked" && (
@@ -242,6 +247,19 @@ function Plan({ detail }: { detail: RunDetail }) {
                       {c.id} · {CRITERION_TYPE[c.type] ?? c.type}
                     </span>{" "}
                     {c.text}
+                    {c.testIds?.length > 0 && (
+                      <>
+                        {" "}
+                        <span
+                          className="muted"
+                          data-testid="criterion-test-ids"
+                        >
+                          {c.testIds.map((id) => (
+                            <code key={id}>{id}</code>
+                          ))}
+                        </span>
+                      </>
+                    )}
                   </li>
                 ))}
               </ul>
