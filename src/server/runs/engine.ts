@@ -39,6 +39,7 @@ import {
 import { getProvider, runProviders } from "@/server/llm";
 import {
   InvalidOutput,
+  OutputTruncated,
   QuotaExhausted,
   RateLimited,
   type CallHooks,
@@ -66,7 +67,6 @@ import {
 } from "./machine";
 import {
   acquireLease,
-  LEASE_SECONDS,
   appendEvent,
   checkpoint,
   commitTransition,
@@ -94,7 +94,7 @@ const APPROVAL_TIMEOUT_HOURS = 24;
 class BlockRun extends Error {}
 class SimulatedCrash extends Error {}
 
-/** Margin on Gemini's retryDelay before the sweep resumes the step. */
+/** Margin on the retry delay of a 429 before the sweep resumes the step. */
 const RATE_LIMIT_MARGIN_MS = 2_000;
 
 type StepContext = {
@@ -151,11 +151,11 @@ function stepStore(ctx: StepContext): StepStore {
       run.llmCalls = row?.llmCalls ?? run.llmCalls + 1;
       return run.llmCalls;
     },
-    async renewLease() {
+    async renewLease(seconds) {
       const [row] = await db
         .update(runs)
         .set({
-          leaseUntil: sql`now() + make_interval(secs => ${LEASE_SECONDS})`,
+          leaseUntil: sql`now() + make_interval(secs => ${seconds})`,
         })
         .where(and(eq(runs.id, run.id), eq(runs.leaseToken, token)))
         .returning({ id: runs.id });
@@ -643,7 +643,7 @@ async function stepFailed(
     await appendEvent(db, run, {
       actor: "system",
       kind: "rate_limited",
-      message: `Gemini: ${error.message}. El paso se reanuda solo.`,
+      message: `${error.message}. El paso se reanuda solo.`,
       data: { model: error.model, retryAfterMs: error.retryAfterMs },
     });
     return { applied: false };
@@ -694,7 +694,10 @@ async function stepFailed(
     kind: "error",
     message: `Error en el paso ${run.status} (intento ${attempts} de ${MAX_STEP_ATTEMPTS}): ${message.slice(0, 500)}`,
     // An answer that failed the contract still cost calls: show them.
-    data: error instanceof InvalidOutput ? { calls: error.calls } : undefined,
+    data:
+      error instanceof InvalidOutput || error instanceof OutputTruncated
+        ? { calls: error.calls }
+        : undefined,
   });
   return { applied: false };
 }

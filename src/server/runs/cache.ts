@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import type { AgentName } from "@/server/agents/contracts";
+import { leaseSecondsFor } from "@/server/llm/chain";
 import type { CallHooks, CallMeta, Generated } from "@/server/llm/provider";
 
 /**
@@ -23,8 +24,11 @@ export interface StepStore {
   insert(key: StepKey, output: unknown, calls: CallMeta[]): Promise<boolean>;
   /** Adds one call to the run and returns the new total. */
   countCall(): Promise<number>;
-  /** Extends the step's lease before a request that may take a minute. */
-  renewLease(): Promise<void>;
+  /**
+   * Extends the step's lease before a request, past its timeout, so the
+   * sweep never starts the same call in parallel (D35).
+   */
+  renewLease(seconds: number): Promise<void>;
 }
 
 export class CallLimitReached extends Error {
@@ -73,7 +77,7 @@ export async function cachedCall<T>(options: {
   const { output, calls } = await options.call({
     beforeCall: async () => {
       if (used >= limit) throw new CallLimitReached(limit);
-      await store.renewLease();
+      await store.renewLease(leaseSecondsFor(key.agent));
     },
     onCall: async () => {
       used = await store.countCall();
