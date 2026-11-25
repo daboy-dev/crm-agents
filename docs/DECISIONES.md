@@ -365,6 +365,8 @@ Las cuotas son por modelo y por proyecto (no por clave), y las diarias se reinic
 - **Un proyecto de AI Studio por agente:** el humano lo planteó para repartir la cuota, que es por proyecto. Claude señaló que los términos de las APIs de Google (sección 2d) piden no intentar saltarse los límites, y crear proyectos solo para multiplicar la cuota gratuita encaja con eso. Se queda un solo proyecto.
 - La lista de modelos por agente pasa a ser una cadena de `proveedor:modelo` con Groq como respaldo (D36).
 
+**Extra (25/11/2026, sesión 11):** con todos los eslabones saturados (500, 503 o 504), el paso ya no falla. El error es `Overloaded`: se aplaza 90 s sin contar para los 3 fallos de D22 y, si el run lleva 30 minutos en el mismo estado, pasa a `blocked` con el botón de reintentar. Motivo: el 25/11 Gemini respondió 503 en todos los modelos durante más de una hora y el run #15 acabó en `failed` por algo ajeno a él.
+
 ## D27 · Qué ve el Orquestador
 **Fecha:** 24/11/2026 · **Estado:** aceptada
 
@@ -452,6 +454,11 @@ Las cuotas son por modelo y por proyecto (no por clave), y las diarias se reinic
 **Extra (24/11/2026, sesión 10):**
 - La action es el job `migrate` del workflow `pr-check.yml` (D33). Es el único job con `contents: write`; la comprobación de tipos y el lint corren en otro job, sin permiso de escritura.
 - **Hueco detectado:** `drizzle-kit` ejecuta `src/db/schema.ts`, que escribe Develop, con un token que puede escribir. Como `master` no tenía protección (sesión 06), un `schema.ts` malicioso, por ejemplo por una inyección en el prompt, podría hacer push directo a `master`. Se añade en `crm-demo` un **ruleset sobre `master` que exige PR**. El merge squash del panel por la API sigue funcionando porque es el merge de un PR. Lo configura el humano en GitHub.
+
+**Extra (25/11/2026, sesión 11):**
+- `pr-check.yml` tiene **tres jobs**, no dos: `generate` (solo lectura) ejecuta `drizzle-kit` y deja un parche como artifact; `commit` (`contents: write`, sin checkout del código de la rama ni ejecución) valida que el parche solo añade archivos de `drizzle/` con nombre de migración, o modifica `drizzle/meta/_journal.json`, y hace el commit; `check` comprueba tipos y lint. Así nada que escriba Develop se ejecuta con permiso de escritura.
+- `drizzle-kit generate` sale con 0 aunque falle al no poder preguntar. `generate` exige su mensaje de éxito y ninguna línea que empiece por `Error`.
+- El panel adopta el commit de la migración solo si `run/<id>` apunta a él y su padre es la cabeza que subió el motor.
 
 ## D32 · Qué ve Develop
 **Fecha:** 24/11/2026 · **Estado:** aceptada
@@ -573,3 +580,27 @@ Todo se lee en la **cabeza de `run/<id>`**, no en `base_sha`, para que una tarea
 - Los modelos de texto de Groq no ven imágenes: para Testing (H6) solo valdría con criterios `e2e`.
 - `agent_steps` y la línea de tiempo muestran proveedor y modelo de cada llamada.
 - Plan B si se agota todo: `LLM_PROVIDER=mock` (D8).
+
+**Extra (25/11/2026, sesión 11):** comprobado en la consola de Groq de la organización: ningún modelo de texto de la capa gratuita pasa de 8.000 tokens por minuto (`openai/gpt-oss-120b`, `openai/gpt-oss-20b` y `qwen/qwen3.8-27b`; los de 15.000 son clasificadores `llama-prompt-guard`). La petición de Develop del run #16 (~7.000 tokens de entrada) dejaría menos de 1.024 de salida, así que la cadena la saltaría. Develop sigue solo con Gemini; si se queda sin modelos, el run se bloquea y se reintenta tras el reinicio de cuota.
+
+## D37 · Anthropic como respaldo de pago de la cadena
+**Fecha:** 25/11/2026 · **Estado:** aceptada
+
+**Contexto:** el 25/11 Develop se quedó sin modelos: `gemini-3.8-flash` y `gemini-3.6-flash` agotaron su cuota diaria y `gemini-3.5-flash-lite` respondió 503 durante más de una hora. Groq no sirve para Develop en su capa gratuita (extra de D36). Los criterios de H5 quedaban parados hasta el día siguiente.
+
+**Opciones:**
+- A. Esperar al reinicio de la cuota de Gemini.
+- B. Activar la facturación de Gemini (recomendación de Claude en la sesión 10, descartada entonces por el humano).
+- C. Un tercer proveedor en la cadena de D36, con la interfaz común. *Propuesta del humano*, que tiene créditos de Anthropic.
+
+**Decisión:** C, con `claude-sonnet-5-5`. Claude propuso `claude-opus-5-5`; el humano eligió Sonnet porque es una prueba técnica y basta con mostrar cómo se trabaja.
+- `AnthropicClient` (`src/server/llm/anthropic.ts`) con el SDK oficial `@anthropic-ai/sdk`, `output_config.format` con el JSON Schema del contrato Zod (el SDK quita las restricciones que la API no admite) y `effort: low`. Zod y la reparación de la cadena siguen validando todo.
+- Sin reintentos del SDK. Errores: 429 aplaza el paso con su `retry-after`; 529 y 5xx son saturación (extra de D26); 402 (sin crédito) se trata como cuota diaria agotada; 413 salta el eslabón; `stop_reason: max_tokens` es `OutputTruncated` y divide la tarea (D34).
+- Va **detrás de Gemini en las tres cadenas** (y antes de Groq en la del Orquestador): Gemini sigue siendo el principal y Anthropic solo cobra cuando Gemini no responde. También vale para Testing en H6, porque ve imágenes.
+- Límites de la clave comprobados en las cabeceras: millones de tokens por minuto, así que el eslabón nunca se salta por tamaño.
+- Variable nueva: `ANTHROPIC_API_KEY` (en `.env.example`, sin valor). El humano fija un límite de gasto en la Console.
+
+**Consecuencias:**
+- Coste: la llamada de Develop del run #16 (12.670 tokens de entrada y 2.105 de salida, 12 s) cuesta unos 5 céntimos. Un run completo, menos de 0,50 $.
+- Con Gemini caído, los runs siguen sin esperar al día siguiente. La línea de tiempo marca las llamadas de Claude como respaldo de pago.
+- Al ser un servicio de pago, ese eslabón no tiene el problema de términos de la capa gratuita de Gemini (extra de D26).

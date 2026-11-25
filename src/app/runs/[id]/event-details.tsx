@@ -51,11 +51,14 @@ export function contextData(data: unknown): ContextData {
 
 /**
  * The backup links of a chain: a failed iteration may come from them
- * (D35, D36).
+ * (D35, D36, D37).
  */
 function fallbackNote(model: string): string | null {
   if (model.includes("flash-lite")) {
-    return "Flash-Lite, el último respaldo de Gemini: si falla la iteración, puede venir de aquí";
+    return "Flash-Lite, el respaldo más débil de Gemini: si falla la iteración, puede venir de aquí";
+  }
+  if (model.startsWith("anthropic:")) {
+    return "Claude, respaldo de pago cuando Gemini no tiene modelos";
   }
   if (model.startsWith("groq:")) return "Groq, respaldo de Gemini";
   return null;

@@ -69,6 +69,11 @@ export async function chainClients(links: Link[]): Promise<ModelClient[]> {
     const { groqClients } = await import("./groq");
     for (const c of groqClients(groq)) clients.set(c.id, c);
   }
+  const anthropic = byProvider("anthropic");
+  if (anthropic.length > 0 && process.env.ANTHROPIC_API_KEY) {
+    const { anthropicClients } = await import("./anthropic");
+    for (const c of anthropicClients(anthropic)) clients.set(c.id, c);
+  }
   const missing = links.filter((l) => !clients.has(linkId(l)));
   if (missing.length > 0) {
     console.warn(
@@ -77,7 +82,9 @@ export async function chainClients(links: Link[]): Promise<ModelClient[]> {
   }
   const ordered = links.flatMap((l) => clients.get(linkId(l)) ?? []);
   if (ordered.length === 0) {
-    throw new Error("Falta GEMINI_API_KEY o GROQ_API_KEY para la cadena");
+    throw new Error(
+      "Falta GEMINI_API_KEY, ANTHROPIC_API_KEY o GROQ_API_KEY para la cadena",
+    );
   }
   return ordered;
 }
