@@ -1,28 +1,25 @@
 import {
   GoogleGenAI,
   ThinkingLevel,
-  type Content,
   type GenerateContentParameters,
 } from "@google/genai";
 import { z } from "zod";
-import {
-  InvalidOutput,
-  QuotaExhausted,
-  RateLimited,
-  type CallMeta,
-  type GenerateRequest,
-  type Generated,
-  type LLMProvider,
-} from "./provider";
+import type {
+  Completion,
+  CompletionRequest,
+  LinkError,
+  ModelClient,
+  Thinking,
+} from "./chain";
 
 /**
- * GeminiProvider (D26): structured output with a JSON Schema generated from
- * the Zod contract, one repair call on a Zod error, a model list per agent
+ * Gemini link of the chain (D26, D36): structured output with a JSON Schema
+ * generated from the Zod contract, the lowest thinking level the model takes
  * and no waiting inside the function on a 429.
  */
 
-/** Per call (D26). Two calls plus the context fit in the step's lease. */
-export const GEMINI_TIMEOUT_MS = 60_000;
+/** Gemini's free tier, per model and project (D26). */
+export const GEMINI_TOKENS_PER_MINUTE = 250_000;
 
 /** The answer of the API, as far as the provider reads it. */
 export type GeminiResponse = {
@@ -41,12 +38,6 @@ export type GeminiResponse = {
 export type GenerateContent = (
   params: GenerateContentParameters,
 ) => Promise<GeminiResponse>;
-
-/** Remembers which models ran out of their daily quota today (D26). */
-export type QuotaMemory = {
-  isExhausted(model: string): Promise<boolean>;
-  markExhausted(model: string): Promise<void>;
-};
 
 // --- JSON Schema for Gemini ---
 
@@ -165,10 +156,12 @@ export function classifyQuotaError(error: unknown): QuotaError | null {
 // --- Thinking level ---
 
 /**
- * Reasoning at the minimum the model takes (D26). Some models refuse
- * MINIMAL with a 400 that costs no quota; then LOW is their minimum.
+ * Reasoning at the minimum the model takes (D26): the orchestrator asks for
+ * MINIMAL and Develop for LOW (D35). Some models refuse MINIMAL with a 400
+ * that costs no quota; then LOW is their minimum.
  */
 const THINKING_LEVELS = [ThinkingLevel.MINIMAL, ThinkingLevel.LOW];
+const FIRST_LEVEL: Record<Thinking, number> = { minimal: 0, low: 1 };
 
 /** Lowest level each model accepted, for the life of the instance. */
 const thinkingFloor = new Map<string, number>();
@@ -187,7 +180,7 @@ export const isOverloaded = (error: unknown) =>
     (error as { status?: unknown } | null)?.status as number,
   );
 
-// --- Provider ---
+// --- Client ---
 
 const responseText = (r: GeminiResponse) =>
   (r.candidates?.[0]?.content?.parts ?? [])
@@ -195,147 +188,50 @@ const responseText = (r: GeminiResponse) =>
     .map((p) => p.text)
     .join("");
 
-/** Zod issues as a short list for the repair prompt and the logs. */
-export function describeIssues(error: z.ZodError): string {
-  return error.issues
-    .slice(0, 20)
-    .map((i) => `- ${i.path.join(".") || "(raíz)"}: ${i.message}`)
-    .join("\n");
+function finishOf(r: GeminiResponse): Completion["finish"] {
+  const reason = r.candidates?.[0]?.finishReason;
+  if (reason === "MAX_TOKENS") return "max_tokens";
+  return !reason || reason === "STOP" ? "stop" : "other";
 }
 
-type Parsed<T> = { ok: true; value: T } | { ok: false; problems: string };
-
-function parse<T>(text: string, schema: z.ZodType<T>): Parsed<T> {
-  let json: unknown;
-  try {
-    json = JSON.parse(text);
-  } catch (error) {
-    return {
-      ok: false,
-      problems: `- La respuesta no es JSON válido: ${(error as Error).message}`,
-    };
-  }
-  const result = schema.safeParse(json);
-  return result.success
-    ? { ok: true, value: result.data }
-    : { ok: false, problems: describeIssues(result.error) };
-}
-
-export const repairPrompt = (problems: string) =>
-  [
-    "Tu respuesta anterior no cumple el contrato. Errores:",
-    problems,
-    "",
-    "Devuelve de nuevo el JSON completo, corregido y sin texto alrededor.",
-  ].join("\n");
-
-export class GeminiProvider implements LLMProvider {
-  readonly name = "gemini";
+export class GeminiClient implements ModelClient {
+  readonly id: string;
+  readonly tokensPerMinute = GEMINI_TOKENS_PER_MINUTE;
 
   constructor(
-    private readonly options: {
-      generate: GenerateContent;
-      models: string[];
-      quota: QuotaMemory;
-      timeoutMs?: number;
-    },
+    private readonly model: string,
+    private readonly generate: GenerateContent,
   ) {
-    if (options.models.length === 0) throw new Error("No Gemini models");
+    this.id = `gemini:${model}`;
   }
 
-  async generateObject<T>(request: GenerateRequest<T>): Promise<Generated<T>> {
-    const jsonSchema = toGeminiSchema(request.schema);
-    const skipped: string[] = [];
-    let overloaded: unknown = null;
-    for (const model of this.options.models) {
-      if (await this.options.quota.isExhausted(model)) {
-        skipped.push(model);
-        continue;
-      }
-      try {
-        return await this.withModel(model, request, jsonSchema);
-      } catch (error) {
-        const quota = classifyQuotaError(error);
-        if (quota?.kind === "daily") {
-          // Next model of the list (D26).
-          await this.options.quota.markExhausted(model);
-          skipped.push(model);
-          continue;
-        }
-        if (quota?.kind === "minute") {
-          throw new RateLimited(model, quota.retryAfterMs);
-        }
-        if (isOverloaded(error) && model !== this.options.models.at(-1)) {
-          // Not a quota: try the next model now, without marking this one.
-          overloaded = error;
-          continue;
-        }
-        throw error;
-      }
-    }
-    // The last models were out of quota but an earlier one was only busy.
-    if (overloaded) throw overloaded;
-    throw new QuotaExhausted(skipped);
+  classify(error: unknown): LinkError | null {
+    const quota = classifyQuotaError(error);
+    if (quota) return quota;
+    return isOverloaded(error) ? { kind: "overloaded" } : null;
   }
 
-  /** First call and, if it does not validate, a single repair call. */
-  private async withModel<T>(
-    model: string,
-    request: GenerateRequest<T>,
-    jsonSchema: unknown,
-  ): Promise<Generated<T>> {
-    const calls: CallMeta[] = [];
-    const contents: Content[] = [
-      { role: "user", parts: [{ text: request.prompt }] },
-    ];
-    for (const kind of ["first", "repair"] as const) {
-      const { text, meta } = await this.call(
-        model,
-        kind,
-        request,
-        contents,
-        jsonSchema,
-      );
-      const parsed = parse(text, request.schema);
-      const call = { ...meta, valid: parsed.ok };
-      calls.push(call);
-      await request.hooks?.onCall?.(call);
-      if (parsed.ok) return { output: parsed.value, calls };
-      if (kind === "repair") {
-        throw new InvalidOutput(
-          `${model}: la respuesta no cumple el contrato tras la reparación:\n${parsed.problems}`,
-          calls,
-        );
-      }
-      contents.push(
-        { role: "model", parts: [{ text }] },
-        { role: "user", parts: [{ text: repairPrompt(parsed.problems) }] },
-      );
-    }
-    throw new Error("unreachable");
-  }
-
-  private async call<T>(
-    model: string,
-    kind: CallMeta["kind"],
-    request: GenerateRequest<T>,
-    contents: Content[],
-    jsonSchema: unknown,
-  ): Promise<{ text: string; meta: Omit<CallMeta, "valid"> }> {
-    await request.hooks?.beforeCall?.();
-    const timeout = this.options.timeoutMs ?? GEMINI_TIMEOUT_MS;
-    const started = Date.now();
+  async complete(request: CompletionRequest): Promise<Completion> {
+    const { model } = this;
+    const timeout = request.timeoutMs;
+    const first = Math.max(
+      FIRST_LEVEL[request.thinking],
+      thinkingFloor.get(model) ?? 0,
+    );
     let response: GeminiResponse | undefined;
-    for (let i = thinkingFloor.get(model) ?? 0; !response; i++) {
+    for (let i = first; !response; i++) {
       try {
-        response = await this.options.generate({
+        response = await this.generate({
           model,
-          contents,
+          contents: request.messages.map((m) => ({
+            role: m.role,
+            parts: [{ text: m.text }],
+          })),
           config: {
             systemInstruction: request.system,
             responseMimeType: "application/json",
-            responseJsonSchema: jsonSchema,
-            // Planning needs no long reasoning, and it keeps latency down (D26).
+            responseJsonSchema: toGeminiSchema(request.schema),
+            maxOutputTokens: request.maxOutputTokens,
             thinkingConfig: { thinkingLevel: THINKING_LEVELS[i] },
             // A 429 must never wait inside the function: no SDK retries.
             httpOptions: { timeout, retryOptions: { attempts: 1 } },
@@ -355,29 +251,20 @@ export class GeminiProvider implements LLMProvider {
     const usage = response.usageMetadata ?? {};
     return {
       text: responseText(response),
-      meta: {
-        model,
-        kind,
-        inputTokens: usage.promptTokenCount ?? 0,
-        outputTokens:
-          (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0),
-        latencyMs: Date.now() - started,
-      },
+      finish: finishOf(response),
+      inputTokens: usage.promptTokenCount ?? 0,
+      outputTokens:
+        (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0),
     };
   }
 }
 
-/** Provider of the app: SDK client, the agent's model list and app_meta. */
-export async function createGeminiProvider(
-  models: string[],
-): Promise<GeminiProvider> {
+/** Gemini links of the app, sharing one SDK client. */
+export function geminiClients(models: string[]): GeminiClient[] {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("Falta GEMINI_API_KEY");
-  const { appMetaQuota } = await import("./quota");
   const client = new GoogleGenAI({ apiKey });
-  return new GeminiProvider({
-    generate: (params) => client.models.generateContent(params),
-    models,
-    quota: appMetaQuota(),
-  });
+  const generate: GenerateContent = (params) =>
+    client.models.generateContent(params);
+  return models.map((model) => new GeminiClient(model, generate));
 }

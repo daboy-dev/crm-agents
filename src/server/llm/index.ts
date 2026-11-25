@@ -1,4 +1,12 @@
 import { AGENTS, type AgentName } from "@/server/agents/contracts";
+import {
+  AGENT_SETTINGS,
+  ChainProvider,
+  chainFor,
+  linkId,
+  type Link,
+  type ModelClient,
+} from "./chain";
 import { MockProvider, isMockScenario } from "./mock";
 import {
   isProviderName,
@@ -42,19 +50,36 @@ export function runProviders(run: {
   return { orchestrator: name, develop: name, testing: name };
 }
 
-/** Comma-separated model list of an agent, in fallback order (D26). */
-export function modelsFor(agent: AgentName): string[] {
-  const defaults: Record<AgentName, string> = {
-    orchestrator: "gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite",
-    develop: "gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite",
-    testing: "gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite",
-  };
-  const value =
-    process.env[`GEMINI_MODELS_${agent.toUpperCase()}`] || defaults[agent];
-  return value
-    .split(",")
-    .map((m) => m.trim())
-    .filter(Boolean);
+/**
+ * Clients of the agent's chain (D36). A link whose API key is missing is
+ * left out, so a missing backup key never stops the main models.
+ */
+export async function chainClients(links: Link[]): Promise<ModelClient[]> {
+  const byProvider = (p: Link["provider"]) =>
+    links.filter((l) => l.provider === p).map((l) => l.model);
+  const clients = new Map<string, ModelClient>();
+  const gemini = byProvider("gemini");
+  if (gemini.length > 0 && process.env.GEMINI_API_KEY) {
+    // Loaded on demand: the SDK is only needed on the Gemini path.
+    const { geminiClients } = await import("./gemini");
+    for (const c of geminiClients(gemini)) clients.set(c.id, c);
+  }
+  const groq = byProvider("groq");
+  if (groq.length > 0 && process.env.GROQ_API_KEY) {
+    const { groqClients } = await import("./groq");
+    for (const c of groqClients(groq)) clients.set(c.id, c);
+  }
+  const missing = links.filter((l) => !clients.has(linkId(l)));
+  if (missing.length > 0) {
+    console.warn(
+      `LLM: sin clave para ${missing.map(linkId).join(", ")}; se saltan`,
+    );
+  }
+  const ordered = links.flatMap((l) => clients.get(linkId(l)) ?? []);
+  if (ordered.length === 0) {
+    throw new Error("Falta GEMINI_API_KEY o GROQ_API_KEY para la cadena");
+  }
+  return ordered;
 }
 
 export async function getProvider(
@@ -65,7 +90,10 @@ export async function getProvider(
   if (name === "mock") {
     return new MockProvider(isMockScenario(scenario) ? scenario : "ok");
   }
-  // Loaded on demand: the SDK is only needed on the Gemini path.
-  const { createGeminiProvider } = await import("./gemini");
-  return createGeminiProvider(modelsFor(agent));
+  const { appMetaQuota } = await import("./quota");
+  return new ChainProvider({
+    links: await chainClients(chainFor(agent)),
+    quota: appMetaQuota(),
+    settings: AGENT_SETTINGS[agent],
+  });
 }

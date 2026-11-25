@@ -1,0 +1,22 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "{\"commitMessage\": \"feat: add tax id to clients\", \"files\": [{\"path\": \"src/db/schema.ts\", \"content\": \"import { relations } from"
+          }
+        ]
+      },
+      "finishReason": "MAX_TOKENS"
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 38000,
+    "candidatesTokenCount": 30100,
+    "thoughtsTokenCount": 2668,
+    "totalTokenCount": 70768
+  },
+  "modelVersion": "gemini-3.8-flash"
+}

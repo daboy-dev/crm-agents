@@ -1,34 +1,36 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/server/db/client";
 import { appMeta } from "@/server/db/schema";
-import type { QuotaMemory } from "./gemini";
+import type { QuotaMemory } from "./chain";
 
 /**
  * Gemini's daily quotas reset at midnight Pacific time, 9:00 in Madrid
- * (D26). A model marked today is skipped until then.
+ * (D26). A link marked today is skipped until then; Groq's links too, even
+ * if its daily limits reset earlier (D36).
  */
 export const quotaDay = (now = new Date()) =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles" }).format(
     now,
   );
 
-const key = (model: string) => `gemini_quota_exhausted:${model}`;
+/** Per link of the chain, "provider:model" (D36). */
+const key = (id: string) => `llm_quota_exhausted:${id}`;
 
-/** Exhausted models in app_meta, so later calls today do not spend a request. */
+/** Exhausted links in app_meta, so later calls today do not spend a request. */
 export function appMetaQuota(): QuotaMemory {
   const db = getDb();
   return {
-    async isExhausted(model) {
+    async isExhausted(id) {
       const [row] = await db
         .select({ value: appMeta.value })
         .from(appMeta)
-        .where(eq(appMeta.key, key(model)));
+        .where(eq(appMeta.key, key(id)));
       return row?.value === quotaDay();
     },
-    async markExhausted(model) {
+    async markExhausted(id) {
       await db
         .insert(appMeta)
-        .values({ key: key(model), value: quotaDay() })
+        .values({ key: key(id), value: quotaDay() })
         .onConflictDoUpdate({
           target: appMeta.key,
           set: { value: quotaDay(), updatedAt: new Date() },
