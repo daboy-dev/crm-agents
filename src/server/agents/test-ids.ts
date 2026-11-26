@@ -23,7 +23,7 @@ export function usesTestId(testId: string, texts: readonly string[]): boolean {
 }
 
 /**
- * «Simular fallo de criterio» (D40): renames one literal data-testid in the
+ * «Simular fallo de criterio» (D40): renames one quoted data-testid in the
  * files, so the criterion that needs it fails on the preview. Only one this
  * change adds: renaming one that `before` (the files as they were) already
  * had would break older tests too (run #21). Returns null when no new
@@ -35,17 +35,16 @@ export function breakTestId<T extends { path: string; content: string }>(
   before: readonly string[] = [],
 ): { testId: string; files: T[] } | null {
   for (const testId of testIds) {
-    const literal = `data-testid="${testId}"`;
-    if (!files.some((f) => f.content.includes(literal))) continue;
-    if (before.some((content) => content.includes(literal))) continue;
+    // data-testid="x", testId: "x" (PageHeader's items, run #21) or 'x'.
+    const quoted = new RegExp(`(["'\`])${testId}\\1`, "g");
+    const has = (content: string) => new RegExp(quoted).test(content);
+    if (!files.some((f) => has(f.content))) continue;
+    if (before.some(has)) continue;
     return {
       testId,
       files: files.map((f) => ({
         ...f,
-        content: f.content.replaceAll(
-          literal,
-          `data-testid="${testId}-simulated"`,
-        ),
+        content: f.content.replace(quoted, `$1${testId}-simulated$1`),
       })),
     };
   }

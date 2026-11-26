@@ -63,6 +63,19 @@ describe("breakTestId (D40)", () => {
     expect(done?.files[0]!.content).toContain('data-testid="client-detail"');
   });
 
+  it("renames it however it is quoted (run #21)", () => {
+    const files = [
+      {
+        path: "page.tsx",
+        content:
+          '{ label: "Notas", value: client.notes, testId: "client-notes" }',
+      },
+    ];
+    expect(breakTestId(files, ["client-notes"])?.files[0]!.content).toBe(
+      '{ label: "Notas", value: client.notes, testId: "client-notes-simulated" }',
+    );
+  });
+
   it("does nothing when no data-testid is literal", () => {
     expect(
       breakTestId(
