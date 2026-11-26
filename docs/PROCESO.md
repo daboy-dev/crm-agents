@@ -643,6 +643,6 @@ Cómo se ha construido este proyecto, sesión a sesión.
 - `LLM_CHAIN_ORCHESTRATOR`, `LLM_CHAIN_DEVELOP`, `LLM_CHAIN_TESTING` (Claude primero) y `LLM_CALLS_PER_RUN=24` en Vercel, y redespliegue.
 - El run #25 desde el móvil, reintentos y aprobaciones, y los merges de [crm-agents#13](https://github.com/daboy-dev/crm-agents/pull/13), [#14](https://github.com/daboy-dev/crm-agents/pull/14), [#15](https://github.com/daboy-dev/crm-agents/pull/15) y [crm-demo#28](https://github.com/daboy-dev/crm-demo/pull/28).
 
-**Resultado:** H7 hecho. Los criterios 1 a 4 están comprobados en producción, el 5 en el E2E y en parte en producción, y el 6 en Vitest y en el E2E.
+**Resultado:** H7 hecho. Los criterios 1 a 4 están comprobados en producción, el 5 en el E2E y en parte en producción, y el 6 en Vitest y en el E2E. Transcripción en [`sesiones/15-h7-panel.md`](./sesiones/15-h7-panel.md).
 
 **Siguiente paso:** H8 · entrega: lista final de peticiones para los evaluadores en `demo-requests.ts`, decidir si pueden fusionar, volver a la cadena gratuita o dejar Claude primero, y README.
