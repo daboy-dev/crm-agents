@@ -86,7 +86,12 @@ export async function prepareCommits<T extends Prepared>(
     }
     const testIds = options.breakTestIds?.(result) ?? [];
     if (!broken && testIds.length > 0) {
-      const done = breakTestId(files, testIds);
+      const before = await Promise.all(files.map((f) => read(f.path)));
+      const done = breakTestId(
+        files,
+        testIds,
+        before.filter((c): c is string => c !== null),
+      );
       if (done) {
         broken = true;
         files = done.files;
