@@ -30,6 +30,7 @@ import {
   agentSteps,
   prChecks,
   previews,
+  runEvents,
   runs,
   tasks,
   testReports,
@@ -533,6 +534,22 @@ async function stepSplit(ctx: StepContext): Promise<Committed> {
   );
 }
 
+/** Whether Testing has already judged a preview of the run. */
+async function previewJudged(db: Db, runId: number): Promise<boolean> {
+  const [row] = await db
+    .select({ id: runEvents.id })
+    .from(runEvents)
+    .where(
+      and(
+        eq(runEvents.runId, runId),
+        eq(runEvents.actor, "system"),
+        eq(runEvents.kind, "report"),
+      ),
+    )
+    .limit(1);
+  return Boolean(row);
+}
+
 // --- Testing's steps (D38) ---
 
 const STEPS_SCOPE = "steps";
@@ -758,14 +775,17 @@ async function stepDeveloping(ctx: StepContext): Promise<StepResult> {
         `La rama ${branch} no está en el commit esperado (${current ? short(current) : "no existe"})`,
       );
     }
+    // D40: the single failure lasts until Testing has judged a preview: an
+    // iteration that pr-check sends back never reaches it (run #22).
+    const breakOnce =
+      run.simulateCriterionFail && !(await previewJudged(db, run.id));
     const prepared = await prepareCommits(
       outputs,
       (path) => getFileText(path, readSha),
       {
         simulateTypeError: run.simulateTypeError,
         breakTestIds: ({ task }) =>
-          run.simulatePersistentFail ||
-          (run.simulateCriterionFail && task.iteration === 1)
+          run.simulatePersistentFail || breakOnce
             ? task.acceptanceCriteria.flatMap((c) => c.testIds)
             : [],
       },
