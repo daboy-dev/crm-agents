@@ -45,3 +45,8 @@ next-env.d.ts
 
 # Local dev server config of the Claude desktop app
 /.claude/launch.json
+
+# Playwright del panel (H7)
+/e2e/.auth/
+/test-results/
+/playwright-report/
