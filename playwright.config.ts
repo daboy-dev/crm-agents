@@ -1,3 +1,5 @@
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 import { E2E_BASE_URL, E2E_PORT, serverEnv } from "./e2e/env";
 
@@ -8,6 +10,9 @@ import { E2E_BASE_URL, E2E_PORT, serverEnv } from "./e2e/env";
  */
 export default defineConfig({
   testDir: "./e2e",
+  // Outside the project: next dev watches it, and every trace write would
+  // rebuild and reload the page under test (H7).
+  outputDir: join(tmpdir(), "crm-agents-e2e"),
   fullyParallel: false,
   workers: 1,
   retries: 0,
@@ -41,10 +46,12 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `pnpm exec next dev --port ${E2E_PORT}`,
+    // A production build: next dev's HMR reloaded the page under test in
+    // a loop and emptied the login form (H7).
+    command: `pnpm exec next build && pnpm exec next start --port ${E2E_PORT}`,
     url: `${E2E_BASE_URL}/api/health`,
     env: serverEnv(),
     reuseExistingServer: false,
-    timeout: 120_000,
+    timeout: 300_000,
   },
 });

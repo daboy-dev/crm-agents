@@ -59,7 +59,7 @@ Ver `.env.example`. En Vercel y en `.env.local` (`vercel env pull`): `DATABASE_U
 - `pnpm test` · Vitest (`src/**/*.test.ts`). Nada llama a Gemini.
 - `pnpm eval:plan` · a mano: las 4 peticiones de D14 contra Gemini → `docs/evals/` (gasta cuota; `EVAL_FORCE=1` repite las ya hechas).
 - `pnpm eval:testing` · a mano: las 4 peticiones de H6 (extra de D14), plan y pasos de Testing → `docs/evals/TESTING.md` (gasta cuota; `EVAL_FORCE=1`, `EVAL_ONLY=<slug>` y `EVAL_TAG=groq` con `LLM_CHAIN_TESTING`).
-- `pnpm e2e` · Playwright del panel: arranca `next dev` en el puerto 3100 contra `E2E_DATABASE_URL` de `.env.e2e`, con el mock y sin claves de GitHub ni de LLM.
+- `pnpm e2e` · Playwright del panel: hace `next build` y `next start` en el puerto 3100 contra `E2E_DATABASE_URL` de `.env.e2e`, con el mock y sin claves de GitHub ni de LLM. No usa `next dev`: su HMR recargaba la página en bucle. La salida va al directorio temporal del sistema.
 - `pnpm e2e:migrate` · aplica las migraciones a la rama `e2e` de Neon.
 - `pnpm db:generate` · genera una migración a partir de `src/server/db/schema.ts`.
 - `pnpm db:migrate` · aplica las migraciones (lee `DATABASE_URL` de `.env.local` o `.env`).
