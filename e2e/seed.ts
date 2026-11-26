@@ -185,7 +185,8 @@ const planEvents = (runId: number) => [
     data: {
       calls: [
         {
-          model: "mock:orchestrator",
+          // Flash-Lite carries the long fallback note (overflow seen in H7).
+          model: "gemini:gemini-3.5-flash-lite",
           kind: "first",
           inputTokens: 1200,
           outputTokens: 400,

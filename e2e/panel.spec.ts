@@ -17,6 +17,14 @@ async function noHorizontalScroll(page: Page) {
   expect(scroll, "scroll horizontal").toBeLessThanOrEqual(width);
 }
 
+/** No card overflows its column (the timeline did on desktop in H7). */
+async function noOverflow(page: Page, testId: string) {
+  const [scroll, width] = await page
+    .getByTestId(testId)
+    .evaluate((el) => [el.scrollWidth, el.clientWidth]);
+  expect(scroll, `desborde de ${testId}`).toBeLessThanOrEqual(width);
+}
+
 async function openRun(page: Page, state: ActiveState, query = "") {
   const id = await seed(state);
   await page.goto(`/runs/${id}${query}`);
@@ -143,6 +151,7 @@ test.describe("timeline (D44)", () => {
   test("filter by agent in the URL, retries grouped", async ({ page }) => {
     await openRun(page, "awaiting_final_approval", "?tab=linea");
     const timeline = page.getByTestId("run-timeline");
+    await noOverflow(page, "run-timeline");
     const retries = timeline.getByTestId("timeline-retries");
     await expect(retries).toHaveCount(1);
     await expect(retries).toHaveAttribute("data-count", "3");

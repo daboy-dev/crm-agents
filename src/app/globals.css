@@ -334,7 +334,7 @@ select {
   border-color: var(--foreground);
 }
 
-.timeline li.timeline-round {
+.timeline > li.timeline-round {
   display: block;
   font-size: 0.75rem;
   font-weight: 600;
@@ -346,7 +346,7 @@ select {
   color: color-mix(in srgb, var(--foreground) 60%, transparent);
 }
 
-.timeline li.timeline-retries {
+.timeline > li.timeline-retries {
   display: block;
   color: #b06000;
 }
@@ -356,7 +356,7 @@ select {
   color: var(--foreground);
 }
 
-.timeline li {
+.timeline > li {
   display: grid;
   grid-template-columns: auto auto 1fr;
   gap: 0.6rem;
@@ -364,7 +364,8 @@ select {
   align-items: baseline;
 }
 
-.timeline li > span:last-child {
+.timeline > li > span:last-child {
+  min-width: 0;
   overflow-wrap: anywhere;
 }
 
@@ -475,10 +476,10 @@ select {
 }
 
 @media (max-width: 480px) {
-  .timeline li {
+  .timeline > li {
     grid-template-columns: auto 1fr;
   }
-  .timeline li > span:last-child {
+  .timeline > li > span:last-child {
     grid-column: 1 / -1;
   }
 }
@@ -601,6 +602,16 @@ select {
   padding-left: 1rem;
   font-size: 0.8rem;
   color: color-mix(in srgb, var(--foreground) 70%, transparent);
+}
+
+/* Inside the timeline: plain lines, and long notes wrap (H7). */
+.calls li,
+.event-details li {
+  overflow-wrap: anywhere;
+}
+
+.calls .badge {
+  white-space: normal;
 }
 
 /* --- /runs/[id] layout (D45, D46) --- */
