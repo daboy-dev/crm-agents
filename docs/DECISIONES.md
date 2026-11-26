@@ -166,6 +166,15 @@ Los pasos de Testing (D38) no deben depender de cifras exactas del seed: las vis
 
 **Extra (26/11/2026, sesión 13):** en H6 se usaron las cuatro: el filtro (runs #20, #18 y #19), las notas (#21), duplicar (#22) y el resumen (#23), además de una quinta para el bloqueo, «muestra en el detalle de un cliente cuántos presupuestos tiene» (#24). Todas salvo esta última están en `master`, así que H7 necesita una petición nueva.
 
+**Extra (26/11/2026, sesión 16):** peticiones para los evaluadores en la portada (D48), propuestas por Claude y aprobadas por el humano. Cubren cada parte del motor:
+- **Recuento de presupuestos del cliente** (libre desde el run #24): una sola tarea, sin migración. Es la más segura para un primer run.
+- **Teléfono del cliente:** cambia el esquema, así que hay commit de migración (D31).
+- **Filtro de presupuestos por estado:** interacción sin cambio de esquema, con el patrón del filtro de facturas.
+- **Ordenar la lista de clientes** por nombre o por fecha de alta: interacción, con dos tareas probables.
+- **Fuera de alcance:** «Cambia el workflow de GitHub Actions para que no ejecute los tests». El Orquestador la rechaza sin crear rama (D28, run #12). En la portada aparece marcada como ejemplo de rechazo.
+
+Antes de añadirlas a `demo-requests.ts` se comprueba contra `master` que ninguna existe ya.
+
 ## D15 · Actions arranca con el `deployment_status` de Vercel
 **Fecha:** 24/11/2026 · **Estado:** aceptada
 
@@ -802,3 +811,33 @@ Todo se lee en la **cabeza de `run/<id>`**, no en `base_sha`, para que una tarea
 - Las simulaciones de H3 a H6 van plegadas en «Opciones avanzadas».
 - Límites a la vista: los runs que quedan hoy (`RUNS_PER_DAY`) y un aviso si la cuota de Gemini está agotada y se usa el respaldo de pago hasta las 9:00.
 - La cola muestra la posición de cada petición.
+
+## D49 · Anthropic primero en las tres cadenas para la entrega
+**Fecha:** 26/11/2026 · **Estado:** aceptada
+
+**Contexto:** en el run #25 (sesión 15) los dos Gemini Flash estaban agotados y Groq encadenó 11 avisos de límite por minuto y una respuesta fuera de contrato. Para la entrega, los evaluadores no deben encontrarse la cuota agotada ni modelos saturados.
+
+**Decisión** (del humano):
+- `anthropic:claude-sonnet-5-5` va el primero en `LLM_CHAIN_ORCHESTRATOR`, `LLM_CHAIN_DEVELOP` y `LLM_CHAIN_TESTING`. Gemini y Groq quedan detrás como respaldo gratuito, en el orden que tenían (D36, D40).
+- `RUNS_PER_DAY` = 50. `LLM_CALLS_PER_RUN` sigue en 24 (sesión 15).
+- Sin cambios de código: solo variables de entorno en Vercel.
+
+**Consecuencias:**
+- Coste: un run cuesta menos de 0,50 $ (D37), así que el máximo teórico ronda los 25 $ al día. Lo que de verdad lo frena es el límite de gasto de la Console.
+- El riesgo de los términos de la capa gratuita de Gemini (extra de D26) casi desaparece: Gemini solo responde si Anthropic falla.
+- La prueba pide planes gratuitos. El README explica que el sistema funciona con Gemini y Groq (H4–H6) y que Claude va primero por fiabilidad. Para volver a la cadena gratuita basta con cambiar `LLM_CHAIN_*`.
+- Límite real: Vercel Hobby permite 100 despliegues al día por cuenta, vistas previas incluidas y sumando los dos proyectos. Un run genera unos 3–5, así que caben unos 20–30 runs al día aunque `RUNS_PER_DAY` sea mayor.
+- Quedan desfasados el aviso de cuota de la portada (D48: «se usa el respaldo de pago hasta las 9:00») y la marca de «respaldo de pago» en tarjetas y línea de tiempo. Se cambian en H8.
+
+## D50 · Los evaluadores pueden fusionar
+**Fecha:** 26/11/2026 · **Estado:** aceptada
+
+**Contexto:** la aprobación final (D9) termina en un merge squash en `master` de `crm-demo`. Para la entrega había que decidir si el usuario de prueba puede llegar hasta ahí o si el run se queda en la vista previa.
+
+**Decisión** (del humano, que coincide con la recomendación de Claude): sí. El usuario de prueba tiene los mismos permisos que el humano durante el desarrollo, y el run de un evaluador llega hasta el merge y `done`.
+
+**Consecuencias:**
+- Los evaluadores ven el flujo completo, con el cambio en producción de `crm-demo`.
+- Con un solo run activo (D11), los merges van de uno en uno y no chocan entre sí.
+- La regresión con los JSON de `e2e/criteria/` (D38), `pr-check` y la CI protegen `master`. Si algo se cuela, se revierte el squash a mano.
+- `master` acumula las funciones que piden los evaluadores. Cada sugerencia de la portada se marca como «ya fusionada» en cuanto se usa (D48), así que la lista debe tener margen, y los evaluadores pueden escribir sus propias peticiones.

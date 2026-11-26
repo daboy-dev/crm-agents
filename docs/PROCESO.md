@@ -646,3 +646,29 @@ Cómo se ha construido este proyecto, sesión a sesión.
 **Resultado:** H7 hecho. Los criterios 1 a 4 están comprobados en producción, el 5 en el E2E y en parte en producción, y el 6 en Vitest y en el E2E. Transcripción en [`sesiones/15-h7-panel.md`](./sesiones/15-h7-panel.md).
 
 **Siguiente paso:** H8 · entrega: lista final de peticiones para los evaluadores en `demo-requests.ts`, decidir si pueden fusionar, volver a la cadena gratuita o dejar Claude primero, y README.
+
+## Sesión 16 · Planificación de H8 (Project de Claude) · 26/11/2026
+
+**Objetivo:** cerrar la entrega cuanto antes: peticiones para los evaluadores, cadena de modelos y documentación.
+
+**Qué cambió por el camino:**
+- **Cadena para la entrega (D49):** el humano puso Claude el primero en las tres cadenas y `RUNS_PER_DAY` a 50. Claude señaló que el límite real son los 100 despliegues diarios de Vercel Hobby (unos 20–30 runs) y que la prueba pide planes gratuitos, así que el README debe explicar que la cadena gratuita sigue funcionando.
+- **Merge de los evaluadores (D50):** el usuario de prueba puede aprobar y fusionar, para que los evaluadores vean el flujo completo hasta producción.
+- **Peticiones para los evaluadores (extra de D14):** recuento de presupuestos del cliente, teléfono del cliente, filtro de presupuestos por estado, ordenar clientes y una petición fuera de alcance para enseñar el rechazo.
+
+**Resultado:** D49 y D50 aceptadas y un extra en D14.
+
+**Criterio de H8:**
+1. `demo-requests.ts` tiene las cinco peticiones, comprobadas contra `master`, y la de fuera de alcance aparece marcada como tal.
+2. El aviso de cuota de la portada y la marca de «respaldo de pago» reflejan la cadena de D49.
+3. El README de `crm-agents` explica qué es, la URL, el flujo (con un diagrama), cómo se usaron Claude Code y el Project, la cadena gratuita frente a la de la entrega, los límites conocidos y los enlaces a `DECISIONES.md`, `PROCESO.md` y `evals/`. Sin credenciales.
+4. `CLAUDE.md` está al día (variables y límites) y las transcripciones de `docs/sesiones/` están revisadas, sin claves ni datos personales.
+5. Un run de una de las peticiones nuevas, lanzado con el usuario de prueba, llega hasta el merge y `done` en producción.
+6. Lint, tipos, Vitest y el E2E del panel en verde.
+
+**Pendiente del humano:**
+- Límite de gasto en la Console de Anthropic.
+- Whiteboard al día con H5–H8.
+- Las 4 preguntas cortas, que estarán en la página de entrega. Se responden al final.
+
+**Siguiente paso:** sesión 17 de Claude Code (H8), en `crm-agents`.
