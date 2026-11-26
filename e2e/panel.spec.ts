@@ -185,9 +185,15 @@ test.describe("/runs home (D48)", () => {
     await expect(suggestions.first()).toHaveAttribute("data-merged", "true");
     await expect(suggestions.first()).toContainText("ya fusionada");
 
+    await expect(suggestions.last()).toHaveAttribute(
+      "data-out-of-scope",
+      "true",
+    );
+    await expect(suggestions.last()).toContainText("Fuera de alcance");
+
     const input = page.getByTestId("request-input");
     await suggestions.nth(1).click();
-    await expect(input).toHaveValue(/cuántos presupuestos/);
+    await expect(input).toHaveValue(/ciudad del cliente/);
     // It fills the field; nothing is sent.
     await expect(page).toHaveURL(/\/runs$/);
 

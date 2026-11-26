@@ -24,4 +24,18 @@ describe("demoRequests (D48)", () => {
       expect(d.request.length).toBeLessThanOrEqual(2000);
     }
   });
+
+  it("exactly one suggestion is the out-of-scope example (D28)", () => {
+    const out = DEMO_REQUESTS.filter((d) => d.outOfScope);
+    expect(out).toHaveLength(1);
+    expect(DEMO_REQUESTS.at(-1)).toBe(out[0]);
+  });
+
+  it("labels and requests are unique", () => {
+    const norm = DEMO_REQUESTS.map((d) => normalizeRequest(d.request));
+    expect(new Set(norm).size).toBe(DEMO_REQUESTS.length);
+    expect(new Set(DEMO_REQUESTS.map((d) => d.label)).size).toBe(
+      DEMO_REQUESTS.length,
+    );
+  });
 });
