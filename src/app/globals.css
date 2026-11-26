@@ -345,6 +345,91 @@ select {
   color: inherit;
 }
 
+/* --- Agent cards of /runs/[id] (D42) --- */
+.agent-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.agent-card {
+  border: 1px solid color-mix(in srgb, var(--foreground) 15%, transparent);
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  min-width: 0;
+  display: grid;
+  gap: 0.2rem;
+  align-content: start;
+}
+
+.agent-card p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.agent-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.agent-card-tone,
+.agent-card-detail,
+.agent-card-meta {
+  font-size: 0.8rem;
+  color: color-mix(in srgb, var(--foreground) 60%, transparent);
+}
+
+.agent-card-label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.agent-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.agent-card-postponed {
+  font-size: 0.8rem;
+  color: #b06000;
+}
+
+.agent-card-idle {
+  opacity: 0.7;
+}
+
+.agent-card-ok .agent-card-tone {
+  color: #137333;
+}
+
+.agent-card-bad {
+  border-color: #c5221f;
+}
+
+.agent-card-bad .agent-card-tone {
+  color: #c5221f;
+}
+
+.agent-card-active {
+  border: 2px solid var(--link);
+  background: color-mix(in srgb, var(--link) 8%, transparent);
+  opacity: 1;
+}
+
+.agent-card-active .agent-card-tone {
+  color: var(--link);
+}
+
+@media (max-width: 767px) {
+  .agent-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 480px) {
   .timeline li {
     grid-template-columns: auto 1fr;

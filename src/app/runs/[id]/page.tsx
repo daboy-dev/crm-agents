@@ -24,6 +24,8 @@ import {
   EventDetails,
   type ContextData,
 } from "./event-details";
+import { agentCards } from "@/server/runs/agent-cards";
+import { AgentCards } from "./agent-cards";
 import { RunActions } from "./run-actions";
 
 export const metadata: Metadata = { title: "Run · crm-agents" };
@@ -339,6 +341,19 @@ async function RunView({ params }: { params: Promise<{ id: string }> }) {
   return (
     <>
       <Nav title={`Run #${detail.run.id}`} />
+      <AgentCards
+        cards={agentCards({
+          run: {
+            ...detail.run,
+            status: detail.run.status as RunStatus,
+          },
+          tasks: detail.tasks,
+          steps: detail.steps,
+          events: detail.events,
+          deployState: detail.preview?.deployState,
+        })}
+        now={detail.loadedAt}
+      />
       <Summary detail={detail} />
       {!final && (
         <RunActions
