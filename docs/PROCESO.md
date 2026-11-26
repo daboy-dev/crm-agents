@@ -556,3 +556,45 @@ Cómo se ha construido este proyecto, sesión a sesión.
 **Resultado:** H6 hecho. Los criterios 1 a 5 están comprobados en producción, y el 6 en Vitest y en parte en producción. Transcripción en [`sesiones/13-h6-testing.md`](./sesiones/13-h6-testing.md).
 
 **Siguiente paso:** H7 · panel completo. La página de resumen, que estaba reservada para H7, se usó en el criterio 2 y ya está en `master`, así que H7 necesita otra petición.
+
+## Sesión 14 · Planificación de H7 (Project de Claude) · 26/11/2026
+
+**Objetivo:** decidir la petición de demo del run de H7 y qué debe mostrar el panel para que alguien sin contexto vea qué hace cada agente y en qué estado está cada tarea.
+
+**Cómo fue:**
+- Se actualizaron en el Project las copias de `CLAUDE.md` y `PLAN.md` con las del repo tras H6. `DECISIONES.md` y `PROCESO.md` no se pudieron subir desde la sesión por su tamaño; las sustituye el humano.
+- Comprobado por el humano: `RUNS_PER_DAY` ha vuelto a 5, y el run #24 se canceló después de bloquearse (criterio 3 de H6).
+
+**Qué cambió por el camino:**
+- **Petición de H7:** no quedaba ninguna de demo sin usar. Claude propuso dos: el tipo de cliente, que pasa por todo el motor, y el recuento de presupuestos del run #24, más segura porque es una sola tarea sin migración. El humano eligió el tipo de cliente: «Añade un tipo de cliente (Particular o Empresa) al formulario, muéstralo en la lista de clientes y permite filtrar la lista por tipo». En un solo run hay migración, interacción, dos tareas y la regresión de los JSON anteriores. Los pasos crean su propio cliente de tipo Empresa y comprueban el filtro con `expectText all`, sin depender del seed (extra de D14). El recuento de presupuestos no está en `master` y queda libre.
+- **Panel:** Claude propuso siete puntos y marcó como imprescindibles el 1, el 2, el 5 y el 6. El humano decidió entrarlos todos:
+  1. Tarjetas por agente (Orquestador, Develop, Testing y el humano) con lo que hace ahora, su estado y el modelo.
+  2. Tareas con sus criterios, y pass o fail en escritorio y a 390 px.
+  3. Línea de tiempo filtrable por agente, sin repetir «lee N archivos».
+  4. Vista previa y capturas en la aprobación final.
+  5. Pestañas en móvil para `/runs/[id]`.
+  6. Aprobaciones con la versión vieja: refrescar y avisar en vez de no hacer nada.
+  7. Portada de `/runs` para los evaluadores, con cómo funciona y las peticiones sugeridas en botones.
+- **Tarjetas por agente (D42):** Claude propuso calcular el estado con una función pura y meter las esperas de GitHub y Vercel en la tarjeta del agente que espera, en vez de añadir una tarjeta «Infraestructura». El humano lo aprobó: si una espera afecta al estado de un agente, va en su tarjeta.
+- **Tareas y criterios (D43):** Claude propuso la vista de cada tarea con sus criterios, los pasos plegados para el humano y las regresiones en un grupo aparte. El humano la aprobó sin cambios.
+- **Línea de tiempo (D44):** filtro por agente en la URL, el contexto solo se registra cuando cambia (pendiente de H5) y los reintentos se agrupan en la UI sin borrar los eventos. Propuesta de Claude, aprobada por el humano.
+- **Vista previa (D45):** Claude vio que el login de `crm-demo` no se mantendría en un iframe (cookie de terceros, sobre todo en Safari e iOS) y recomendó un iframe solo en escritorio. El humano eligió no embeberla: botón para abrirla en otra pestaña y galería de capturas.
+- **Móvil y escritorio (D46):** tarjetas siempre visibles, barra de acción fija abajo, pestañas en móvil y dos columnas en escritorio, con un E2E del panel en los dos tamaños. Propuesta de Claude, aprobada por el humano.
+- **Aprobaciones (D47):** Claude propuso que las acciones del humano envíen la revisión, el sha o el estado que se ven, en vez de la versión del run. El humano lo aprobó. Arregla el botón que no hacía nada en la sesión 13.
+- **Portada de `/runs` (D48):** introducción, peticiones sugeridas que rellenan el formulario, simulaciones plegadas, límites del día y posición en la cola. Propuesta de Claude, aprobada por el humano.
+
+**Resultado:** D42–D48 aceptadas y un extra en D14.
+
+**Criterio de H7:**
+1. **Run de punta a punta en un móvil real:** el run del tipo de cliente se lanza, se aprueba el plan, se sigue y se aprueba la vista previa final desde el teléfono, hasta `done`. Las tarjetas reflejan en cada momento qué agente trabaja, y la columna nueva queda en producción tras el merge.
+2. **El mismo run en escritorio:** dos columnas, el filtro de la línea de tiempo funciona, los criterios salen en verde en los dos tamaños y el grupo de regresión muestra los JSON de runs anteriores.
+3. **Aprobaciones con la versión vieja:** con el run abierto en dos pestañas, se aprueba en una y la otra dice «Ya estaba aprobado». Un cambio ajeno de versión no impide aprobar.
+4. **Línea de tiempo sin ruido:** con un reintento por saturación, real o simulado, no se repite «lee N archivos» y los reintentos salen agrupados.
+5. **Portada:** una sugerencia rellena el formulario, la del tipo de cliente sale como «ya fusionada» tras el criterio 1, y se ven los runs que quedan hoy.
+6. **Pruebas automáticas:** la tabla de casos de `agentCards()` en Vitest y el E2E de Playwright del panel a 390 y 1280 px, con runs de ejemplo en los estados que esperan al humano: sin scroll horizontal y con las acciones visibles.
+
+**Pendiente:**
+- En el repo, de la sesión 12: pasar los apartados de D37 y del push de prueba de la sesión 08 a la sesión 11, y añadir a D10 un extra que remita a D37.
+- Lista de peticiones para los evaluadores y si pueden fusionar: en H8.
+
+**Siguiente paso:** sesión 15 de Claude Code (H7), en `crm-agents`.
