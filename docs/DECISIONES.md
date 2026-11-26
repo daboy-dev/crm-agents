@@ -175,6 +175,8 @@ Los pasos de Testing (D38) no deben depender de cifras exactas del seed: las vis
 
 Antes de añadirlas a `demo-requests.ts` se comprueba contra `master` que ninguna existe ya.
 
+**Extra (26/11/2026, sesión 17):** la comprobación contra `master` (`c68ba5c`) encontró que el teléfono del cliente ya existe en el esquema, el formulario, el detalle y la lista. Claude lo cambió por **la ciudad del cliente**, que también lleva migración. «Tipo de cliente» sale de la lista porque se fusionó en el run #25. Las otras tres no existen: el detalle del cliente solo lista los presupuestos, presupuestos no tiene filtro y la lista de clientes solo se ordena por nombre.
+
 ## D15 · Actions arranca con el `deployment_status` de Vercel
 **Fecha:** 24/11/2026 · **Estado:** aceptada
 
