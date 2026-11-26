@@ -7,6 +7,10 @@ Prueba técnica para Speed Paradigm: tres agentes de IA (**Orquestador**, **Deve
 
 Las credenciales del usuario de prueba se entregan aparte. No están en el repo.
 
+![Run #29 en el panel: petición, plan aprobado, bucle entre Develop y Testing y aprobación final](./docs/img/run.gif)
+
+*Run #29 con «Simular fallo de criterio»: Testing detecta el fallo en la iteración 1, Develop lo corrige en la 2 y el run queda esperando la aprobación final. Más capturas en [Cómo se ve un run](#cómo-se-ve-un-run).*
+
 ## Cómo probarlo
 
 1. Entra en el panel con el usuario de prueba. Llegas a `/runs`.
@@ -21,6 +25,22 @@ Un run tarda unos minutos, sobre todo por los builds de Vercel. La página se ac
 **Deja abierta una página del panel (`/runs` o la del run) mientras trabaja.** No hay cron, porque Vercel Hobby solo lo ejecuta una vez al día. El run avanza con los webhooks de GitHub, y la página abierta retoma los pasos que se quedan a medias. Con la pestaña cerrada o en segundo plano, un run puede quedarse parado. Al volver a abrirla, sigue solo.
 
 Para ver el bucle entre Develop y Testing sin esperar a que un modelo se equivoque, abre **Opciones avanzadas** en el formulario y marca «Simular fallo de criterio». El panel rompe un `data-testid` en la primera entrega de Develop, Testing explica el fallo y Develop lo corrige en la iteración siguiente.
+
+### Cómo se ve un run
+
+Capturas del run #29 ([crm-demo#33](https://github.com/daboy-dev/crm-demo/pull/33)).
+
+**El plan que apruebas:** resumen, supuestos y tareas con sus criterios. A la derecha, la línea de tiempo con el modelo, los tokens y la latencia de cada llamada.
+
+![Plan del run #29 con sus supuestos y la línea de tiempo](./docs/img/plan.jpg)
+
+**El bucle entre Develop y Testing:** en la iteración 1 el panel simula el fallo de un `data-testid` y el criterio falla. Debajo de la vista previa están las capturas a 1280 y 390 px.
+
+![Iteración 1 con el fallo simulado y capturas de la vista previa](./docs/img/bucle-y-capturas.jpg)
+
+**La aprobación final:** los criterios en verde en los dos tamaños, el enlace a la vista previa y el botón que fusiona el PR.
+
+![Aprobación final del run #29 con los 3 criterios en verde](./docs/img/aprobacion-final.jpg)
 
 ## Cómo funciona
 
