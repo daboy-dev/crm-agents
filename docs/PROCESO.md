@@ -22,8 +22,8 @@ Cómo se ha construido este proyecto, sesión a sesión.
 | H4 · Orquestador | Plan con criterios de aceptación que el cliente aprueba o rechaza | Hecho |
 | H5 · Develop | PR real que compila en su vista previa | Hecho |
 | H6 · Testing | Un fallo provocado vuelve a Develop y se corrige o se bloquea | Hecho |
-| H7 · Panel completo | Run real de principio a fin en móvil y escritorio | Pendiente |
-| H8 · Entrega | README, documentación, transcripciones saneadas y respuestas | Pendiente |
+| H7 · Panel completo | Run real de principio a fin en móvil y escritorio | Hecho |
+| H8 · Entrega | README, documentación, transcripciones saneadas y respuestas | Hecho |
 
 ---
 
@@ -672,3 +672,23 @@ Cómo se ha construido este proyecto, sesión a sesión.
 - Las 4 preguntas cortas, que estarán en la página de entrega. Se responden al final.
 
 **Siguiente paso:** sesión 17 de Claude Code (H8), en `crm-agents`.
+
+## Sesión 17 · H8 · Entrega (Claude Code) · 26/11/2026
+
+**Objetivo:** cerrar la entrega con los seis criterios de H8 (sesión 16).
+
+**Cómo fue:**
+- **Peticiones para los evaluadores:** antes de añadirlas a `demo-requests.ts`, Claude comprobó contra `master` de `crm-demo` (`c68ba5c`) que no existieran. El teléfono del cliente ya estaba en el esquema, el formulario, el detalle y la lista, así que se cambió por la ciudad del cliente, que también lleva migración (extra de D14). «Tipo de cliente» salió de la lista porque ya estaba fusionada desde el run #25. La petición fuera de alcance va al final de la lista, con `data-out-of-scope`, y Vitest comprueba que haya exactamente una.
+- **Respaldos por posición en la cadena (D49):** `quotaStatus` y las tarjetas ya no tratan a Anthropic como «el respaldo de pago». Cuentan como respaldo las llamadas que no usan el primer eslabón de la cadena del agente (`chainHeads()`), así que la marca «respaldo» y el aviso de `/runs` sirven igual con Claude primero y con la cadena gratuita. Si Gemini se agota detrás de Claude, no sale ningún aviso.
+- **README** para los evaluadores: cómo probarlo, un diagrama Mermaid del flujo, las dos cadenas, los límites conocidos, cómo se construyó y los enlaces a la documentación.
+- **Transcripciones:** se buscaron claves (Anthropic, Gemini, Groq, GitHub, Neon, Blob y JWT), cadenas de conexión, rutas locales y emails. Solo aparecen cadenas de ejemplo, una cookie falsificada de un test local y los emails ficticios del seed.
+- Lint, tipos, Prettier, Vitest (447) y el E2E del panel (17/17) en verde. Todo va en [crm-agents#17](https://github.com/daboy-dev/crm-agents/pull/17).
+- **Run #27 en producción** («Presupuestos del cliente», lanzado por el humano con el usuario de prueba): plan de una tarea en 9 s, Develop a la primera, `pr-check` en verde, 2 criterios y 62 E2E pasan en la vista previa, aprobación y squash en `master` de `crm-demo` (`9c092f3`, [crm-demo#29](https://github.com/daboy-dev/crm-demo/pull/29)), con el despliegue de producción en verde y `run-27.json` como regresión. Los tres agentes usaron `anthropic:claude-sonnet-5-5`, el primer eslabón, sin respaldos. Unos 11 minutos de punta a punta, 7 de ellos esperando la aprobación.
+
+**Qué salió mal y qué se corrigió:**
+- Una de las cinco peticiones aprobadas ya existía. Por eso se comprueban contra `master` antes de añadirlas, y se sustituyó por otra que cubre lo mismo (la migración).
+- La tabla de hitos seguía con H7 como «Pendiente». Se corrigió al cerrar H8.
+
+**Resultado:** H8 hecho. Criterios 1 a 6 comprobados; el 5 en producción con el run #27.
+
+**Pendiente del humano:** límite de gasto en la Console de Anthropic, whiteboard con H5–H8, las 4 preguntas cortas de la página de entrega y la transcripción de esta sesión en `docs/sesiones/17-h8-entrega.md`.
