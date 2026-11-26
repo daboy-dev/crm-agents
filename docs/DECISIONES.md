@@ -164,6 +164,8 @@ Registro de decisiones de arquitectura (formato ADR corto). Se toman en el Proje
 
 Los pasos de Testing (D38) no deben depender de cifras exactas del seed: las vistas previas acumulan los datos que crean `write-flow.spec.ts` y los propios pasos. Una cifra solo se comprueba si se ha creado en el mismo test.
 
+**Extra (26/11/2026, sesión 13):** en H6 se usaron las cuatro: el filtro (runs #20, #18 y #19), las notas (#21), duplicar (#22) y el resumen (#23), además de una quinta para el bloqueo, «muestra en el detalle de un cliente cuántos presupuestos tiene» (#24). Todas salvo esta última están en `master`, así que H7 necesita una petición nueva.
+
 ## D15 · Actions arranca con el `deployment_status` de Vercel
 **Fecha:** 24/11/2026 · **Estado:** aceptada
 
@@ -639,6 +641,22 @@ Todo se lee en la **cabeza de `run/<id>`**, no en `base_sha`, para que una tarea
 - Al fusionar, los JSON se quedan en `master` como pruebas de regresión. Un run posterior que rompa un criterio antiguo falla igual que un E2E de los que ya existían.
 - En H6 hay que escribir el ejecutor y el contrato de los pasos, y actualizar `AGENTS.md`, `paths.ts` y el prompt del Orquestador.
 
+**Extra (26/11/2026, sesión 13):** lo que cambió al llevarlo a producción.
+- **Paso nuevo, `select`:** elige por el `value` exacto de la opción, que fija la descripción de la tarea. Admite `""` para la opción «todas» (run #19).
+- **Ejecutor:**
+  - Timeout de 10 s por acción. Antes, un paso que fallaba esperaba los 30 s del test y se perdía el `ariaSnapshot`.
+  - `expectText` compara el valor en los campos de formulario.
+  - Con `all`, `expectText` espera a que todas las filas visibles cumplan. Antes comprobaba la lista antes de que el filtro la actualizara ([crm-demo#20](https://github.com/daboy-dev/crm-demo/pull/20)).
+  - La prueba del fallo (paso, URL, error y `ariaSnapshot` de `main`) va a un JSON por criterio y proyecto junto a `results.json`.
+- **`data-testid` del plan:**
+  - Testing puede usar los de cualquier criterio de la revisión, no solo los del suyo: Develop los escribe todos.
+  - A Develop solo se le exigen en el `superRefine` los que nombra la descripción de su tarea. En el run #21 se le exigía `nav-clientes` a una tarea que no tocaba el menú.
+  - El prompt del Orquestador y el de Testing llevan el mapa de los `data-testid` que ya existen en `crm-demo` (`app-map.ts`).
+- **Validación de los pasos, más allá del esquema:** el `superRefine` rechaza estos casos, que van a la llamada de reparación:
+  - páginas que no están en `pages.ts` y `expectCount` con `min: 0`;
+  - comodines distintos de `{{stamp}}` y `click` sobre una fila `*-row`, que no navega. En el run #24, Groq escribió las dos cosas y el criterio habría fallado sin la simulación.
+- **Gemini:** su API no acepta `const`, `minItems`, `maxItems`, `minimum` ni `maximum` en el esquema, y un esquema demasiado grande da 400 «too many states». El cliente quita esas claves (Zod vuelve a comprobar todo después), y el 400 cuenta como `too_large`, así que la cadena salta al eslabón siguiente.
+
 ## D39 · Veredicto de Testing y solo criterios `e2e` por ahora
 **Fecha:** 25/11/2026 · **Estado:** aceptada
 
@@ -667,6 +685,11 @@ Todo se lee en la **cabeza de `run/<id>`**, no en `base_sha`, para que una tarea
   - «Simular fallo de criterio»: en la iteración 1, el panel quita de la salida de Develop uno de los `data-testid` del plan, después del `superRefine` y antes del commit. El criterio falla y en la iteración 2 Develop debe corregirlo.
   - «Simular fallo persistente»: lo mismo en todas las iteraciones. A la tercera, la tarea pasa a `blocked` y decide el humano (D5).
 - **`LLM_CALLS_PER_RUN` sube de 12 a 16** (D26 y D35). Un run de 2 tareas con un fallo gasta unas 6 llamadas, y el peor caso con 3 iteraciones fallidas en las dos tareas llega a unas 10, sin contar reparaciones ni divisiones.
+
+**Extra (26/11/2026, sesión 13):** cómo quedaron las simulaciones.
+- **No quitan el `data-testid`, lo renombran:** `x` pasa a `x-simulated`, con cualquier tipo de comillas. Solo se renombran los `data-testid` nuevos de la tarea, nunca uno que ya existía en el archivo, porque si no se rompería un E2E antiguo en vez del criterio.
+- **«Simular fallo de criterio» dura hasta que Testing juzga la primera vista previa,** no solo la iteración 1. En el run #22, `pr-check` devolvió la iteración 1 por un error de tipos real, la iteración 2 ya no llevaba la simulación y el criterio pasó sin fallar ([crm-agents#12](https://github.com/daboy-dev/crm-agents/pull/12)).
+- **Con «Simular fallo persistente»,** si Develop arregla el `data-testid` y la simulación lo vuelve a renombrar, el archivo queda como ya estaba en la rama. Esa iteración no hace commit y cuenta como fallida (D34). La línea de tiempo lo dice así, en vez de «Develop no ha cambiado ningún archivo».
 
 ## D41 · El panel formatea con Prettier lo que escribe Develop
 **Fecha:** 25/11/2026 · **Estado:** aceptada

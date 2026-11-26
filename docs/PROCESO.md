@@ -21,7 +21,7 @@ Cómo se ha construido este proyecto, sesión a sesión.
 | H3 · Motor de runs | Un run completo con `MockProvider` | Hecho |
 | H4 · Orquestador | Plan con criterios de aceptación que el cliente aprueba o rechaza | Hecho |
 | H5 · Develop | PR real que compila en su vista previa | Hecho |
-| H6 · Testing | Un fallo provocado vuelve a Develop y se corrige o se bloquea | Pendiente |
+| H6 · Testing | Un fallo provocado vuelve a Develop y se corrige o se bloquea | Hecho |
 | H7 · Panel completo | Run real de principio a fin en móvil y escritorio | Pendiente |
 | H8 · Entrega | README, documentación, transcripciones saneadas y respuestas | Pendiente |
 
@@ -482,3 +482,77 @@ Cómo se ha construido este proyecto, sesión a sesión.
 - En el repo: pasar los apartados de D37 y del push de prueba de la sesión 08 a la sesión 11, añadir a D10 un extra que remita a D37, actualizar la línea de LLM del Stack en `CLAUDE.md` y comprobar que `RUNS_PER_DAY` ha vuelto a 5.
 
 **Siguiente paso:** sesión 13 de Claude Code (H6), en `crm-demo` (ejecutor, `AGENTS.md` y rutas protegidas) y `crm-agents`.
+
+## Sesión 13 · H6 · Testing con un modelo real (Claude Code) · 25–26/11/2026
+
+**Objetivo:** Testing comprueba los criterios `e2e` de cada plan en la vista previa con pasos declarativos y un ejecutor fijo (D38), explica los fallos a Develop (D39) y lo hace con su propia cadena (D40).
+
+**Cómo fue:**
+- Claude propuso el plan por bloques y el humano lo aprobó.
+- **`crm-demo`:**
+  - Ejecutor `e2e/criteria.spec.ts` ([crm-demo#17](https://github.com/daboy-dev/crm-demo/pull/17)), protegido en `AGENTS.md` y `paths.ts`.
+  - Tres arreglos que salieron de los runs: [#18](https://github.com/daboy-dev/crm-demo/pull/18), [#20](https://github.com/daboy-dev/crm-demo/pull/20) y [#22](https://github.com/daboy-dev/crm-demo/pull/22).
+- **`crm-agents`** ([crm-agents#5](https://github.com/daboy-dev/crm-agents/pull/5)):
+  - Contratos de los pasos y de la explicación, con `stepsSchemaFor` y `explainSchemaFor`.
+  - `data-testid` por criterio en el plan, y el mapa de `crm-demo` en los prompts.
+  - `ensureSteps` en una invocación propia, el JSON al final de la cadena de commits y el veredicto del ejecutor (`criteria.ts`).
+  - `agent_steps.scope` para guardar por separado los pasos y cada explicación.
+  - Casillas «Simular fallo de criterio» y «Simular fallo persistente», y migración 0006, aplicada en producción con el OK del humano.
+- **Prettier (D41):** el panel formatea lo que escribe Develop, para que `format:check` de `crm-demo` siga en verde tras cada merge.
+- **Eval:** `pnpm eval:testing` dio 4 de 4 planes y pasos válidos ([`evals/TESTING.md`](./evals/TESTING.md)).
+  - Los pasos los escribió Groq (`openai/gpt-oss-120b`), con unos 3.100 tokens de entrada y menos de 3 s.
+  - La primera ejecución sacó páginas que no existían, `data-testid` inventados y `expectCount` con `min: 0`. Se añadieron el mapa de `crm-demo` y reglas al validador.
+
+**Verificación en producción:**
+1. **Run sin fallos** (run #20, filtro de facturas, [crm-demo#23](https://github.com/daboy-dev/crm-demo/pull/23)):
+   - Plan con `data-testid` y pasos en una llamada (Groq).
+   - El JSON entró en la cadena de commits sin despliegue extra, con los resultados de cada criterio en escritorio y a 390 px.
+   - Ninguna llamada de explicación, 4 llamadas en total, y `run-20.json` está en `master`. ✅
+2. **Fallo corregido** (run #23, página de resumen, [crm-demo#26](https://github.com/daboy-dev/crm-demo/pull/26)):
+   - `pr-check` devolvió la iteración 1 por un error real de Develop, mientras la simulación renombraba `summary-detail`.
+   - En la iteración 2 los dos criterios fallaron en la vista previa. Testing (una llamada) lo explicó con el paso que fallaba (`expectVisible summary-detail`) y leyó bien el `ariaSnapshot`.
+   - En la iteración 3, Develop puso el `data-testid` en el contenedor sin ver los pasos: 50 de 50 tests y 6 llamadas.
+   - El fallo llegó en la iteración 2 y no en la 1, porque `pr-check` gastó la primera. ✅
+3. **Fallo que se bloquea** (run #24, recuento de presupuestos del cliente):
+   - El criterio falló en la iteración 1 y Testing lo explicó.
+   - En las iteraciones 2 y 3 la simulación deshizo el arreglo, así que no hubo commit (D34).
+   - La tarea pasó a `blocked` con 7 llamadas y la decisión volvió al humano. ✅
+4. **Regresión** (run #21, notas del cliente, [crm-demo#24](https://github.com/daboy-dev/crm-demo/pull/24)): sus resultados incluyen los criterios del run #20 en los dos tamaños, todos en verde. Los runs #22 y #23 también ejecutaron los JSON anteriores. ✅
+5. **Seguridad** (Vitest): se rechazan una salida de Develop que escribe en `e2e/criteria/**` o en `e2e/criteria.spec.ts`, un plan con un criterio `visual` (respuesta grabada), selectores CSS, JavaScript y URLs absolutas. ✅
+6. **Repetición:**
+   - En Vitest, un paso reanudado lee los pasos guardados y no gasta ninguna llamada; los pasos y cada explicación tienen su propia clave.
+   - En producción, el run #21 se reanudó tras guardar los pasos sin volver a llamar a Testing, y las llamadas de Testing cuentan contra el tope de 16 (runs #23 y #24).
+   - No se hizo una caída simulada justo después de escribir los pasos. ✅ (parcial en producción)
+
+**Qué salió mal y qué se corrigió:**
+- **Run #18 (cancelado):**
+  - `expectText` con `all` comprobaba la lista antes de que el filtro la actualizara ([crm-demo#20](https://github.com/daboy-dev/crm-demo/pull/20)).
+  - La explicación de Testing contradecía el `ariaSnapshot`. Ahora el prompt le pide mirarlo antes de culpar al código ([crm-agents#6](https://github.com/daboy-dev/crm-agents/pull/6)).
+- **Run #19 (cancelado):**
+  - `select` no admitía la opción de value vacío ([crm-demo#22](https://github.com/daboy-dev/crm-demo/pull/22) y [crm-agents#7](https://github.com/daboy-dev/crm-agents/pull/7)).
+  - Siguiendo una explicación mala, Develop quitó `"use client"` y falló el build de Vercel. Los errores de build de Vercel no llegan a Develop: es una limitación conocida.
+- **Run #21:**
+  - Gemini respondió 400 «too many states» con el esquema de los pasos ([crm-agents#9](https://github.com/daboy-dev/crm-agents/pull/9)).
+  - A Develop se le exigía `nav-clientes` aunque su tarea no tocaba el menú ([crm-agents#10](https://github.com/daboy-dev/crm-agents/pull/10)).
+  - La simulación no encontraba `testId: "client-notes"` porque solo buscaba comillas dobles ([crm-agents#11](https://github.com/daboy-dev/crm-agents/pull/11)).
+  - Antes, la simulación renombraba un `data-testid` que ya existía ([crm-agents#8](https://github.com/daboy-dev/crm-agents/pull/8)).
+- **Run #22 (duplicar presupuesto):** `pr-check` devolvió la iteración 1 y la simulación, que era solo de esa iteración, se perdió. Ahora dura hasta que Testing juzga la primera vista previa ([crm-agents#12](https://github.com/daboy-dev/crm-agents/pull/12)). La función salió bien y se fusionó.
+- **Run #24:**
+  - Groq escribió `click` sobre `client-row`, que no navega, y `expectText` con `{{any}}`. Con esos pasos el criterio habría fallado sin la simulación. El validador rechaza ahora las dos cosas.
+  - En las iteraciones sin cambios, la línea de tiempo decía «Develop no ha cambiado ningún archivo», aunque quien deshacía el arreglo era la simulación. Ahora lo dice así.
+- **Aprobaciones con la versión vieja:** si el run había cambiado mientras la página estaba abierta, el botón no hacía nada y el humano tenía que recargar.
+- **Scripts temporales `.mts`:** rompían `typecheck`. Se pasaron a `.mjs` sin seguimiento y se borraron al cerrar.
+
+**Limitaciones que quedan:**
+- Los errores de build de Vercel no vuelven a Develop, solo los de `pr-check`.
+- `sweep()` necesita una pestaña de `/runs` visible (D22).
+- Los planes de Flash-Lite son flojos: a veces nombran en la descripción solo parte de los `data-testid` del criterio.
+
+**Hecho por el humano:**
+- `LLM_PROVIDER_TESTING=gemini` en Vercel.
+- Login en el panel, aprobaciones de planes y finales, rechazos con feedback y cancelaciones.
+- Merges de todos los PRs de `crm-agents` y `crm-demo`.
+
+**Resultado:** H6 hecho. Los criterios 1 a 5 están comprobados en producción, y el 6 en Vitest y en parte en producción. Transcripción en [`sesiones/13-h6-testing.md`](./sesiones/13-h6-testing.md).
+
+**Siguiente paso:** H7 · panel completo. La página de resumen, que estaba reservada para H7, se usó en el criterio 2 y ya está en `master`, así que H7 necesita otra petición.
