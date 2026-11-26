@@ -602,3 +602,147 @@ select {
   font-size: 0.8rem;
   color: color-mix(in srgb, var(--foreground) 70%, transparent);
 }
+
+/* --- /runs/[id] layout (D45, D46) --- */
+.page-wide {
+  max-width: 80rem;
+}
+
+a.button {
+  display: inline-block;
+  padding: 0.6rem 1rem;
+  border-radius: 6px;
+  background: var(--foreground);
+  color: var(--background);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.preview-panel-approval {
+  border: 2px solid var(--link);
+}
+
+.preview-criteria {
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.875rem;
+}
+
+.preview-criteria .badge {
+  margin-left: 0.25rem;
+}
+
+.run-tabs {
+  display: none;
+}
+
+.run-layout,
+.run-main {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.run-panel {
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  .run-layout {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    align-items: start;
+  }
+}
+
+@media (min-width: 768px) {
+  .run-panel.desktop-hidden {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .run-tabs {
+    display: flex;
+    gap: 0.25rem;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--background);
+    padding: 0.4rem 0;
+    border-bottom: 1px solid
+      color-mix(in srgb, var(--foreground) 15%, transparent);
+  }
+  .run-tab {
+    flex: 1;
+    text-align: center;
+    padding: 0.45rem 0.25rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    text-decoration: none;
+    color: inherit;
+  }
+  .run-tab-on {
+    background: var(--foreground);
+    color: var(--background);
+    font-weight: 600;
+  }
+  .run-layout[data-tab="tareas"] .run-panel:not(.run-panel-tasks),
+  .run-layout[data-tab="linea"] .run-panel:not(.run-panel-linea),
+  .run-layout[data-tab="vista-previa"] .run-panel:not(.run-panel-preview) {
+    display: none;
+  }
+}
+
+/* --- Human's action bar (D46) --- */
+.run-actions h2 {
+  font-size: 1rem;
+}
+
+.run-actions-turn {
+  border: 2px solid var(--link);
+}
+
+button.link-button {
+  background: transparent;
+  color: var(--link);
+  padding: 0.5rem 0.25rem;
+}
+
+.run-actions textarea {
+  width: 100%;
+  font: inherit;
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--foreground) 25%, transparent);
+  background: var(--background);
+  color: var(--foreground);
+}
+
+@media (max-width: 767px) {
+  .run-actions-turn {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10;
+    margin: 0;
+    border-radius: 12px 12px 0 0;
+    border-width: 2px 0 0;
+    background: var(--background);
+    box-shadow: 0 -4px 16px rgb(0 0 0 / 0.25);
+    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+    max-height: 70vh;
+    overflow: auto;
+    gap: 0.5rem;
+  }
+  .run-actions-turn .row {
+    margin: 0;
+  }
+  /* Room for the fixed bar at the end of the page. */
+  .page:has(.run-actions-turn) {
+    padding-bottom: 11rem;
+  }
+}

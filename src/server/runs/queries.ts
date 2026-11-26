@@ -5,6 +5,7 @@ import {
   agentSteps,
   previews,
   runEvents,
+  screenshots,
   runs,
   tasks,
   testReports,
@@ -111,6 +112,18 @@ export async function getRunDetail(db: Db, runId: number) {
     preview = p ?? null;
     report = r ?? null;
   }
+  // Screenshots of the head's report, for the final approval (D45).
+  const shots = report
+    ? await db
+        .select({
+          id: screenshots.id,
+          page: screenshots.page,
+          width: screenshots.width,
+        })
+        .from(screenshots)
+        .where(eq(screenshots.reportId, report.id))
+        .orderBy(asc(screenshots.page))
+    : [];
   // Reference for the "hace N min" of the cards (D42).
   const loadedAt = Date.now();
   return {
@@ -122,6 +135,7 @@ export async function getRunDetail(db: Db, runId: number) {
     criteriaSteps: parsedSteps.success ? parsedSteps.data : null,
     preview,
     report,
+    screenshots: shots,
     loadedAt,
   };
 }

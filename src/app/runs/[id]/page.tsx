@@ -22,7 +22,9 @@ import { agentCards } from "@/server/runs/agent-cards";
 import { AgentCards } from "./agent-cards";
 import { RunActions } from "./run-actions";
 import { Tasks } from "./tasks";
-import { taskSection } from "@/server/runs/task-view";
+import { taskSection, type TaskSection } from "@/server/runs/task-view";
+import { PreviewPanel } from "./preview-panel";
+import { parseTab, runHref, TABS, type TabId } from "./view-params";
 import {
   FILTERS,
   parseFilter,
@@ -182,12 +184,10 @@ function Plan({ detail }: { detail: RunDetail }) {
 }
 
 /** Tasks with their criteria and results (D43). */
-function TaskList({ detail }: { detail: RunDetail }) {
+function sectionOf(detail: RunDetail): TaskSection | null {
   const { run, tasks } = detail;
   if (tasks.length === 0 || run.status === "planning") return null;
-  const contexts = lastContexts(detail);
-  const byId = new Map(tasks.map((t) => [t.id, t]));
-  const section = taskSection({
+  return taskSection({
     runId: run.id,
     planRevision: run.planRevision,
     tasks,
@@ -196,6 +196,18 @@ function TaskList({ detail }: { detail: RunDetail }) {
     steps: detail.criteriaSteps,
     report: detail.report,
   });
+}
+
+function TaskList({
+  detail,
+  section,
+}: {
+  detail: RunDetail;
+  section: TaskSection;
+}) {
+  const { tasks } = detail;
+  const contexts = lastContexts(detail);
+  const byId = new Map(tasks.map((t) => [t.id, t]));
   return (
     <Tasks
       section={section}
@@ -279,7 +291,15 @@ function TimelineEvent({ e }: { e: RunDetail["events"][number] }) {
 }
 
 /** Filterable by agent, retries grouped, one separator per round (D44). */
-function Timeline({ detail, filter }: { detail: RunDetail; filter: FilterId }) {
+function Timeline({
+  detail,
+  filter,
+  tab,
+}: {
+  detail: RunDetail;
+  filter: FilterId;
+  tab: TabId;
+}) {
   const items = timelineItems(detail.events, filter);
   const minutes = (at: Date) =>
     Math.max(0, Math.round((detail.loadedAt - at.getTime()) / 60_000));
@@ -290,11 +310,11 @@ function Timeline({ detail, filter }: { detail: RunDetail; filter: FilterId }) {
         {FILTERS.map((f) => (
           <Link
             key={f.id}
-            href={
-              f.id === "todos"
-                ? `/runs/${detail.run.id}`
-                : `/runs/${detail.run.id}?agente=${f.id}`
-            }
+            href={runHref(detail.run.id, {
+              agente: f.id,
+              tab,
+              status: detail.run.status,
+            })}
             scroll={false}
             replace
             className={f.id === filter ? "filter filter-on" : "filter"}
@@ -364,20 +384,22 @@ async function RunView({
 }) {
   await connection();
   const id = Number((await params).id);
-  const filter = parseFilter((await searchParams).agente);
+  const query = await searchParams;
+  const filter = parseFilter(query.agente);
   if (!Number.isInteger(id) || id <= 0) notFound();
   const detail = await getRunDetail(getDb(), id);
   if (!detail) notFound();
-  const final = isFinal(detail.run.status as RunStatus);
+  const { run } = detail;
+  const final = isFinal(run.status as RunStatus);
+  const tab = parseTab(query.tab, run.status);
+  const section = sectionOf(detail);
+  const approving = run.status === "awaiting_final_approval";
   return (
     <>
-      <Nav title={`Run #${detail.run.id}`} />
+      <Nav title={`Run #${run.id}`} />
       <AgentCards
         cards={agentCards({
-          run: {
-            ...detail.run,
-            status: detail.run.status as RunStatus,
-          },
+          run: { ...run, status: run.status as RunStatus },
           tasks: detail.tasks,
           steps: detail.steps,
           events: detail.events,
@@ -388,16 +410,57 @@ async function RunView({
       <Summary detail={detail} />
       {!final && (
         <RunActions
-          runId={detail.run.id}
-          status={detail.run.status}
-          planRevision={detail.run.planRevision}
-          headSha={detail.run.headSha}
+          runId={run.id}
+          status={run.status}
+          planRevision={run.planRevision}
+          headSha={run.headSha}
         />
       )}
-      <Plan detail={detail} />
-      <TaskList detail={detail} />
-      <Context detail={detail} />
-      <Timeline detail={detail} filter={filter} />
+      {/* D46: tabs on mobile, two columns on desktop. */}
+      <nav className="run-tabs" aria-label="Secciones del run">
+        {TABS.map((t) => (
+          <Link
+            key={t.id}
+            href={runHref(run.id, {
+              agente: filter,
+              tab: t.id,
+              status: run.status,
+            })}
+            scroll={false}
+            replace
+            className={t.id === tab ? "run-tab run-tab-on" : "run-tab"}
+            aria-current={t.id === tab ? "page" : undefined}
+            data-testid="run-tab"
+            data-tab={t.id}
+          >
+            {t.label}
+          </Link>
+        ))}
+      </nav>
+      <div className="run-layout" data-tab={tab}>
+        <div className="run-main">
+          <div
+            className={`run-panel run-panel-preview${approving ? "" : " desktop-hidden"}`}
+          >
+            <PreviewPanel
+              headSha={run.headSha}
+              preview={detail.preview}
+              report={detail.report}
+              section={section}
+              shots={detail.screenshots}
+              awaitingApproval={approving}
+            />
+          </div>
+          <div className="run-panel run-panel-tasks stack">
+            <Plan detail={detail} />
+            {section && <TaskList detail={detail} section={section} />}
+            <Context detail={detail} />
+          </div>
+        </div>
+        <div className="run-panel run-panel-linea">
+          <Timeline detail={detail} filter={filter} tab={tab} />
+        </div>
+      </div>
     </>
   );
 }
@@ -407,7 +470,7 @@ export default function RunPage({
   searchParams,
 }: PageProps<"/runs/[id]">) {
   return (
-    <main className="page stack">
+    <main className="page page-wide stack">
       <RunPoller />
       <Suspense fallback={<p className="muted">Cargando…</p>}>
         <RunView params={params} searchParams={searchParams} />
