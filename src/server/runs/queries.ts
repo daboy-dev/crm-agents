@@ -48,6 +48,15 @@ export async function runsCreatedToday(db: Db): Promise<number> {
   return row?.n ?? 0;
 }
 
+/** Requests of the runs merged into crm-demo, for the suggestions (D48). */
+export async function doneRequests(db: Db): Promise<string[]> {
+  const rows = await db
+    .select({ request: runs.request })
+    .from(runs)
+    .where(eq(runs.status, "done"));
+  return rows.map((r) => r.request);
+}
+
 export async function getRunDetail(db: Db, runId: number) {
   const [run] = await db.select().from(runs).where(eq(runs.id, runId));
   if (!run) return null;
