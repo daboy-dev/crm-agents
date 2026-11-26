@@ -427,8 +427,8 @@ export type DevelopScope = {
    */
   requireChange?: boolean;
   /**
-   * data-testid of the task's criteria (D38): each must appear in the files
-   * Develop returns or in the files it has seen.
+   * New data-testid of the task's criteria (D38, see requiredTestIds): each
+   * must appear in the files Develop returns or in the files it has seen.
    */
   testIds?: readonly string[];
 };
