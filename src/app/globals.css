@@ -48,6 +48,13 @@ a {
   margin: 0;
 }
 
+.notice {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--link);
+  background: color-mix(in srgb, var(--link) 10%, transparent);
+}
+
 .stack {
   display: grid;
   gap: 1rem;

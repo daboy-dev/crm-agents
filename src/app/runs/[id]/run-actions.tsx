@@ -3,19 +3,28 @@
 import { useActionState } from "react";
 import { runAction, type FormState } from "../actions";
 
-type Props = { runId: number; version: number; status: string };
+type Props = {
+  runId: number;
+  status: string;
+  planRevision: number;
+  headSha: string | null;
+};
 
-function Hidden({ runId, version }: { runId: number; version: number }) {
+/** What the human sees, checked by the server before applying (D47). */
+function Hidden({ runId, status, planRevision, headSha }: Props) {
   return (
     <>
       <input type="hidden" name="runId" value={runId} />
-      <input type="hidden" name="version" value={version} />
+      <input type="hidden" name="status" value={status} />
+      <input type="hidden" name="planRevision" value={planRevision} />
+      <input type="hidden" name="headSha" value={headSha ?? ""} />
     </>
   );
 }
 
-/** Buttons for the human (D9). Each form carries the run version (D22). */
-export function RunActions({ runId, version, status }: Props) {
+/** Buttons for the human (D9). Each form carries what it approves (D47). */
+export function RunActions(props: Props) {
+  const { status } = props;
   const [state, action, pending] = useActionState<FormState, FormData>(
     runAction,
     {
@@ -32,7 +41,7 @@ export function RunActions({ runId, version, status }: Props) {
       <h2>Decisión</h2>
       {awaiting && (
         <form action={action} className="stack">
-          <Hidden runId={runId} version={version} />
+          <Hidden {...props} />
           <div className="row">
             <button
               type="submit"
@@ -72,7 +81,7 @@ export function RunActions({ runId, version, status }: Props) {
       )}
       {status === "blocked" && (
         <form action={action} className="row">
-          <Hidden runId={runId} version={version} />
+          <Hidden {...props} />
           <button
             type="submit"
             name="action"
@@ -96,7 +105,7 @@ export function RunActions({ runId, version, status }: Props) {
       )}
       {!awaiting && status !== "blocked" && (
         <form action={action} className="row">
-          <Hidden runId={runId} version={version} />
+          <Hidden {...props} />
           <button
             type="submit"
             name="action"
@@ -111,6 +120,11 @@ export function RunActions({ runId, version, status }: Props) {
             Los agentes trabajan; no hace falta hacer nada.
           </span>
         </form>
+      )}
+      {state.notice && (
+        <p className="notice" role="status" data-testid="action-notice">
+          {state.notice}
+        </p>
       )}
       {state.error && (
         <p className="error" data-testid="action-error">

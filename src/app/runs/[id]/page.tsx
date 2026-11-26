@@ -343,8 +343,9 @@ async function RunView({ params }: { params: Promise<{ id: string }> }) {
       {!final && (
         <RunActions
           runId={detail.run.id}
-          version={detail.run.version}
           status={detail.run.status}
+          planRevision={detail.run.planRevision}
+          headSha={detail.run.headSha}
         />
       )}
       <Plan detail={detail} />
