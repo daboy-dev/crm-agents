@@ -284,12 +284,6 @@ Cómo se ha construido este proyecto, sesión a sesión.
 4. Repetir un paso no vuelve a llamar a Gemini, y las llamadas cuentan en `LLM_CALLS_PER_RUN`.
 5. Modelo, tokens y latencia de cada llamada visibles en la línea de tiempo.
 
-- **Anthropic como respaldo de pago (D37):** para no parar H5 hasta el día siguiente, el humano propuso usar sus créditos de Anthropic con la interfaz común.
-  - Claude añadió `AnthropicClient`, que va detrás de Gemini en las tres cadenas ([crm-agents#3](https://github.com/daboy-dev/crm-agents/pull/3)).
-  - Claude propuso Opus; el humano eligió Sonnet, porque basta con mostrar cómo se trabaja.
-  - En el run #17 respondió las 4 llamadas reales: plan, división y las dos de Develop. La llamada grande de Develop costó unos 5 céntimos.
-- **Push de prueba a `master`:** se hizo con commits vacíos creados con `git commit-tree`, para que un fallo del ruleset no dejara nada en `master`. Ninguno quedó en una rama.
-
 **Hecho por el humano:** clave de Gemini en un proyecto de Google sin facturación y `GEMINI_API_KEY` en Vercel.
 
 **Siguiente paso:** sesión 09 de Claude Code (H4), en `crm-agents`.
@@ -413,7 +407,7 @@ Cómo se ha construido este proyecto, sesión a sesión.
    - El Orquestador dividió la tarea en 2 subtareas con los mismos criterios (revisión 2), sin pasar por el humano: `isOverdue` en `src/lib/dates.ts` y la página de facturas.
    - El run siguió solo hasta 26/26 E2E y el merge. ✅
 5. **Seguridad y repetición:**
-   - Un push directo a `master` falla por el ruleset, tanto por SSH con la cuenta del humano como por la API con el `GH_TOKEN` del panel: «Changes must be made through a pull request» (422). ✅
+   - Un push directo a `master` falla por el ruleset, tanto por SSH con la cuenta del humano como por la API con el `GH_TOKEN` del panel: «Changes must be made through a pull request» (422). Se probó con commits vacíos creados con `git commit-tree`, para que un fallo del ruleset no dejara nada en `master`; ninguno quedó en una rama. ✅
    - La reparación ante una salida que sobrescribe un archivo no visto está cubierta en Vitest. ✅
    - **Caída tras el commit** (run #17, en el mismo run que el criterio 4): el sweep reanudó el paso al caducar el lease.
      - Las salidas de Develop salieron de `agent_steps` (`cached: true`) y `llm_calls` no subió.
@@ -429,6 +423,10 @@ Cómo se ha construido este proyecto, sesión a sesión.
   - `gemini-3.8-flash` y `gemini-3.6-flash` agotaron su cuota diaria (eval y runs #13–#16).
   - `gemini-3.5-flash-lite` respondió 503 durante más de una hora. Se reprodujo en local con la petición exacta del run #16 y también con una mínima, así que el fallo está en Google y no en la petición.
   - Groq no puede ser respaldo de Develop con su capa gratuita (extra de D36).
+- **Anthropic como respaldo de pago (D37):** para no parar H5 hasta el día siguiente, el humano propuso usar sus créditos de Anthropic con la interfaz común.
+  - Claude añadió `AnthropicClient`, que va detrás de Gemini en las tres cadenas ([crm-agents#3](https://github.com/daboy-dev/crm-agents/pull/3)).
+  - Claude propuso Opus; el humano eligió Sonnet, porque basta con mostrar cómo se trabaja.
+  - En el run #17 respondió las 4 llamadas reales: plan, división y las dos de Develop. La llamada grande de Develop costó unos 5 céntimos.
 - **Sweep con la pestaña oculta (D22):** con el panel en segundo plano, el run #15 estuvo 13 minutos con el lease caducado. En el #16 los reintentos de 90 s se separaron hasta 15 minutos. Es la limitación conocida de D22; no se cambia en H5.
 - **Ruido en la línea de tiempo:** cada reintento por saturación registra otra vez «lee 8 archivos». Pendiente: registrar el contexto solo cuando cambia.
 - **Eval de `facturas-vencidas`:** la primera ejecución falló en `tsc` (`TS7053` en `status-badge.tsx`) y pasó al repetirla. El JSON guardado es el de la segunda; el fallo queda anotado aquí.
@@ -689,6 +687,6 @@ Cómo se ha construido este proyecto, sesión a sesión.
 - Una de las cinco peticiones aprobadas ya existía. Por eso se comprueban contra `master` antes de añadirlas, y se sustituyó por otra que cubre lo mismo (la migración).
 - La tabla de hitos seguía con H7 como «Pendiente». Se corrigió al cerrar H8.
 
-**Resultado:** H8 hecho. Criterios 1 a 6 comprobados; el 5 en producción con el run #27.
+**Resultado:** H8 hecho. Criterios 1 a 6 comprobados; el 5 en producción con el run #27. Transcripción en [`sesiones/17-h8-entrega.md`](./sesiones/17-h8-entrega.md).
 
-**Pendiente del humano:** límite de gasto en la Console de Anthropic, whiteboard con H5–H8, las 4 preguntas cortas de la página de entrega y la transcripción de esta sesión en `docs/sesiones/17-h8-entrega.md`.
+**Pendiente del humano:** límite de gasto en la Console de Anthropic, Whiteboard con H5–H8 y las 4 preguntas cortas de la página de entrega.

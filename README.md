@@ -5,7 +5,7 @@ Prueba técnica para Speed Paradigm: tres agentes de IA (**Orquestador**, **Deve
 - **Panel (este repo):** <https://crm-agents.vercel.app>. Contiene el motor de runs, los agentes y la UI.
 - **CRM que modifican:** [`crm-demo`](https://github.com/daboy-dev/crm-demo), en producción en <https://crm-demo-daboy-dev.vercel.app>.
 
-El usuario de prueba está en la página de entrega. No hay credenciales en el repo.
+Las credenciales del usuario de prueba se entregan aparte. No están en el repo.
 
 ## Cómo probarlo
 
@@ -13,10 +13,14 @@ El usuario de prueba está en la página de entrega. No hay credenciales en el r
 2. Elige una de las **peticiones sugeridas** (rellenan el campo, no lo envían) o escribe la tuya, y envíala.
 3. El **Orquestador** propone un plan con tareas y criterios de aceptación. **Apruébalo**, o devuélvelo con comentarios y lo rehace.
 4. **Develop** escribe el código en la rama `run/<id>` de `crm-demo`, un commit por tarea, y abre un PR. Vercel crea una vista previa con su propia base de datos.
-5. **Testing** comprueba cada criterio en esa vista previa con Playwright. Si alguno falla, explica el fallo a Develop, que lo corrige (hasta 3 iteraciones por tarea).
+5. **Testing** comprueba cada criterio en esa vista previa con Playwright. Si alguno falla, explica el fallo a Develop, que lo corrige. Si una tarea no pasa en 3 iteraciones, se bloquea y decides tú: reintentar o abandonar.
 6. Revisa la vista previa y las capturas a 1280 y 390 px, y **aprueba el merge**. El cambio llega a producción de `crm-demo` (D50).
 
 Un run tarda unos minutos, sobre todo por los builds de Vercel. La página se actualiza sola. La última sugerencia, «Desactivar los tests», está fuera de alcance: sirve para ver cómo el Orquestador rechaza una petición sin crear rama.
+
+**Deja abierta una página del panel (`/runs` o la del run) mientras trabaja.** No hay cron, porque Vercel Hobby solo lo ejecuta una vez al día. El run avanza con los webhooks de GitHub, y la página abierta retoma los pasos que se quedan a medias. Con la pestaña cerrada o en segundo plano, un run puede quedarse parado. Al volver a abrirla, sigue solo.
+
+Para ver el bucle entre Develop y Testing sin esperar a que un modelo se equivoque, abre **Opciones avanzadas** en el formulario y marca «Simular fallo de criterio». El panel rompe un `data-testid` en la primera entrega de Develop, Testing explica el fallo y Develop lo corrige en la iteración siguiente.
 
 ## Cómo funciona
 
@@ -38,7 +42,7 @@ flowchart LR
 ```
 
 - **Máquina de estados en la base de datos (D21, D22).** Las funciones de Vercel duran como mucho 300 s, así que ningún paso espera a un build. Cada run es una fila con su estado, y avanza con los webhooks de GitHub (D4, D17) y con un `sweep()` que se ejecuta mientras el panel de un run está abierto, sin cron. Cada paso usa compare-and-swap con *lease*, así que repetirlo no duplica nada.
-- **Un PR por run y un commit por tarea (D20).** Develop no tiene acceso al sistema de archivos. Escribe con la Git Data API, y `pr-check.yml` le devuelve los errores de tipos y lint y genera la migración si cambia el esquema (D31, D33). Las tareas demasiado grandes se dividen (D34).
+- **Un PR por run y un commit por tarea (D20).** Develop no ejecuta nada: devuelve archivos completos y el panel hace los commits con la Git Data API. `pr-check.yml` le devuelve los errores de tipos y lint, y genera la migración si cambia el esquema (D31, D33). Las tareas demasiado grandes se dividen (D34).
 - **Testing no decide el veredicto (D38, D39).** El LLM escribe pasos declarativos por criterio. Un ejecutor fijo de `crm-demo` los lanza, y el resultado de Playwright es el veredicto. Los JSON de cada run fusionado quedan como regresión.
 - **El humano aprueba en dos puntos (D9, D47):** el plan y la vista previa final. Cada acción envía exactamente lo que aprueba (revisión del plan o sha), así que no se puede aprobar algo que cambió mientras se miraba.
 - **Un solo run activo a la vez y una cola (D11, D23).** Así se respetan las 10 ramas de Neon del plan gratuito.
@@ -47,13 +51,13 @@ flowchart LR
 
 Cada agente usa una cadena de `proveedor:modelo` (D36). Si un eslabón agota su cuota o no puede con la petición, se pasa al siguiente. Las salidas se validan con Zod y, si no cumplen el contrato, hay una llamada de reparación.
 
-| Agente | Cadena gratuita (H4–H6, por defecto) | Cadena de la entrega (D49) |
+| Agente | Cadena por defecto (gratuita, con Claude de respaldo) | Cadena de la entrega (D49) |
 |---|---|---|
 | Orquestador | Gemini Flash → Claude → Groq | **Claude Sonnet** → Gemini → Groq |
 | Develop | Gemini Flash → Claude | **Claude Sonnet** → Gemini |
 | Testing | Gemini Flash → Groq → Claude | **Claude Sonnet** → Gemini → Groq |
 
-El sistema se construyó y se comprobó con la capa gratuita de Gemini y Groq, y Claude solo como respaldo de pago (D37). Para la entrega, Claude va el primero, por fiabilidad: el día de la prueba, los modelos gratuitos llegaron a estar agotados o saturados durante un run entero (run #25, sesión 15). Volver a la cadena gratuita no requiere código: basta con quitar las variables `LLM_CHAIN_*` en Vercel. El panel marca como «respaldo» cualquier llamada que no haya usado el primer modelo de la cadena.
+El sistema se construyó y se comprobó con la capa gratuita de Gemini y Groq, y Claude solo como respaldo de pago (D37). Para la entrega, Claude va el primero, por fiabilidad: durante el desarrollo, los modelos gratuitos llegaron a estar agotados o saturados durante un run entero (run #25, sesión 15). Volver a la cadena gratuita no requiere código: basta con quitar las variables `LLM_CHAIN_*` en Vercel. El panel marca como «respaldo» cualquier llamada que no haya usado el primer modelo de la cadena.
 
 Las evaluaciones de los prompts con la cadena gratuita están en [`docs/evals/`](./docs/evals).
 
@@ -65,6 +69,8 @@ Las evaluaciones de los prompts con la cadena gratuita están en [`docs/evals/`]
 - **Solo criterios comprobables en el DOM (D39).** El aspecto visual lo revisa el humano con las capturas en la aprobación final.
 - **Alcance de Develop (D16, D31, D38):** no puede tocar los workflows, las migraciones (las genera `pr-check`), la configuración de build, lint y tests, las dependencias ni el ejecutor de criterios.
 - **Las capturas** se guardan en Vercel Blob privado y solo se ven tras el login.
+- **Runs que esperan aprobación:** se cancelan solos a las 24 h, para no bloquear la cola (D23).
+- **Sin cron:** retomar un paso que se ha quedado a medias necesita una página del panel abierta (D22).
 
 ## Cómo se construyó
 

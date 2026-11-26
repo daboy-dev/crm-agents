@@ -107,6 +107,8 @@ Registro de decisiones de arquitectura (formato ADR corto). Se toman en el Proje
 - Límite de runs al día.
 - Ninguna clave en el repo: solo un `.env.example`.
 
+**Extra (26/11/2026, sesión 18):** la infraestructura sigue en planes gratuitos (Vercel Hobby, Neon, Blob y Actions), pero los LLM ya no del todo. Anthropic entra como respaldo de pago en H5 (D37) y va el primero en las tres cadenas para la entrega (D49). Para volver a la cadena gratuita (Gemini y Groq) basta con quitar las `LLM_CHAIN_*`.
+
 ## D11 · Limpieza de ramas de Neon y un solo run activo
 **Fecha:** 23/11/2026 · **Estado:** aceptada
 
