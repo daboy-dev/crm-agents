@@ -312,6 +312,50 @@ select {
   margin: 0.25rem 0;
 }
 
+/* --- Timeline (D44) --- */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.filter {
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--foreground) 20%, transparent);
+  font-size: 0.85rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.filter-on {
+  background: var(--foreground);
+  color: var(--background);
+  border-color: var(--foreground);
+}
+
+.timeline li.timeline-round {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-top: 1px solid color-mix(in srgb, var(--foreground) 20%, transparent);
+  padding-top: 0.4rem;
+  margin-top: 0.3rem;
+  color: color-mix(in srgb, var(--foreground) 60%, transparent);
+}
+
+.timeline li.timeline-retries {
+  display: block;
+  color: #b06000;
+}
+
+.timeline-retries .timeline {
+  margin-left: 1rem;
+  color: var(--foreground);
+}
+
 .timeline li {
   display: grid;
   grid-template-columns: auto auto 1fr;
@@ -447,8 +491,84 @@ select {
 }
 
 .criteria {
-  margin: 0.25rem 0;
-  padding-left: 1.1rem;
+  margin: 0.4rem 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.4rem;
+}
+
+/* --- Tasks and criteria (D43) --- */
+.criterion {
+  border-left: 3px solid color-mix(in srgb, var(--foreground) 15%, transparent);
+  padding-left: 0.6rem;
+  min-width: 0;
+}
+
+.criterion[data-outcome="pass"] {
+  border-left-color: #137333;
+}
+
+.criterion[data-outcome="fail"] {
+  border-left-color: #c5221f;
+}
+
+.task-list .criterion p {
+  margin: 0.15rem 0;
+}
+
+.criterion-head {
+  display: flex;
+  gap: 0.4rem;
+  align-items: baseline;
+}
+
+.criterion-head code {
+  flex: none;
+  overflow-wrap: normal;
+}
+
+.criterion-text {
+  overflow-wrap: anywhere;
+}
+
+.criterion-results {
+  gap: 0.3rem;
+}
+
+.criterion-failure {
+  font-size: 0.875rem;
+}
+
+.criterion-steps,
+.criterion-steps summary {
+  font-size: 0.8rem;
+}
+
+.criterion-steps ol {
+  margin: 0.2rem 0 0;
+  padding-left: 1.4rem;
+}
+
+.task-split > .task-list {
+  margin-left: 0.75rem;
+}
+
+.feedback {
+  white-space: pre-wrap;
+  font-size: 0.75rem;
+  max-height: 16rem;
+  overflow: auto;
+}
+
+.regression summary {
+  font-weight: 600;
+}
+
+.regression ul {
+  margin: 0.4rem 0 0;
+  padding-left: 1rem;
+  font-size: 0.875rem;
   display: grid;
   gap: 0.25rem;
 }
@@ -473,6 +593,7 @@ select {
 
 .files code[data-outside] {
   outline: 1px dashed #b06000;
+  color: #b06000;
 }
 
 .calls {
