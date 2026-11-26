@@ -23,8 +23,8 @@ export type AgentCard = {
   detail: string | null;
   /** Model of the agent's last call ("provider:model"). */
   model: string | null;
-  /** The model is the paid backup (D37). */
-  paid: boolean;
+  /** The model is not the head of the agent's chain: a backup (D36, D49). */
+  fallback: boolean;
   /** Since when the active card is in its state. */
   since: Date | null;
   /** Why the step is postponed: saturation or a per-minute limit. */
@@ -77,6 +77,8 @@ export type CardInput = {
   events: CardEvent[];
   /** Deploy state of the head's preview, if any. */
   deployState?: string | null;
+  /** First link of each agent's chain ("provider:model"), from chainFor. */
+  chainHeads?: Partial<Record<string, string>>;
 };
 
 /** Testing's steps for a revision (D38); same scope as the engine. */
@@ -429,6 +431,13 @@ function draftCards(input: CardInput): Record<CardAgent, Draft> {
   }
 }
 
+/** A real model that is not the head of the chain; never the mock. */
+const isFallback = (model: string | null, head: string | undefined) =>
+  model !== null &&
+  head !== undefined &&
+  !model.startsWith("mock") &&
+  model !== head;
+
 export function agentCards(input: CardInput): AgentCard[] {
   const drafts = draftCards(input);
   const postponed = postponement(input);
@@ -443,7 +452,7 @@ export function agentCards(input: CardInput): AgentCard[] {
       label: d.label,
       detail: d.detail ?? null,
       model,
-      paid: model?.startsWith("anthropic:") ?? false,
+      fallback: isFallback(model, input.chainHeads?.[agent]),
       since: active ? (d.since ?? input.run.statusChangedAt) : null,
       postponed: active && agent !== "human" ? postponed : null,
     };

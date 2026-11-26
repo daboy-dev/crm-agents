@@ -13,31 +13,48 @@ const chains = [
   { agent: "testing" as const, links: testing },
 ];
 
-describe("quotaStatus (D48)", () => {
-  it("nothing exhausted: Gemini first, nothing paid", () => {
+describe("quotaStatus (D48, D49)", () => {
+  it("nothing exhausted: the head of each chain, no fallback", () => {
     const got = quotaStatus(chains, new Set());
-    expect(got.map((q) => [q.next, q.paid, q.geminiExhausted])).toEqual([
-      ["gemini:gemini-3.8-flash", false, false],
-      ["gemini:gemini-3.8-flash", false, false],
+    expect(got.map((q) => [q.next, q.head, q.fallback])).toEqual([
+      ["gemini:gemini-3.8-flash", "gemini:gemini-3.8-flash", false],
+      ["gemini:gemini-3.8-flash", "gemini:gemini-3.8-flash", false],
     ]);
   });
 
-  it("every Gemini link exhausted: Develop pays, Testing goes to Groq", () => {
+  it("every Gemini link exhausted: both chains fall back", () => {
     const got = quotaStatus(
       chains,
       new Set(["gemini:gemini-3.8-flash", "gemini:gemini-3.6-flash"]),
     );
-    expect(got.map((q) => [q.agent, q.next, q.paid])).toEqual([
+    expect(got.map((q) => [q.agent, q.next, q.fallback])).toEqual([
       ["develop", "anthropic:claude-sonnet-5-5", true],
-      ["testing", "groq:openai/gpt-oss-120b", false],
+      ["testing", "groq:openai/gpt-oss-120b", true],
     ]);
-    expect(got.every((q) => q.geminiExhausted)).toBe(true);
+  });
+
+  it("Claude first (D49): an exhausted Gemini behind it changes nothing", () => {
+    const delivery = parseChain(
+      "anthropic:claude-sonnet-5-5,gemini:gemini-3.8-flash",
+    );
+    const [got] = quotaStatus(
+      [{ agent: "develop", links: delivery }],
+      new Set(["gemini:gemini-3.8-flash"]),
+    );
+    expect(got).toMatchObject({
+      next: "anthropic:claude-sonnet-5-5",
+      fallback: false,
+    });
   });
 
   it("every link exhausted: no next link", () => {
     const all = new Set(
       [...develop, ...testing].map((l) => `${l.provider}:${l.model}`),
     );
-    expect(quotaStatus(chains, all).map((q) => q.next)).toEqual([null, null]);
+    const got = quotaStatus(chains, all);
+    expect(got.map((q) => [q.next, q.fallback])).toEqual([
+      [null, false],
+      [null, false],
+    ]);
   });
 });

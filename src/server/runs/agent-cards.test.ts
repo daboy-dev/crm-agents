@@ -318,9 +318,13 @@ describe("agentCards (D42)", () => {
     expect(got.filter((c) => c.active).length).toBeLessThanOrEqual(1);
   });
 
-  it("shows the last model of each agent and marks the paid backup", () => {
+  it("shows the last model of each agent and marks a backup link", () => {
     const got = agentCards(
       input(run("developing"), {
+        chainHeads: {
+          develop: "gemini:gemini-3-flash",
+          testing: "groq:llama",
+        },
         tasks: developingTasks(),
         steps: [
           testingSteps(1, "groq:llama"),
@@ -336,10 +340,27 @@ describe("agentCards (D42)", () => {
     const develop = got.find((c) => c.agent === "develop")!;
     const testing = got.find((c) => c.agent === "testing")!;
     expect(develop.model).toBe("anthropic:claude-sonnet");
-    expect(develop.paid).toBe(true);
+    expect(develop.fallback).toBe(true);
     expect(testing.model).toBe("groq:llama");
-    expect(testing.paid).toBe(false);
+    expect(testing.fallback).toBe(false);
     expect(got.find((c) => c.agent === "human")!.model).toBeNull();
+  });
+
+  it("Claude at the head of the chain (D49) is not a backup", () => {
+    const got = agentCards(
+      input(run("developing"), {
+        tasks: developingTasks(),
+        chainHeads: { develop: "anthropic:claude-sonnet" },
+        steps: [
+          step({
+            taskId: 1,
+            model: "anthropic:claude-sonnet",
+            createdAt: at(2),
+          }),
+        ],
+      }),
+    );
+    expect(got.find((c) => c.agent === "develop")!.fallback).toBe(false);
   });
 
   it("the active card counts from its last progress", () => {
