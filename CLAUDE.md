@@ -72,4 +72,5 @@ Ver `.env.example`. En Vercel y en `.env.local` (`vercel env pull`): `DATABASE_U
 - H4 hecho (24/11/2026): el Orquestador planifica con Gemini (contexto de `crm-demo`, plan de D28, replanificación de D29 y rechazo fuera de alcance). Develop y Testing siguen con el mock. Los 5 criterios están comprobados en producción.
 - H5 hecho (25/11/2026): Develop escribe código real con la cadena Gemini → Anthropic (D37). `pr-check` genera la migración y devuelve los errores de tipos y lint; las tareas demasiado grandes se dividen. Los 6 criterios están comprobados en producción.
 - H6 hecho (26/11/2026): Testing escribe los pasos de cada criterio `e2e` con su cadena (Gemini → Groq → Anthropic), que ejecuta `e2e/criteria.spec.ts` de `crm-demo`, y explica los fallos a Develop. Los JSON fusionados quedan como regresión. Criterios 1 a 5 comprobados en producción; el 6 en Vitest y en parte en producción.
-- Siguiente: H7 · panel completo.
+- H7 hecho (26/11/2026): panel completo con tarjetas por agente, tareas y criterios en los dos tamaños, línea de tiempo filtrable, vista previa, pestañas en móvil, aprobaciones por precondición (D47) y portada para los evaluadores (D42–D48). E2E del panel en Playwright contra la rama `e2e` de Neon. Criterios 1 a 4 comprobados en producción.
+- Siguiente: H8 · entrega.

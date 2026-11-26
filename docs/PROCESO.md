@@ -620,7 +620,7 @@ Cómo se ha construido este proyecto, sesión a sesión.
    - 3 tareas; la 2 falló el criterio c3 en la iteración 1, Testing lo explicó y pasó en la 2. Informe final: 58 tests y 4 de 4 criterios en verde.
    - La columna `type` está en `master` de `crm-demo`. ✅
 2. **El mismo run en escritorio:** dos columnas, filtro, criterios en los dos tamaños y regresión (22 resultados de runs anteriores). La línea de tiempo se salía de su columna; se corrigió en [crm-agents#15](https://github.com/daboy-dev/crm-agents/pull/15) y el humano lo comprobó. ✅
-3. **Aprobaciones con la versión vieja:** pendiente.
+3. **Aprobaciones con la versión vieja** (run #26, presupuestos del cliente): con el plan abierto en dos pestañas, el humano aprobó en una y la otra respondió «Ya estaba aprobado». En la línea de tiempo hay un solo evento «Plan aprobado». El run se canceló justo después, así que la petición sigue libre para los revisores. ✅
 4. **Línea de tiempo sin ruido:** con 11 reintentos reales por límite por minuto y 2 bloqueos, «lee N archivos» quedó registrado una sola vez por tarea e iteración, y los reintentos salen agrupados. ✅
 5. **Portada:** sugerencias que rellenan el formulario, «ya fusionada», runs que quedan hoy y posición en la cola, comprobados en el E2E. En producción, el run #25 acabó en `done` con el texto exacto de la sugerencia, que es lo que la marca. ✅ (E2E y en parte en producción)
 6. **Pruebas automáticas:** Vitest (443 tests) y el E2E del panel, 17 de 17. ✅
@@ -642,3 +642,7 @@ Cómo se ha construido este proyecto, sesión a sesión.
 - Rama `e2e` de Neon y `.env.e2e`.
 - `LLM_CHAIN_ORCHESTRATOR`, `LLM_CHAIN_DEVELOP`, `LLM_CHAIN_TESTING` (Claude primero) y `LLM_CALLS_PER_RUN=24` en Vercel, y redespliegue.
 - El run #25 desde el móvil, reintentos y aprobaciones, y los merges de [crm-agents#13](https://github.com/daboy-dev/crm-agents/pull/13), [#14](https://github.com/daboy-dev/crm-agents/pull/14), [#15](https://github.com/daboy-dev/crm-agents/pull/15) y [crm-demo#28](https://github.com/daboy-dev/crm-demo/pull/28).
+
+**Resultado:** H7 hecho. Los criterios 1 a 4 están comprobados en producción, el 5 en el E2E y en parte en producción, y el 6 en Vitest y en el E2E.
+
+**Siguiente paso:** H8 · entrega: lista final de peticiones para los evaluadores en `demo-requests.ts`, decidir si pueden fusionar, volver a la cadena gratuita o dejar Claude primero, y README.
