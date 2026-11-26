@@ -12,7 +12,7 @@ Decisiones: `docs/DECISIONES.md` · Proceso e hitos: `docs/PROCESO.md`.
 - Next.js (App Router) + TypeScript estricto, desplegado en Vercel Hobby.
 - Neon (Postgres) con Drizzle ORM y el driver serverless de Neon. Proyecto de Neon propio, distinto del de `crm-demo`.
 - LLM: interfaz `LLMProvider`, elegida por agente: `ChainProvider` con una cadena de eslabones Gemini (`@google/genai`), Groq y Anthropic (D36, D37, D40), o `MockProvider`. Salidas validadas con Zod.
-- Tests: Vitest (dominio) y Playwright (E2E del panel). CI en GitHub Actions.
+- Tests: Vitest (dominio) y Playwright (E2E del panel, en local contra la rama `e2e` de Neon). CI en GitHub Actions.
 
 ## Restricciones importantes
 - Las funciones de Vercel duran como máximo 300 s: ningún paso espera en vivo a un build. Los runs son una máquina de estados en la base de datos que avanza con webhooks de GitHub.
@@ -33,17 +33,18 @@ Decisiones: `docs/DECISIONES.md` · Proceso e hitos: `docs/PROCESO.md`.
 ## Estructura
 - `src/app`: UI y rutas API.
   - `/login` (sesión HMAC, D19; lleva a `/runs`) y `/pipeline` (PRs de `crm-demo`, vista previa, tests y capturas; polling cada 5 s, vista de depuración).
-  - `/runs` (petición nueva con sus simulaciones, activo, cola y terminados) y `/runs/[id]` (decisión, tareas con sus `data-testid` y línea de tiempo con los pasos de Testing y el resultado de cada criterio). Su polling llama a `sweep()` (D22) y solo corre con la pestaña visible.
+  - `/runs` (portada de D48: introducción, peticiones sugeridas de `demo-requests.ts`, simulaciones plegadas, runs que quedan hoy, aviso de cuota y posición en la cola) y `/runs/[id]` (tarjetas por agente de D42, barra de acción del humano, tareas y criterios de D43, línea de tiempo filtrable de D44 y vista previa de D45; pestañas en móvil y dos columnas en escritorio, D46). Las acciones del humano envían lo que aprueban (D47). Su polling llama a `sweep()` (D22) y solo corre con la pestaña visible.
   - `/api/health`, `/api/webhooks/github` (D17) y `/api/screenshots/[id]` (D18).
 - `src/proxy.ts`: protege todo salvo `/login`, `/api/health` y `/api/webhooks/github`.
 - `src/server/auth.ts` (copia de `crm-demo`) y `src/server/session.ts`.
 - `src/server/db`: esquema y cliente de Drizzle. Migraciones en `drizzle/`.
 - `src/server/github`: firma de webhooks, registro idempotente de eventos, cliente de artifacts y configuración (`DEMO_REPO`, `preview-e2e.yml`).
 - `src/server/pipeline`: clasificación de eventos, upserts de `previews`, lectura del artifact (con los resultados de cada criterio y la prueba del fallo, D38), informes y capturas en Blob, resultados de `pr-check` en `pr_checks` (`checks.ts`, D33), consultas de `/pipeline` y reprocesado.
-- `src/server/runs`: `machine.ts` (transiciones puras, D21; `awaiting_check` y la división de D34), `store.ts` (CAS en una sentencia con CTE y lease, D22), `cache.ts` (salidas de `agent_steps` y cuenta de llamadas), `engine.ts` (pasos, una llamada de Develop por invocación de D35, espera a `pr-check`, división, efectos, cola, limpieza y `sweep()`), `commits.ts` (archivos normalizados, tareas sin cambios de D34 y simulación de fallo de criterio de D40), `format.ts` (Prettier sobre lo que escribe Develop, D41), `criteria.ts` (JSON de `e2e/criteria/run-<id>.json`, revisiones vigentes, veredicto del ejecutor y feedback para Develop, D38 y D39), `notify.ts` (eventos de GitHub → run por sha o por rama `run/<id>`), `queries.ts` y `limits.ts`.
+- `src/server/runs`: `agent-cards.ts` (D42), `task-view.ts` (D43), `timeline.ts` (D44), `human.ts` (precondiciones de D47), `demo-requests.ts` (D48), `machine.ts` (transiciones puras, D21; `awaiting_check` y la división de D34), `store.ts` (CAS en una sentencia con CTE y lease, D22), `cache.ts` (salidas de `agent_steps` y cuenta de llamadas), `engine.ts` (pasos, una llamada de Develop por invocación de D35, espera a `pr-check`, división, efectos, cola, limpieza y `sweep()`), `commits.ts` (archivos normalizados, tareas sin cambios de D34 y simulación de fallo de criterio de D40), `format.ts` (Prettier sobre lo que escribe Develop, D41), `criteria.ts` (JSON de `e2e/criteria/run-<id>.json`, revisiones vigentes, veredicto del ejecutor y feedback para Develop, D38 y D39), `notify.ts` (eventos de GitHub → run por sha o por rama `run/<id>`), `queries.ts` y `limits.ts`.
 - `src/server/agents`: contratos Zod (`contracts.ts`: plan de D28 con `references` y `testIds` por criterio, división y salida de Develop de D34, pasos y explicación de Testing de D38 y D39), `data-testid` en el código y simulación (`test-ids.ts`), llamadas a los agentes (`index.ts`), contexto del Orquestador (`context.ts`, D27) y de Develop (`develop-context.ts`, D32), prompts (`prompts/`: orquestador, división, Develop, Testing y el mapa de `data-testid` de `crm-demo` en `app-map.ts`) y rutas prohibidas para Develop (`paths.ts`, D16, D31 y D38).
-- `src/server/llm`: `LLMProvider` y sus errores (`provider.ts`), `MockProvider` con escenarios (D24), `ChainProvider` con la cadena por agente, ajustes por agente y reparación (`chain.ts`, D36), eslabones `GeminiClient` (`gemini.ts`, D26), `AnthropicClient` (`anthropic.ts`, D37) y `GroqClient` (`groq.ts`), eslabones agotados en `app_meta` (`quota.ts`), proveedor por agente y `getProvider()` (`index.ts`). Respuestas en `fixtures/gemini/`, `fixtures/anthropic/` y `fixtures/groq/`.
+- `src/server/llm`: `LLMProvider` y sus errores (`provider.ts`), `MockProvider` con escenarios (D24), `ChainProvider` con la cadena por agente, ajustes por agente y reparación (`chain.ts`, D36), eslabones `GeminiClient` (`gemini.ts`, D26), `AnthropicClient` (`anthropic.ts`, D37) y `GroqClient` (`groq.ts`), eslabones agotados en `app_meta` (`quota.ts`) y adónde va la próxima llamada de cada agente (`quota-status.ts`, D48), proveedor por agente y `getProvider()` (`index.ts`). Respuestas en `fixtures/gemini/`, `fixtures/anthropic/` y `fixtures/groq/`.
 - `src/server/github/repo.ts`: Git Data API y PRs de `crm-demo` (ramas `run/<id>`, merge squash fijado al sha).
+- `e2e/`: Playwright del panel (H7) a 1280 y 390 px. `env.ts` (rama de Neon y guarda contra producción), `seed.ts` (runs de ejemplo en los estados que esperan al humano) y `panel.spec.ts`.
 - Next.js 16: la doc de la versión instalada está en `node_modules/next/dist/docs/` (ver `AGENTS.md`). `cacheComponents` está activo: los route handlers que deban ejecutarse en cada petición llaman a `connection()`, y los componentes que leen la base de datos van dentro de `<Suspense>`.
 
 ## Variables
@@ -58,6 +59,8 @@ Ver `.env.example`. En Vercel y en `.env.local` (`vercel env pull`): `DATABASE_U
 - `pnpm test` · Vitest (`src/**/*.test.ts`). Nada llama a Gemini.
 - `pnpm eval:plan` · a mano: las 4 peticiones de D14 contra Gemini → `docs/evals/` (gasta cuota; `EVAL_FORCE=1` repite las ya hechas).
 - `pnpm eval:testing` · a mano: las 4 peticiones de H6 (extra de D14), plan y pasos de Testing → `docs/evals/TESTING.md` (gasta cuota; `EVAL_FORCE=1`, `EVAL_ONLY=<slug>` y `EVAL_TAG=groq` con `LLM_CHAIN_TESTING`).
+- `pnpm e2e` · Playwright del panel: arranca `next dev` en el puerto 3100 contra `E2E_DATABASE_URL` de `.env.e2e`, con el mock y sin claves de GitHub ni de LLM.
+- `pnpm e2e:migrate` · aplica las migraciones a la rama `e2e` de Neon.
 - `pnpm db:generate` · genera una migración a partir de `src/server/db/schema.ts`.
 - `pnpm db:migrate` · aplica las migraciones (lee `DATABASE_URL` de `.env.local` o `.env`).
 
@@ -68,4 +71,5 @@ Ver `.env.example`. En Vercel y en `.env.local` (`vercel env pull`): `DATABASE_U
 - H3 hecho (24/11/2026): runs con `MockProvider` sobre GitHub real (rama `run/<id>`, un commit por tarea, PR, vista previa, E2E y merge), con cola, lease, sweep y los 6 criterios comprobados en producción.
 - H4 hecho (24/11/2026): el Orquestador planifica con Gemini (contexto de `crm-demo`, plan de D28, replanificación de D29 y rechazo fuera de alcance). Develop y Testing siguen con el mock. Los 5 criterios están comprobados en producción.
 - H5 hecho (25/11/2026): Develop escribe código real con la cadena Gemini → Anthropic (D37). `pr-check` genera la migración y devuelve los errores de tipos y lint; las tareas demasiado grandes se dividen. Los 6 criterios están comprobados en producción.
-- Siguiente: H6 · Testing con un modelo real.
+- H6 hecho (26/11/2026): Testing escribe los pasos de cada criterio `e2e` con su cadena (Gemini → Groq → Anthropic), que ejecuta `e2e/criteria.spec.ts` de `crm-demo`, y explica los fallos a Develop. Los JSON fusionados quedan como regresión. Criterios 1 a 5 comprobados en producción; el 6 en Vitest y en parte en producción.
+- Siguiente: H7 · panel completo.

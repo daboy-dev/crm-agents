@@ -9,13 +9,7 @@ import { runProviders } from "@/server/llm";
 import { DEMO_REPO, runBranch } from "@/server/github/config";
 import { isFinal, type RunStatus } from "@/server/runs/machine";
 import { getRunDetail, type RunDetail } from "@/server/runs/queries";
-import {
-  ACTOR,
-  RUN_STATUS,
-  SCENARIO,
-  statusTone,
-  TASK_STATUS,
-} from "../labels";
+import { ACTOR, RUN_STATUS, SCENARIO, statusTone } from "../labels";
 import { RunPoller } from "../run-poller";
 import {
   Calls,
@@ -24,7 +18,19 @@ import {
   EventDetails,
   type ContextData,
 } from "./event-details";
+import { agentCards } from "@/server/runs/agent-cards";
+import { AgentCards } from "./agent-cards";
 import { RunActions } from "./run-actions";
+import { Tasks } from "./tasks";
+import { taskSection, type TaskSection } from "@/server/runs/task-view";
+import { PreviewPanel } from "./preview-panel";
+import { parseTab, runHref, TABS, type TabId } from "./view-params";
+import {
+  FILTERS,
+  parseFilter,
+  timelineItems,
+  type FilterId,
+} from "@/server/runs/timeline";
 
 export const metadata: Metadata = { title: "Run · crm-agents" };
 
@@ -40,11 +46,6 @@ const commitUrl = (sha: string) =>
 
 const fileUrl = (sha: string, path: string) =>
   `https://github.com/${DEMO_REPO}/blob/${sha}/${path}`;
-
-const CRITERION_TYPE: Record<string, string> = {
-  e2e: "E2E",
-  visual: "Visual",
-};
 
 /** Last files Develop read for each task (D32). */
 function lastContexts(detail: RunDetail): Map<number, ContextData> {
@@ -151,7 +152,6 @@ function Summary({ detail }: { detail: RunDetail }) {
 
 function Plan({ detail }: { detail: RunDetail }) {
   const { run, tasks } = detail;
-  const contexts = lastContexts(detail);
   if (run.status === "planning") {
     // The stored summary still belongs to the previous revision.
     return (
@@ -179,96 +179,64 @@ function Plan({ detail }: { detail: RunDetail }) {
           </ul>
         </div>
       )}
-      {tasks.length > 0 && (
-        <ol className="task-list" data-testid="run-tasks">
-          {tasks.map((t) => (
-            <li
-              key={t.id}
-              data-testid="task"
-              data-status={t.status}
-              data-iteration={t.iteration}
-            >
-              <p className="row">
-                <strong>
-                  {t.position}. {t.title}
-                </strong>
-                <span className={`badge badge-${statusTone(t.status)}`}>
-                  {TASK_STATUS[t.status] ?? t.status}
-                </span>
-                <span className="muted">
-                  iteración {t.iteration} de {t.maxIterations}
-                </span>
-                {t.commitSha && (
-                  <a
-                    href={commitUrl(t.commitSha)}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <code>{t.commitSha.slice(0, 7)}</code>
-                  </a>
-                )}
-              </p>
-              {t.splitFrom !== null && (
-                <p className="muted" data-testid="task-split-from">
-                  Subtarea: sale de dividir una tarea cuya respuesta no cabía.
-                </p>
-              )}
-              <p className="muted">{t.description}</p>
-              {t.files.length > 0 && (
-                <p className="files" data-testid="task-files">
-                  {t.files.map((f) => (
-                    <code key={f}>{f}</code>
-                  ))}
-                </p>
-              )}
-              {t.references.length > 0 && (
-                <p className="files" data-testid="task-references">
-                  <span className="muted">Referencias:</span>
-                  {t.references.map((f) => (
-                    <code key={f}>{f}</code>
-                  ))}
-                </p>
-              )}
-              {contexts.has(t.id) && (
-                <details>
-                  <summary>
-                    Archivos leídos por Develop (
-                    {contexts.get(t.id)!.files.length})
-                  </summary>
-                  <ContextFiles context={contexts.get(t.id)!} />
-                </details>
-              )}
-              <ul className="criteria">
-                {t.acceptanceCriteria.map((c) => (
-                  <li key={c.id} data-testid="criterion" data-type={c.type}>
-                    <span
-                      className={`badge badge-${c.type === "e2e" ? "info" : "neutral"}`}
-                    >
-                      {c.id} · {CRITERION_TYPE[c.type] ?? c.type}
-                    </span>{" "}
-                    {c.text}
-                    {c.testIds?.length > 0 && (
-                      <>
-                        {" "}
-                        <span
-                          className="muted"
-                          data-testid="criterion-test-ids"
-                        >
-                          {c.testIds.map((id) => (
-                            <code key={id}>{id}</code>
-                          ))}
-                        </span>
-                      </>
-                    )}
-                  </li>
-                ))}
-              </ul>
-              {t.lastFeedback && <p className="error">{t.lastFeedback}</p>}
-            </li>
-          ))}
-        </ol>
-      )}
     </section>
+  );
+}
+
+/** Tasks with their criteria and results (D43). */
+function sectionOf(detail: RunDetail): TaskSection | null {
+  const { run, tasks } = detail;
+  if (tasks.length === 0 || run.status === "planning") return null;
+  return taskSection({
+    runId: run.id,
+    planRevision: run.planRevision,
+    tasks,
+    titles: detail.taskTitles,
+    events: detail.events,
+    steps: detail.criteriaSteps,
+    report: detail.report,
+  });
+}
+
+function TaskList({
+  detail,
+  section,
+}: {
+  detail: RunDetail;
+  section: TaskSection;
+}) {
+  const { tasks } = detail;
+  const contexts = lastContexts(detail);
+  const byId = new Map(tasks.map((t) => [t.id, t]));
+  return (
+    <Tasks
+      section={section}
+      commitUrl={commitUrl}
+      extra={(taskId) => {
+        const task = byId.get(taskId);
+        const context = contexts.get(taskId);
+        return (
+          <>
+            {task && task.references.length > 0 && (
+              <p className="files" data-testid="task-references">
+                <span className="muted">Referencias:</span>
+                {task.references.map((f) => (
+                  <code key={f}>{f}</code>
+                ))}
+              </p>
+            )}
+            {context && (
+              <details>
+                <summary>
+                  Archivos leídos por Develop ({context.files.length})
+                </summary>
+                <ContextFiles context={context} />
+              </details>
+            )}
+          </>
+        );
+      }}
+    />
   );
 }
 
@@ -301,65 +269,211 @@ function Context({ detail }: { detail: RunDetail }) {
   );
 }
 
-function Timeline({ detail }: { detail: RunDetail }) {
+const RETRY_LABEL: Record<string, string> = {
+  overloaded: "Modelo saturado",
+  rate_limited: "Límite por minuto",
+};
+
+function TimelineEvent({ e }: { e: RunDetail["events"][number] }) {
   return (
-    <section className="card" data-testid="run-timeline">
+    <li data-testid="run-event" data-actor={e.actor} data-kind={e.kind}>
+      <span className="muted">{time.format(e.at)}</span>
+      <span className={`actor actor-${e.actor}`}>
+        {ACTOR[e.actor] ?? e.actor}
+      </span>
+      <span>
+        {e.message}
+        <EventDetails kind={e.kind} data={e.data} />
+        <Calls data={e.data} />
+      </span>
+    </li>
+  );
+}
+
+/** Filterable by agent, retries grouped, one separator per round (D44). */
+function Timeline({
+  detail,
+  filter,
+  tab,
+}: {
+  detail: RunDetail;
+  filter: FilterId;
+  tab: TabId;
+}) {
+  const items = timelineItems(detail.events, filter);
+  const minutes = (at: Date) =>
+    Math.max(0, Math.round((detail.loadedAt - at.getTime()) / 60_000));
+  return (
+    <section className="card stack" data-testid="run-timeline">
       <h2>Línea de tiempo</h2>
-      <ol className="timeline">
-        {detail.events.map((e) => (
-          <li
-            key={e.id}
-            data-testid="run-event"
-            data-actor={e.actor}
-            data-kind={e.kind}
+      <nav className="filters" aria-label="Filtrar por agente">
+        {FILTERS.map((f) => (
+          <Link
+            key={f.id}
+            href={runHref(detail.run.id, {
+              agente: f.id,
+              tab,
+              status: detail.run.status,
+            })}
+            scroll={false}
+            replace
+            className={f.id === filter ? "filter filter-on" : "filter"}
+            aria-current={f.id === filter ? "true" : undefined}
+            data-testid="timeline-filter"
+            data-filter={f.id}
           >
-            <span className="muted">{time.format(e.at)}</span>
-            <span className={`actor actor-${e.actor}`}>
-              {ACTOR[e.actor] ?? e.actor}
-            </span>
-            <span>
-              {e.message}
-              <EventDetails kind={e.kind} data={e.data} />
-              <Calls data={e.data} />
-            </span>
-          </li>
+            {f.label}
+          </Link>
         ))}
+      </nav>
+      {items.length === 0 && (
+        <p className="muted">Ningún evento de este agente todavía.</p>
+      )}
+      <ol className="timeline">
+        {items.map((item) => {
+          if (item.kind === "event") {
+            return <TimelineEvent key={item.event.id} e={item.event} />;
+          }
+          if (item.kind === "iteration") {
+            return (
+              <li
+                key={`it-${item.revision}-${item.iteration}`}
+                className="timeline-round"
+                data-testid="timeline-round"
+              >
+                Iteración {item.iteration}
+                {item.revision > 1 && ` · revisión ${item.revision}`}
+              </li>
+            );
+          }
+          const kind = item.events[0]!.kind;
+          return (
+            <li
+              key={`retries-${item.events[0]!.id}`}
+              className="timeline-retries"
+              data-testid="timeline-retries"
+              data-kind={kind}
+              data-count={item.events.length}
+            >
+              <details>
+                <summary>
+                  <span className="muted">{time.format(item.first)}</span>{" "}
+                  {RETRY_LABEL[kind] ?? kind} ×{item.events.length} · hace{" "}
+                  {minutes(item.last)} min
+                </summary>
+                <ol className="timeline">
+                  {item.events.map((e) => (
+                    <TimelineEvent key={e.id} e={e} />
+                  ))}
+                </ol>
+              </details>
+            </li>
+          );
+        })}
       </ol>
     </section>
   );
 }
 
-async function RunView({ params }: { params: Promise<{ id: string }> }) {
+async function RunView({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await connection();
   const id = Number((await params).id);
+  const query = await searchParams;
+  const filter = parseFilter(query.agente);
   if (!Number.isInteger(id) || id <= 0) notFound();
   const detail = await getRunDetail(getDb(), id);
   if (!detail) notFound();
-  const final = isFinal(detail.run.status as RunStatus);
+  const { run } = detail;
+  const final = isFinal(run.status as RunStatus);
+  const tab = parseTab(query.tab, run.status);
+  const section = sectionOf(detail);
+  const approving = run.status === "awaiting_final_approval";
   return (
     <>
-      <Nav title={`Run #${detail.run.id}`} />
+      <Nav title={`Run #${run.id}`} />
+      <AgentCards
+        cards={agentCards({
+          run: { ...run, status: run.status as RunStatus },
+          tasks: detail.tasks,
+          steps: detail.steps,
+          events: detail.events,
+          deployState: detail.preview?.deployState,
+        })}
+        now={detail.loadedAt}
+      />
       <Summary detail={detail} />
       {!final && (
         <RunActions
-          runId={detail.run.id}
-          version={detail.run.version}
-          status={detail.run.status}
+          runId={run.id}
+          status={run.status}
+          planRevision={run.planRevision}
+          headSha={run.headSha}
         />
       )}
-      <Plan detail={detail} />
-      <Context detail={detail} />
-      <Timeline detail={detail} />
+      {/* D46: tabs on mobile, two columns on desktop. */}
+      <nav className="run-tabs" aria-label="Secciones del run">
+        {TABS.map((t) => (
+          <Link
+            key={t.id}
+            href={runHref(run.id, {
+              agente: filter,
+              tab: t.id,
+              status: run.status,
+            })}
+            scroll={false}
+            replace
+            className={t.id === tab ? "run-tab run-tab-on" : "run-tab"}
+            aria-current={t.id === tab ? "page" : undefined}
+            data-testid="run-tab"
+            data-tab={t.id}
+          >
+            {t.label}
+          </Link>
+        ))}
+      </nav>
+      <div className="run-layout" data-tab={tab}>
+        <div className="run-main">
+          <div
+            className={`run-panel run-panel-preview${approving ? "" : " desktop-hidden"}`}
+          >
+            <PreviewPanel
+              headSha={run.headSha}
+              preview={detail.preview}
+              report={detail.report}
+              section={section}
+              shots={detail.screenshots}
+              awaitingApproval={approving}
+            />
+          </div>
+          <div className="run-panel run-panel-tasks stack">
+            <Plan detail={detail} />
+            {section && <TaskList detail={detail} section={section} />}
+            <Context detail={detail} />
+          </div>
+        </div>
+        <div className="run-panel run-panel-linea">
+          <Timeline detail={detail} filter={filter} tab={tab} />
+        </div>
+      </div>
     </>
   );
 }
 
-export default function RunPage({ params }: PageProps<"/runs/[id]">) {
+export default function RunPage({
+  params,
+  searchParams,
+}: PageProps<"/runs/[id]">) {
   return (
-    <main className="page stack">
+    <main className="page page-wide stack">
       <RunPoller />
       <Suspense fallback={<p className="muted">Cargando…</p>}>
-        <RunView params={params} />
+        <RunView params={params} searchParams={searchParams} />
       </Suspense>
     </main>
   );

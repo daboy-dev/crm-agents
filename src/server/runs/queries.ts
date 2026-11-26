@@ -1,8 +1,11 @@
 import { and, asc, count, desc, eq, gte, sql } from "drizzle-orm";
+import { stepsSchema } from "@/server/agents/contracts";
 import type { Db } from "@/server/db/client";
 import {
+  agentSteps,
   previews,
   runEvents,
+  screenshots,
   runs,
   tasks,
   testReports,
@@ -45,10 +48,19 @@ export async function runsCreatedToday(db: Db): Promise<number> {
   return row?.n ?? 0;
 }
 
+/** Requests of the runs merged into crm-demo, for the suggestions (D48). */
+export async function doneRequests(db: Db): Promise<string[]> {
+  const rows = await db
+    .select({ request: runs.request })
+    .from(runs)
+    .where(eq(runs.status, "done"));
+  return rows.map((r) => r.request);
+}
+
 export async function getRunDetail(db: Db, runId: number) {
   const [run] = await db.select().from(runs).where(eq(runs.id, runId));
   if (!run) return null;
-  const [taskRows, events] = await Promise.all([
+  const [taskRows, events, steps, titles, stepsRows] = await Promise.all([
     db
       .select()
       .from(tasks)
@@ -61,7 +73,38 @@ export async function getRunDetail(db: Db, runId: number) {
       .from(runEvents)
       .where(eq(runEvents.runId, runId))
       .orderBy(asc(runEvents.id)),
+    // Model and progress of each agent, for the cards (D42).
+    db
+      .select({
+        agent: agentSteps.agent,
+        taskId: agentSteps.taskId,
+        iteration: agentSteps.iteration,
+        scope: agentSteps.scope,
+        model: agentSteps.model,
+        createdAt: agentSteps.createdAt,
+      })
+      .from(agentSteps)
+      .where(eq(agentSteps.runId, runId))
+      .orderBy(asc(agentSteps.id)),
+    // Titles of every revision, for the split groups (D43).
+    db
+      .select({ id: tasks.id, title: tasks.title })
+      .from(tasks)
+      .where(eq(tasks.runId, runId)),
+    // Testing's steps of the current revision, shown folded (D43).
+    db
+      .select({ output: agentSteps.output })
+      .from(agentSteps)
+      .where(
+        and(
+          eq(agentSteps.runId, runId),
+          eq(agentSteps.agent, "testing"),
+          eq(agentSteps.scope, "steps"),
+          eq(agentSteps.iteration, run.planRevision),
+        ),
+      ),
   ]);
+  const parsedSteps = stepsSchema.safeParse(stepsRows[0]?.output);
   let preview: typeof previews.$inferSelect | null = null;
   let report: typeof testReports.$inferSelect | null = null;
   if (run.headSha) {
@@ -78,6 +121,31 @@ export async function getRunDetail(db: Db, runId: number) {
     preview = p ?? null;
     report = r ?? null;
   }
-  return { run, tasks: taskRows, events, preview, report };
+  // Screenshots of the head's report, for the final approval (D45).
+  const shots = report
+    ? await db
+        .select({
+          id: screenshots.id,
+          page: screenshots.page,
+          width: screenshots.width,
+        })
+        .from(screenshots)
+        .where(eq(screenshots.reportId, report.id))
+        .orderBy(asc(screenshots.page))
+    : [];
+  // Reference for the "hace N min" of the cards (D42).
+  const loadedAt = Date.now();
+  return {
+    run,
+    tasks: taskRows,
+    events,
+    steps,
+    taskTitles: new Map(titles.map((t) => [t.id, t.title])),
+    criteriaSteps: parsedSteps.success ? parsedSteps.data : null,
+    preview,
+    report,
+    screenshots: shots,
+    loadedAt,
+  };
 }
 export type RunDetail = NonNullable<Awaited<ReturnType<typeof getRunDetail>>>;

@@ -86,6 +86,7 @@ import {
   type CurrentCriterion,
 } from "./criteria";
 import { llmCallsPerRun } from "./limits";
+import { sameContext } from "./timeline";
 import {
   AWAITING_HUMAN,
   FINAL_STATUSES,
@@ -657,6 +658,28 @@ async function ensureSteps(
   return { called: !result.cached };
 }
 
+/** Data of the last context logged for a task and iteration (D44). */
+async function lastContext(
+  db: Db,
+  runId: number,
+  task: { id: number; iteration: number },
+): Promise<unknown> {
+  const [row] = await db
+    .select({ data: runEvents.data })
+    .from(runEvents)
+    .where(
+      and(
+        eq(runEvents.runId, runId),
+        eq(runEvents.kind, "context"),
+        sql`(${runEvents.data}->>'taskId')::int = ${task.id}`,
+        sql`(${runEvents.data}->>'iteration')::int = ${task.iteration}`,
+      ),
+    )
+    .orderBy(desc(runEvents.id))
+    .limit(1);
+  return row?.data ?? null;
+}
+
 async function stepDeveloping(ctx: StepContext): Promise<StepResult> {
   const { db, run, token } = ctx;
   const branch = runBranch(run.id);
@@ -692,19 +715,23 @@ async function stepDeveloping(ctx: StepContext): Promise<StepResult> {
             // Earlier tasks of this step are not committed yet.
             overlay: outputs.flatMap((o) => o.output.files),
           });
-          await appendEvent(db, run, {
-            actor: "develop",
-            kind: "context",
-            message: `Tarea ${task.position}: lee ${context.files.length} archivos${context.trimmed.length ? ` (${context.trimmed.length} recortados por tamaño)` : ""}`,
-            data: {
-              taskId: task.id,
-              iteration: task.iteration,
-              sha: context.sha,
-              files: context.files.map((f) => ({ path: f.path, role: f.role })),
-              trimmed: context.trimmed,
-              newFiles: context.newFiles,
-            },
-          });
+          const data = {
+            taskId: task.id,
+            iteration: task.iteration,
+            sha: context.sha,
+            files: context.files.map((f) => ({ path: f.path, role: f.role })),
+            trimmed: context.trimmed,
+            newFiles: context.newFiles,
+          };
+          // D44: a resumed step (saturation, lease) reads the same files.
+          if (!sameContext(await lastContext(db, run.id, task), data)) {
+            await appendEvent(db, run, {
+              actor: "develop",
+              kind: "context",
+              message: `Tarea ${task.position}: lee ${context.files.length} archivos${context.trimmed.length ? ` (${context.trimmed.length} recortados por tamaño)` : ""}`,
+              data,
+            });
+          }
           if (run.simulateMaxTokens && !run.maxTokensSimulatedAt) {
             // H5: the first call answers as cut, without spending a request.
             run.maxTokensSimulatedAt = new Date();
@@ -804,8 +831,10 @@ async function stepDeveloping(ctx: StepContext): Promise<StepResult> {
             {
               actor: "develop",
               kind: "unchanged",
-              message:
-                "Develop no ha cambiado ningún archivo: la iteración cuenta como fallida.",
+              // D40: renaming the data-testid back can undo Develop's fix.
+              message: prepared.notes.some((n) => n.kind === "simulation")
+                ? "Tras la simulación, los archivos quedan como ya estaban en la rama: la iteración cuenta como fallida."
+                : "Develop no ha cambiado ningún archivo: la iteración cuenta como fallida.",
             },
           ],
         },

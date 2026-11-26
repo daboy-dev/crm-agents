@@ -164,6 +164,8 @@ Registro de decisiones de arquitectura (formato ADR corto). Se toman en el Proje
 
 Los pasos de Testing (D38) no deben depender de cifras exactas del seed: las vistas previas acumulan los datos que crean `write-flow.spec.ts` y los propios pasos. Una cifra solo se comprueba si se ha creado en el mismo test.
 
+**Extra (26/11/2026, sesión 13):** en H6 se usaron las cuatro: el filtro (runs #20, #18 y #19), las notas (#21), duplicar (#22) y el resumen (#23), además de una quinta para el bloqueo, «muestra en el detalle de un cliente cuántos presupuestos tiene» (#24). Todas salvo esta última están en `master`, así que H7 necesita una petición nueva.
+
 ## D15 · Actions arranca con el `deployment_status` de Vercel
 **Fecha:** 24/11/2026 · **Estado:** aceptada
 
@@ -639,6 +641,22 @@ Todo se lee en la **cabeza de `run/<id>`**, no en `base_sha`, para que una tarea
 - Al fusionar, los JSON se quedan en `master` como pruebas de regresión. Un run posterior que rompa un criterio antiguo falla igual que un E2E de los que ya existían.
 - En H6 hay que escribir el ejecutor y el contrato de los pasos, y actualizar `AGENTS.md`, `paths.ts` y el prompt del Orquestador.
 
+**Extra (26/11/2026, sesión 13):** lo que cambió al llevarlo a producción.
+- **Paso nuevo, `select`:** elige por el `value` exacto de la opción, que fija la descripción de la tarea. Admite `""` para la opción «todas» (run #19).
+- **Ejecutor:**
+  - Timeout de 10 s por acción. Antes, un paso que fallaba esperaba los 30 s del test y se perdía el `ariaSnapshot`.
+  - `expectText` compara el valor en los campos de formulario.
+  - Con `all`, `expectText` espera a que todas las filas visibles cumplan. Antes comprobaba la lista antes de que el filtro la actualizara ([crm-demo#20](https://github.com/daboy-dev/crm-demo/pull/20)).
+  - La prueba del fallo (paso, URL, error y `ariaSnapshot` de `main`) va a un JSON por criterio y proyecto junto a `results.json`.
+- **`data-testid` del plan:**
+  - Testing puede usar los de cualquier criterio de la revisión, no solo los del suyo: Develop los escribe todos.
+  - A Develop solo se le exigen en el `superRefine` los que nombra la descripción de su tarea. En el run #21 se le exigía `nav-clientes` a una tarea que no tocaba el menú.
+  - El prompt del Orquestador y el de Testing llevan el mapa de los `data-testid` que ya existen en `crm-demo` (`app-map.ts`).
+- **Validación de los pasos, más allá del esquema:** el `superRefine` rechaza estos casos, que van a la llamada de reparación:
+  - páginas que no están en `pages.ts` y `expectCount` con `min: 0`;
+  - comodines distintos de `{{stamp}}` y `click` sobre una fila `*-row`, que no navega. En el run #24, Groq escribió las dos cosas y el criterio habría fallado sin la simulación.
+- **Gemini:** su API no acepta `const`, `minItems`, `maxItems`, `minimum` ni `maximum` en el esquema, y un esquema demasiado grande da 400 «too many states». El cliente quita esas claves (Zod vuelve a comprobar todo después), y el 400 cuenta como `too_large`, así que la cadena salta al eslabón siguiente.
+
 ## D39 · Veredicto de Testing y solo criterios `e2e` por ahora
 **Fecha:** 25/11/2026 · **Estado:** aceptada
 
@@ -668,6 +686,11 @@ Todo se lee en la **cabeza de `run/<id>`**, no en `base_sha`, para que una tarea
   - «Simular fallo persistente»: lo mismo en todas las iteraciones. A la tercera, la tarea pasa a `blocked` y decide el humano (D5).
 - **`LLM_CALLS_PER_RUN` sube de 12 a 16** (D26 y D35). Un run de 2 tareas con un fallo gasta unas 6 llamadas, y el peor caso con 3 iteraciones fallidas en las dos tareas llega a unas 10, sin contar reparaciones ni divisiones.
 
+**Extra (26/11/2026, sesión 13):** cómo quedaron las simulaciones.
+- **No quitan el `data-testid`, lo renombran:** `x` pasa a `x-simulated`, con cualquier tipo de comillas. Solo se renombran los `data-testid` nuevos de la tarea, nunca uno que ya existía en el archivo, porque si no se rompería un E2E antiguo en vez del criterio.
+- **«Simular fallo de criterio» dura hasta que Testing juzga la primera vista previa,** no solo la iteración 1. En el run #22, `pr-check` devolvió la iteración 1 por un error de tipos real, la iteración 2 ya no llevaba la simulación y el criterio pasó sin fallar ([crm-agents#12](https://github.com/daboy-dev/crm-agents/pull/12)).
+- **Con «Simular fallo persistente»,** si Develop arregla el `data-testid` y la simulación lo vuelve a renombrar, el archivo queda como ya estaba en la rama. Esa iteración no hace commit y cuenta como fallida (D34). La línea de tiempo lo dice así, en vez de «Develop no ha cambiado ningún archivo».
+
 ## D41 · El panel formatea con Prettier lo que escribe Develop
 **Fecha:** 25/11/2026 · **Estado:** aceptada
 
@@ -687,3 +710,95 @@ Todo se lee en la **cabeza de `run/<id>`**, no en `base_sha`, para que una tarea
 - Sin código de la rama, sin job nuevo con permisos y sin build extra: el formato va en la misma cadena de commits (D20).
 - Develop recibe en la iteración siguiente los archivos tal como quedaron en el repo.
 - Si `crm-demo` cambia de versión de Prettier o de opciones, hay que cambiarlas también en el panel.
+
+## D42 · Tarjetas por agente calculadas con una función pura
+**Fecha:** 26/11/2026 · **Estado:** aceptada
+
+**Contexto:** la prueba pide que en pantalla se vea qué hace cada agente y en qué estado está cada tarea. `/runs/[id]` tiene la línea de tiempo, pero no dice de un vistazo quién está trabajando ahora.
+
+**Decisión** (propuesta de Claude, aprobada por el humano):
+- Cuatro tarjetas arriba de `/runs/[id]`: Orquestador, Develop, Testing y el humano.
+  - Orquestador: planificando (revisión y modo), plan listo, petición rechazada o en espera.
+  - Develop: escribiendo o corrigiendo la tarea X (iteración Y), esperando `pr-check`, hecho, bloqueado o en espera.
+  - Testing: escribiendo los pasos, esperando la vista previa (build de Vercel y Playwright en Actions), explicando fallos, todo en verde (N de N) o en espera.
+  - Humano: aprobar el plan, aprobar la vista previa final, decidir sobre una tarea bloqueada o nada pendiente.
+- Cada tarjeta muestra el modelo de la última llamada (con la marca de respaldo de pago), cuánto lleva en ese estado y el motivo de una espera aplazada (saturación o límite por minuto). La activa se resalta. En móvil van en una rejilla de 2×2 encima de las pestañas.
+- Las esperas de GitHub y de Vercel no tienen tarjeta propia: van en la del agente que espera.
+- El estado lo calcula una función pura, `agentCards(run, tasks, steps, events)`, con una tabla de casos en Vitest. No hay columnas ni migraciones nuevas.
+
+**Consecuencias:**
+- Una tarjeta no puede contradecir a la máquina de estados (D21), porque se deriva de ella.
+- Si cambia la máquina, hay que actualizar también la tabla de casos de las tarjetas.
+
+## D43 · Tareas y criterios en `/runs/[id]`
+**Fecha:** 26/11/2026 · **Estado:** aceptada
+
+**Decisión** (propuesta de Claude, aprobada por el humano):
+- Cada tarea muestra su estado, su iteración («2 de 3»), el enlace a su commit y los archivos que ha tocado, con los que quedan fuera del plan marcados (D34).
+- Debajo van sus criterios, cada uno con su texto y su resultado en escritorio y a 390 px. Si falla, se ven el `reason` de Testing y el paso que falló (D39).
+- Los pasos de cada criterio se muestran plegados. Develop no los ve (D39), pero al humano le sirven para entender qué se comprueba.
+- Las regresiones de runs anteriores (D38) van en un grupo aparte, «Regresión: N de N en verde», que solo se despliega si algo falla.
+- Una tarea dividida (D34) muestra sus subtareas debajo.
+
+## D44 · Línea de tiempo filtrable y sin ruido
+**Fecha:** 26/11/2026 · **Estado:** aceptada
+
+**Decisión** (propuesta de Claude, aprobada por el humano):
+- Filtro por agente: Todos, Orquestador, Develop, Testing y Humano. Los eventos de GitHub y de Vercel (`pr-check`, vista previa lista, informe de Playwright) se asignan al agente que los espera, con la regla de D42. El filtro va en la URL (`?agente=develop`), así no se pierde con el polling y el enlace se puede compartir.
+- El motor solo registra el contexto leído («lee N archivos») si ha cambiado respecto al último registrado para esa tarea e iteración. Resuelve el pendiente de ruido de la sesión 11.
+- Los reintentos seguidos (saturación, límite por minuto) se guardan todos, pero la UI los agrupa en una línea que se puede desplegar: «Gemini saturado ×4 · hace 6 min».
+- Separadores por iteración, para ver dónde empieza cada ronda entre Develop y Testing.
+
+## D45 · La vista previa se abre en otra pestaña, sin iframe
+**Fecha:** 26/11/2026 · **Estado:** aceptada
+
+**Contexto:** `crm-demo` tiene su propio login con cookie (D6). Dentro de un iframe del panel es una cookie de terceros (los subdominios de `vercel.app` son sitios distintos): con `SameSite=Lax` no se envía, y con `SameSite=None` Safari y iOS la restringen.
+
+**Opciones:**
+- A. Iframe en todas partes, cambiando la cookie de `crm-demo`. Dudoso en Safari e iOS.
+- B. Botón «Abrir vista previa» en otra pestaña y la galería de capturas en el panel.
+- C. Iframe solo en escritorio, y B en móvil. *Recomendación de Claude.*
+
+**Decisión:** B (elección del humano): la vista previa real en su propia pestaña siempre se ve mejor que dentro del panel.
+
+**Consecuencias:**
+- No se toca el login de `crm-demo` ni sus cookies.
+- La aprobación final muestra el botón, las capturas a 1280 y 390 px y el resultado de los criterios (D43).
+- D6 deja de necesitarse para el iframe, pero la protección de las vistas previas sigue desactivada porque Actions tiene que acceder a ellas.
+
+## D46 · `/runs/[id]` en móvil y en escritorio
+**Fecha:** 26/11/2026 · **Estado:** aceptada
+
+**Decisión** (propuesta de Claude, aprobada por el humano):
+- **Móvil (< 768 px):**
+  - Arriba, siempre visibles, las tarjetas de D42 en 2×2.
+  - Barra de acción del humano fija abajo, solo cuando le toca: aprobar el plan, rechazar con feedback (despliega el campo), aprobar y fusionar, reintentar o abandonar.
+  - Pestañas Tareas (D43), Línea de tiempo (D44) y Vista previa (D45), con la pestaña en la URL (`?tab=`). La inicial es Vista previa en `awaiting_final_approval` y Tareas en el resto.
+- **Escritorio:** dos columnas, con las tareas a la izquierda y la línea de tiempo a la derecha. La vista previa va encima de las tareas cuando toca aprobar.
+- **Verificación:** E2E de Playwright del panel a 390 y 1280 px, sin scroll horizontal y con las acciones visibles en cada estado que espera al humano.
+
+## D47 · Las acciones del humano envían lo que aprueban, no la versión
+**Fecha:** 26/11/2026 · **Estado:** aceptada
+
+**Contexto:** cada botón enviaba la `version` del run. Si el run avanzaba mientras la página estaba abierta (por un webhook tardío, el sweep o un reintento), el CAS de D22 no tocaba ninguna fila y el botón no hacía nada (sesión 13).
+
+**Decisión** (propuesta de Claude, aprobada por el humano):
+- Cada acción envía su precondición:
+  - aprobar el plan: la revisión del plan que se ve, válida si el run sigue en `awaiting_plan_approval` con esa revisión;
+  - aprobar y fusionar: el `head_sha` que se ve, válido si el run sigue en `awaiting_final_approval` con ese sha;
+  - reintentar, abandonar y cancelar: el estado que se ve.
+- El servidor lee la versión actual y hace el CAS con ella, así que D22 no cambia por dentro.
+- Si la precondición no se cumple, no se aplica nada: el panel se refresca y avisa («El run ha cambiado: revisa la revisión 3 antes de aprobar»). Si la acción ya estaba aplicada, se avisa con «Ya estaba aprobado».
+- El botón se desactiva mientras la acción está en curso.
+
+**Consecuencias:** nunca se aprueba algo distinto de lo que el humano tiene en pantalla, y un cambio ajeno de versión ya no deja el botón sin respuesta.
+
+## D48 · Portada de `/runs` para los evaluadores
+**Fecha:** 26/11/2026 · **Estado:** aceptada
+
+**Decisión** (propuesta de Claude, aprobada por el humano):
+- Introducción de dos o tres líneas con el flujo (petición → plan que aprueba el humano → Develop y Testing iteran → aprobación de la vista previa → merge) y enlaces al CRM en producción y a los dos repos.
+- Peticiones sugeridas en botones que rellenan el formulario sin enviarlo. La lista vive en `demo-requests.ts`, así que en H8 basta con editar ese archivo. Una sugerencia cuyo run acabó en `done` sale marcada como «ya fusionada»; se detecta por el texto de la petición, sin migración.
+- Las simulaciones de H3 a H6 van plegadas en «Opciones avanzadas».
+- Límites a la vista: los runs que quedan hoy (`RUNS_PER_DAY`) y un aviso si la cuota de Gemini está agotada y se usa el respaldo de pago hasta las 9:00.
+- La cola muestra la posición de cada petición.

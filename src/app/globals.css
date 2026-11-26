@@ -48,6 +48,13 @@ a {
   margin: 0;
 }
 
+.notice {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--link);
+  background: color-mix(in srgb, var(--link) 10%, transparent);
+}
+
 .stack {
   display: grid;
   gap: 1rem;
@@ -305,6 +312,50 @@ select {
   margin: 0.25rem 0;
 }
 
+/* --- Timeline (D44) --- */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.filter {
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--foreground) 20%, transparent);
+  font-size: 0.85rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.filter-on {
+  background: var(--foreground);
+  color: var(--background);
+  border-color: var(--foreground);
+}
+
+.timeline li.timeline-round {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-top: 1px solid color-mix(in srgb, var(--foreground) 20%, transparent);
+  padding-top: 0.4rem;
+  margin-top: 0.3rem;
+  color: color-mix(in srgb, var(--foreground) 60%, transparent);
+}
+
+.timeline li.timeline-retries {
+  display: block;
+  color: #b06000;
+}
+
+.timeline-retries .timeline {
+  margin-left: 1rem;
+  color: var(--foreground);
+}
+
 .timeline li {
   display: grid;
   grid-template-columns: auto auto 1fr;
@@ -338,6 +389,91 @@ select {
   color: inherit;
 }
 
+/* --- Agent cards of /runs/[id] (D42) --- */
+.agent-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.agent-card {
+  border: 1px solid color-mix(in srgb, var(--foreground) 15%, transparent);
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  min-width: 0;
+  display: grid;
+  gap: 0.2rem;
+  align-content: start;
+}
+
+.agent-card p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.agent-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.agent-card-tone,
+.agent-card-detail,
+.agent-card-meta {
+  font-size: 0.8rem;
+  color: color-mix(in srgb, var(--foreground) 60%, transparent);
+}
+
+.agent-card-label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.agent-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.agent-card-postponed {
+  font-size: 0.8rem;
+  color: #b06000;
+}
+
+.agent-card-idle {
+  opacity: 0.7;
+}
+
+.agent-card-ok .agent-card-tone {
+  color: #137333;
+}
+
+.agent-card-bad {
+  border-color: #c5221f;
+}
+
+.agent-card-bad .agent-card-tone {
+  color: #c5221f;
+}
+
+.agent-card-active {
+  border: 2px solid var(--link);
+  background: color-mix(in srgb, var(--link) 8%, transparent);
+  opacity: 1;
+}
+
+.agent-card-active .agent-card-tone {
+  color: var(--link);
+}
+
+@media (max-width: 767px) {
+  .agent-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 480px) {
   .timeline li {
     grid-template-columns: auto 1fr;
@@ -355,8 +491,84 @@ select {
 }
 
 .criteria {
-  margin: 0.25rem 0;
-  padding-left: 1.1rem;
+  margin: 0.4rem 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.4rem;
+}
+
+/* --- Tasks and criteria (D43) --- */
+.criterion {
+  border-left: 3px solid color-mix(in srgb, var(--foreground) 15%, transparent);
+  padding-left: 0.6rem;
+  min-width: 0;
+}
+
+.criterion[data-outcome="pass"] {
+  border-left-color: #137333;
+}
+
+.criterion[data-outcome="fail"] {
+  border-left-color: #c5221f;
+}
+
+.task-list .criterion p {
+  margin: 0.15rem 0;
+}
+
+.criterion-head {
+  display: flex;
+  gap: 0.4rem;
+  align-items: baseline;
+}
+
+.criterion-head code {
+  flex: none;
+  overflow-wrap: normal;
+}
+
+.criterion-text {
+  overflow-wrap: anywhere;
+}
+
+.criterion-results {
+  gap: 0.3rem;
+}
+
+.criterion-failure {
+  font-size: 0.875rem;
+}
+
+.criterion-steps,
+.criterion-steps summary {
+  font-size: 0.8rem;
+}
+
+.criterion-steps ol {
+  margin: 0.2rem 0 0;
+  padding-left: 1.4rem;
+}
+
+.task-split > .task-list {
+  margin-left: 0.75rem;
+}
+
+.feedback {
+  white-space: pre-wrap;
+  font-size: 0.75rem;
+  max-height: 16rem;
+  overflow: auto;
+}
+
+.regression summary {
+  font-weight: 600;
+}
+
+.regression ul {
+  margin: 0.4rem 0 0;
+  padding-left: 1rem;
+  font-size: 0.875rem;
   display: grid;
   gap: 0.25rem;
 }
@@ -381,6 +593,7 @@ select {
 
 .files code[data-outside] {
   outline: 1px dashed #b06000;
+  color: #b06000;
 }
 
 .calls {
@@ -388,4 +601,190 @@ select {
   padding-left: 1rem;
   font-size: 0.8rem;
   color: color-mix(in srgb, var(--foreground) 70%, transparent);
+}
+
+/* --- /runs/[id] layout (D45, D46) --- */
+.page-wide {
+  max-width: 80rem;
+}
+
+a.button {
+  display: inline-block;
+  padding: 0.6rem 1rem;
+  border-radius: 6px;
+  background: var(--foreground);
+  color: var(--background);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.preview-panel-approval {
+  border: 2px solid var(--link);
+}
+
+.preview-criteria {
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.875rem;
+}
+
+.preview-criteria .badge {
+  margin-left: 0.25rem;
+}
+
+.run-tabs {
+  display: none;
+}
+
+.run-layout,
+.run-main {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.run-panel {
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  .run-layout {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    align-items: start;
+  }
+}
+
+@media (min-width: 768px) {
+  .run-panel.desktop-hidden {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .run-tabs {
+    display: flex;
+    gap: 0.25rem;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--background);
+    padding: 0.4rem 0;
+    border-bottom: 1px solid
+      color-mix(in srgb, var(--foreground) 15%, transparent);
+  }
+  .run-tab {
+    flex: 1;
+    text-align: center;
+    padding: 0.45rem 0.25rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    text-decoration: none;
+    color: inherit;
+  }
+  .run-tab-on {
+    background: var(--foreground);
+    color: var(--background);
+    font-weight: 600;
+  }
+  .run-layout[data-tab="tareas"] .run-panel:not(.run-panel-tasks),
+  .run-layout[data-tab="linea"] .run-panel:not(.run-panel-linea),
+  .run-layout[data-tab="vista-previa"] .run-panel:not(.run-panel-preview) {
+    display: none;
+  }
+}
+
+/* --- Human's action bar (D46) --- */
+.run-actions h2 {
+  font-size: 1rem;
+}
+
+.run-actions-turn {
+  border: 2px solid var(--link);
+}
+
+button.link-button {
+  background: transparent;
+  color: var(--link);
+  padding: 0.5rem 0.25rem;
+}
+
+.run-actions textarea {
+  width: 100%;
+  font: inherit;
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--foreground) 25%, transparent);
+  background: var(--background);
+  color: var(--foreground);
+}
+
+@media (max-width: 767px) {
+  .run-actions-turn {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10;
+    margin: 0;
+    border-radius: 12px 12px 0 0;
+    border-width: 2px 0 0;
+    background: var(--background);
+    box-shadow: 0 -4px 16px rgb(0 0 0 / 0.25);
+    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+    max-height: 70vh;
+    overflow: auto;
+    gap: 0.5rem;
+  }
+  .run-actions-turn .row {
+    margin: 0;
+  }
+  /* Room for the fixed bar at the end of the page. */
+  .page:has(.run-actions-turn) {
+    padding-bottom: 11rem;
+  }
+}
+
+/* --- /runs home (D48) --- */
+.intro p {
+  margin: 0;
+}
+
+.flow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+}
+
+.flow li {
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--link) 12%, transparent);
+}
+
+.flow li + li::before {
+  content: "→ ";
+  color: color-mix(in srgb, var(--foreground) 50%, transparent);
+}
+
+button.suggestion {
+  display: grid;
+  gap: 0.1rem;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+button.suggestion[data-merged="true"] {
+  opacity: 0.75;
+}
+
+.advanced summary {
+  cursor: pointer;
+  font-size: 0.9rem;
 }

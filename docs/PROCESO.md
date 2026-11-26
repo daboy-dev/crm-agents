@@ -21,7 +21,7 @@ Cómo se ha construido este proyecto, sesión a sesión.
 | H3 · Motor de runs | Un run completo con `MockProvider` | Hecho |
 | H4 · Orquestador | Plan con criterios de aceptación que el cliente aprueba o rechaza | Hecho |
 | H5 · Develop | PR real que compila en su vista previa | Hecho |
-| H6 · Testing | Un fallo provocado vuelve a Develop y se corrige o se bloquea | Pendiente |
+| H6 · Testing | Un fallo provocado vuelve a Develop y se corrige o se bloquea | Hecho |
 | H7 · Panel completo | Run real de principio a fin en móvil y escritorio | Pendiente |
 | H8 · Entrega | README, documentación, transcripciones saneadas y respuestas | Pendiente |
 
@@ -482,3 +482,119 @@ Cómo se ha construido este proyecto, sesión a sesión.
 - En el repo: pasar los apartados de D37 y del push de prueba de la sesión 08 a la sesión 11, añadir a D10 un extra que remita a D37, actualizar la línea de LLM del Stack en `CLAUDE.md` y comprobar que `RUNS_PER_DAY` ha vuelto a 5.
 
 **Siguiente paso:** sesión 13 de Claude Code (H6), en `crm-demo` (ejecutor, `AGENTS.md` y rutas protegidas) y `crm-agents`.
+
+## Sesión 13 · H6 · Testing con un modelo real (Claude Code) · 25–26/11/2026
+
+**Objetivo:** Testing comprueba los criterios `e2e` de cada plan en la vista previa con pasos declarativos y un ejecutor fijo (D38), explica los fallos a Develop (D39) y lo hace con su propia cadena (D40).
+
+**Cómo fue:**
+- Claude propuso el plan por bloques y el humano lo aprobó.
+- **`crm-demo`:**
+  - Ejecutor `e2e/criteria.spec.ts` ([crm-demo#17](https://github.com/daboy-dev/crm-demo/pull/17)), protegido en `AGENTS.md` y `paths.ts`.
+  - Tres arreglos que salieron de los runs: [#18](https://github.com/daboy-dev/crm-demo/pull/18), [#20](https://github.com/daboy-dev/crm-demo/pull/20) y [#22](https://github.com/daboy-dev/crm-demo/pull/22).
+- **`crm-agents`** ([crm-agents#5](https://github.com/daboy-dev/crm-agents/pull/5)):
+  - Contratos de los pasos y de la explicación, con `stepsSchemaFor` y `explainSchemaFor`.
+  - `data-testid` por criterio en el plan, y el mapa de `crm-demo` en los prompts.
+  - `ensureSteps` en una invocación propia, el JSON al final de la cadena de commits y el veredicto del ejecutor (`criteria.ts`).
+  - `agent_steps.scope` para guardar por separado los pasos y cada explicación.
+  - Casillas «Simular fallo de criterio» y «Simular fallo persistente», y migración 0006, aplicada en producción con el OK del humano.
+- **Prettier (D41):** el panel formatea lo que escribe Develop, para que `format:check` de `crm-demo` siga en verde tras cada merge.
+- **Eval:** `pnpm eval:testing` dio 4 de 4 planes y pasos válidos ([`evals/TESTING.md`](./evals/TESTING.md)).
+  - Los pasos los escribió Groq (`openai/gpt-oss-120b`), con unos 3.100 tokens de entrada y menos de 3 s.
+  - La primera ejecución sacó páginas que no existían, `data-testid` inventados y `expectCount` con `min: 0`. Se añadieron el mapa de `crm-demo` y reglas al validador.
+
+**Verificación en producción:**
+1. **Run sin fallos** (run #20, filtro de facturas, [crm-demo#23](https://github.com/daboy-dev/crm-demo/pull/23)):
+   - Plan con `data-testid` y pasos en una llamada (Groq).
+   - El JSON entró en la cadena de commits sin despliegue extra, con los resultados de cada criterio en escritorio y a 390 px.
+   - Ninguna llamada de explicación, 4 llamadas en total, y `run-20.json` está en `master`. ✅
+2. **Fallo corregido** (run #23, página de resumen, [crm-demo#26](https://github.com/daboy-dev/crm-demo/pull/26)):
+   - `pr-check` devolvió la iteración 1 por un error real de Develop, mientras la simulación renombraba `summary-detail`.
+   - En la iteración 2 los dos criterios fallaron en la vista previa. Testing (una llamada) lo explicó con el paso que fallaba (`expectVisible summary-detail`) y leyó bien el `ariaSnapshot`.
+   - En la iteración 3, Develop puso el `data-testid` en el contenedor sin ver los pasos: 50 de 50 tests y 6 llamadas.
+   - El fallo llegó en la iteración 2 y no en la 1, porque `pr-check` gastó la primera. ✅
+3. **Fallo que se bloquea** (run #24, recuento de presupuestos del cliente):
+   - El criterio falló en la iteración 1 y Testing lo explicó.
+   - En las iteraciones 2 y 3 la simulación deshizo el arreglo, así que no hubo commit (D34).
+   - La tarea pasó a `blocked` con 7 llamadas y la decisión volvió al humano. ✅
+4. **Regresión** (run #21, notas del cliente, [crm-demo#24](https://github.com/daboy-dev/crm-demo/pull/24)): sus resultados incluyen los criterios del run #20 en los dos tamaños, todos en verde. Los runs #22 y #23 también ejecutaron los JSON anteriores. ✅
+5. **Seguridad** (Vitest): se rechazan una salida de Develop que escribe en `e2e/criteria/**` o en `e2e/criteria.spec.ts`, un plan con un criterio `visual` (respuesta grabada), selectores CSS, JavaScript y URLs absolutas. ✅
+6. **Repetición:**
+   - En Vitest, un paso reanudado lee los pasos guardados y no gasta ninguna llamada; los pasos y cada explicación tienen su propia clave.
+   - En producción, el run #21 se reanudó tras guardar los pasos sin volver a llamar a Testing, y las llamadas de Testing cuentan contra el tope de 16 (runs #23 y #24).
+   - No se hizo una caída simulada justo después de escribir los pasos. ✅ (parcial en producción)
+
+**Qué salió mal y qué se corrigió:**
+- **Run #18 (cancelado):**
+  - `expectText` con `all` comprobaba la lista antes de que el filtro la actualizara ([crm-demo#20](https://github.com/daboy-dev/crm-demo/pull/20)).
+  - La explicación de Testing contradecía el `ariaSnapshot`. Ahora el prompt le pide mirarlo antes de culpar al código ([crm-agents#6](https://github.com/daboy-dev/crm-agents/pull/6)).
+- **Run #19 (cancelado):**
+  - `select` no admitía la opción de value vacío ([crm-demo#22](https://github.com/daboy-dev/crm-demo/pull/22) y [crm-agents#7](https://github.com/daboy-dev/crm-agents/pull/7)).
+  - Siguiendo una explicación mala, Develop quitó `"use client"` y falló el build de Vercel. Los errores de build de Vercel no llegan a Develop: es una limitación conocida.
+- **Run #21:**
+  - Gemini respondió 400 «too many states» con el esquema de los pasos ([crm-agents#9](https://github.com/daboy-dev/crm-agents/pull/9)).
+  - A Develop se le exigía `nav-clientes` aunque su tarea no tocaba el menú ([crm-agents#10](https://github.com/daboy-dev/crm-agents/pull/10)).
+  - La simulación no encontraba `testId: "client-notes"` porque solo buscaba comillas dobles ([crm-agents#11](https://github.com/daboy-dev/crm-agents/pull/11)).
+  - Antes, la simulación renombraba un `data-testid` que ya existía ([crm-agents#8](https://github.com/daboy-dev/crm-agents/pull/8)).
+- **Run #22 (duplicar presupuesto):** `pr-check` devolvió la iteración 1 y la simulación, que era solo de esa iteración, se perdió. Ahora dura hasta que Testing juzga la primera vista previa ([crm-agents#12](https://github.com/daboy-dev/crm-agents/pull/12)). La función salió bien y se fusionó.
+- **Run #24:**
+  - Groq escribió `click` sobre `client-row`, que no navega, y `expectText` con `{{any}}`. Con esos pasos el criterio habría fallado sin la simulación. El validador rechaza ahora las dos cosas.
+  - En las iteraciones sin cambios, la línea de tiempo decía «Develop no ha cambiado ningún archivo», aunque quien deshacía el arreglo era la simulación. Ahora lo dice así.
+- **Aprobaciones con la versión vieja:** si el run había cambiado mientras la página estaba abierta, el botón no hacía nada y el humano tenía que recargar.
+- **Scripts temporales `.mts`:** rompían `typecheck`. Se pasaron a `.mjs` sin seguimiento y se borraron al cerrar.
+
+**Limitaciones que quedan:**
+- Los errores de build de Vercel no vuelven a Develop, solo los de `pr-check`.
+- `sweep()` necesita una pestaña de `/runs` visible (D22).
+- Los planes de Flash-Lite son flojos: a veces nombran en la descripción solo parte de los `data-testid` del criterio.
+
+**Hecho por el humano:**
+- `LLM_PROVIDER_TESTING=gemini` en Vercel.
+- Login en el panel, aprobaciones de planes y finales, rechazos con feedback y cancelaciones.
+- Merges de todos los PRs de `crm-agents` y `crm-demo`.
+
+**Resultado:** H6 hecho. Los criterios 1 a 5 están comprobados en producción, y el 6 en Vitest y en parte en producción. Transcripción en [`sesiones/13-h6-testing.md`](./sesiones/13-h6-testing.md).
+
+**Siguiente paso:** H7 · panel completo. La página de resumen, que estaba reservada para H7, se usó en el criterio 2 y ya está en `master`, así que H7 necesita otra petición.
+
+## Sesión 14 · Planificación de H7 (Project de Claude) · 26/11/2026
+
+**Objetivo:** decidir la petición de demo del run de H7 y qué debe mostrar el panel para que alguien sin contexto vea qué hace cada agente y en qué estado está cada tarea.
+
+**Cómo fue:**
+- Se actualizaron en el Project las copias de `CLAUDE.md` y `PLAN.md` con las del repo tras H6. `DECISIONES.md` y `PROCESO.md` no se pudieron subir desde la sesión por su tamaño; las sustituye el humano.
+- Comprobado por el humano: `RUNS_PER_DAY` ha vuelto a 5, y el run #24 se canceló después de bloquearse (criterio 3 de H6).
+
+**Qué cambió por el camino:**
+- **Petición de H7:** no quedaba ninguna de demo sin usar. Claude propuso dos: el tipo de cliente, que pasa por todo el motor, y el recuento de presupuestos del run #24, más segura porque es una sola tarea sin migración. El humano eligió el tipo de cliente: «Añade un tipo de cliente (Particular o Empresa) al formulario, muéstralo en la lista de clientes y permite filtrar la lista por tipo». En un solo run hay migración, interacción, dos tareas y la regresión de los JSON anteriores. Los pasos crean su propio cliente de tipo Empresa y comprueban el filtro con `expectText all`, sin depender del seed (extra de D14). El recuento de presupuestos no está en `master` y queda libre.
+- **Panel:** Claude propuso siete puntos y marcó como imprescindibles el 1, el 2, el 5 y el 6. El humano decidió entrarlos todos:
+  1. Tarjetas por agente (Orquestador, Develop, Testing y el humano) con lo que hace ahora, su estado y el modelo.
+  2. Tareas con sus criterios, y pass o fail en escritorio y a 390 px.
+  3. Línea de tiempo filtrable por agente, sin repetir «lee N archivos».
+  4. Vista previa y capturas en la aprobación final.
+  5. Pestañas en móvil para `/runs/[id]`.
+  6. Aprobaciones con la versión vieja: refrescar y avisar en vez de no hacer nada.
+  7. Portada de `/runs` para los evaluadores, con cómo funciona y las peticiones sugeridas en botones.
+- **Tarjetas por agente (D42):** Claude propuso calcular el estado con una función pura y meter las esperas de GitHub y Vercel en la tarjeta del agente que espera, en vez de añadir una tarjeta «Infraestructura». El humano lo aprobó: si una espera afecta al estado de un agente, va en su tarjeta.
+- **Tareas y criterios (D43):** Claude propuso la vista de cada tarea con sus criterios, los pasos plegados para el humano y las regresiones en un grupo aparte. El humano la aprobó sin cambios.
+- **Línea de tiempo (D44):** filtro por agente en la URL, el contexto solo se registra cuando cambia (pendiente de H5) y los reintentos se agrupan en la UI sin borrar los eventos. Propuesta de Claude, aprobada por el humano.
+- **Vista previa (D45):** Claude vio que el login de `crm-demo` no se mantendría en un iframe (cookie de terceros, sobre todo en Safari e iOS) y recomendó un iframe solo en escritorio. El humano eligió no embeberla: botón para abrirla en otra pestaña y galería de capturas.
+- **Móvil y escritorio (D46):** tarjetas siempre visibles, barra de acción fija abajo, pestañas en móvil y dos columnas en escritorio, con un E2E del panel en los dos tamaños. Propuesta de Claude, aprobada por el humano.
+- **Aprobaciones (D47):** Claude propuso que las acciones del humano envíen la revisión, el sha o el estado que se ven, en vez de la versión del run. El humano lo aprobó. Arregla el botón que no hacía nada en la sesión 13.
+- **Portada de `/runs` (D48):** introducción, peticiones sugeridas que rellenan el formulario, simulaciones plegadas, límites del día y posición en la cola. Propuesta de Claude, aprobada por el humano.
+
+**Resultado:** D42–D48 aceptadas y un extra en D14.
+
+**Criterio de H7:**
+1. **Run de punta a punta en un móvil real:** el run del tipo de cliente se lanza, se aprueba el plan, se sigue y se aprueba la vista previa final desde el teléfono, hasta `done`. Las tarjetas reflejan en cada momento qué agente trabaja, y la columna nueva queda en producción tras el merge.
+2. **El mismo run en escritorio:** dos columnas, el filtro de la línea de tiempo funciona, los criterios salen en verde en los dos tamaños y el grupo de regresión muestra los JSON de runs anteriores.
+3. **Aprobaciones con la versión vieja:** con el run abierto en dos pestañas, se aprueba en una y la otra dice «Ya estaba aprobado». Un cambio ajeno de versión no impide aprobar.
+4. **Línea de tiempo sin ruido:** con un reintento por saturación, real o simulado, no se repite «lee N archivos» y los reintentos salen agrupados.
+5. **Portada:** una sugerencia rellena el formulario, la del tipo de cliente sale como «ya fusionada» tras el criterio 1, y se ven los runs que quedan hoy.
+6. **Pruebas automáticas:** la tabla de casos de `agentCards()` en Vitest y el E2E de Playwright del panel a 390 y 1280 px, con runs de ejemplo en los estados que esperan al humano: sin scroll horizontal y con las acciones visibles.
+
+**Pendiente:**
+- En el repo, de la sesión 12: pasar los apartados de D37 y del push de prueba de la sesión 08 a la sesión 11, y añadir a D10 un extra que remita a D37.
+- Lista de peticiones para los evaluadores y si pueden fusionar: en H8.
+
+**Siguiente paso:** sesión 15 de Claude Code (H7), en `crm-agents`.
