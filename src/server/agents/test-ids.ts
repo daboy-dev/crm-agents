@@ -24,16 +24,20 @@ export function usesTestId(testId: string, texts: readonly string[]): boolean {
 
 /**
  * «Simular fallo de criterio» (D40): renames one literal data-testid in the
- * files, so the criterion that needs it fails on the preview. Returns null
- * when the testId is not written literally in any file.
+ * files, so the criterion that needs it fails on the preview. Only one this
+ * change adds: renaming one that `before` (the files as they were) already
+ * had would break older tests too (run #21). Returns null when no new
+ * testId is written literally.
  */
 export function breakTestId<T extends { path: string; content: string }>(
   files: readonly T[],
   testIds: readonly string[],
+  before: readonly string[] = [],
 ): { testId: string; files: T[] } | null {
   for (const testId of testIds) {
     const literal = `data-testid="${testId}"`;
     if (!files.some((f) => f.content.includes(literal))) continue;
+    if (before.some((content) => content.includes(literal))) continue;
     return {
       testId,
       files: files.map((f) => ({

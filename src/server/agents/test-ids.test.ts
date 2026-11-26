@@ -46,6 +46,23 @@ describe("breakTestId (D40)", () => {
     ]);
   });
 
+  it("never renames one the files already had (run #21)", () => {
+    const files = [
+      {
+        path: "page.tsx",
+        content:
+          '<div data-testid="client-detail"><p data-testid="client-notes" /></div>',
+      },
+    ];
+    const done = breakTestId(
+      files,
+      ["client-detail", "client-notes"],
+      ['<div data-testid="client-detail" />'],
+    );
+    expect(done?.testId).toBe("client-notes");
+    expect(done?.files[0]!.content).toContain('data-testid="client-detail"');
+  });
+
   it("does nothing when no data-testid is literal", () => {
     expect(
       breakTestId(
