@@ -598,3 +598,51 @@ Cómo se ha construido este proyecto, sesión a sesión.
 - Lista de peticiones para los evaluadores y si pueden fusionar: en H8.
 
 **Siguiente paso:** sesión 15 de Claude Code (H7), en `crm-agents`.
+## Sesión 15 · H7 · Panel completo (Claude Code) · 26/11/2026
+
+**Objetivo:** un panel en el que alguien sin contexto vea qué hace cada agente y en qué estado está cada tarea, en el móvil y en escritorio (D42–D48).
+
+**Cómo fue:**
+- Claude propuso un orden por bloques y el humano lo aprobó bloque a bloque. Todo fue en [crm-agents#14](https://github.com/daboy-dev/crm-agents/pull/14), junto con el cierre de H6 ([crm-agents#13](https://github.com/daboy-dev/crm-agents/pull/13)).
+- **Aprobaciones (D47):** `human.ts` comprueba lo que el humano tiene en pantalla (revisión, `head_sha` o estado) y la acción hace el CAS con la versión actual, con hasta 3 lecturas si la versión se mueve. Tabla de 22 casos en Vitest.
+  - Cancelar mientras los agentes trabajan sigue valiendo aunque el estado avance; deja de valer si el run pasa a esperar al humano. Es una interpretación de Claude sobre D47.
+- **Tarjetas (D42):** `agentCards()` deduce la tarea de Develop de `agent_steps` (una llamada por invocación, D35) y pone a Testing activo mientras escribe los pasos. En `merging` no hay ninguna tarjeta activa. Tabla de 39 casos.
+- **Tareas y criterios (D43):** `taskSection()` lee los resultados por clave `r<revisión>-c<id>` y proyecto (`desktop`, `mobile-390`), el motivo de la última explicación de Testing (solo mientras el criterio falla) y la regresión.
+- **Línea de tiempo (D44):** el motor compara el contexto con el último registrado de esa tarea e iteración antes de registrarlo. `timeline.ts` agrupa los reintentos, asigna los eventos de GitHub y Vercel al agente que espera y pone separadores por iteración.
+- **Vista previa y diseño (D45, D46):** panel de vista previa con la galería de `/pipeline` sacada a un componente común, pestañas en `?tab=` en móvil, barra de acción fija y dos columnas desde 1024 px.
+- **Portada (D48):** `demo-requests.ts`, «ya fusionada» por el texto normalizado de la petición, simulaciones plegadas, runs que quedan hoy, aviso de cuota (`quota-status.ts`) y posición en la cola.
+- **E2E del panel:** Playwright a 1280 y 390 px contra la rama `e2e` de Neon, con runs de ejemplo en los estados que esperan al humano (`e2e/seed.ts`). El entorno del servidor tapa las claves de GitHub, de los LLM y de Blob, y se niega a correr contra el endpoint de producción. No envía acciones.
+- Mientras no hubo E2E, Claude comprobó el diseño con los componentes reales renderizados en HTML estático, porque `pnpm dev` con `.env.local` haría `sweep()` contra producción.
+
+**Verificación en producción:**
+1. **Run de punta a punta en el móvil** (run #25, tipo de cliente, [crm-demo#28](https://github.com/daboy-dev/crm-demo/pull/28)):
+   - El humano lanzó, aprobó y siguió el run desde el teléfono; las tarjetas y la línea de tiempo se actualizaron en directo.
+   - 3 tareas; la 2 falló el criterio c3 en la iteración 1, Testing lo explicó y pasó en la 2. Informe final: 58 tests y 4 de 4 criterios en verde.
+   - La columna `type` está en `master` de `crm-demo`. ✅
+2. **El mismo run en escritorio:** dos columnas, filtro, criterios en los dos tamaños y regresión (22 resultados de runs anteriores). La línea de tiempo se salía de su columna; se corrigió en [crm-agents#15](https://github.com/daboy-dev/crm-agents/pull/15) y el humano lo comprobó. ✅
+3. **Aprobaciones con la versión vieja** (run #26, presupuestos del cliente): con el plan abierto en dos pestañas, el humano aprobó en una y la otra respondió «Ya estaba aprobado». En la línea de tiempo hay un solo evento «Plan aprobado». El run se canceló justo después, así que la petición sigue libre para los revisores. ✅
+4. **Línea de tiempo sin ruido:** con 11 reintentos reales por límite por minuto y 2 bloqueos, «lee N archivos» quedó registrado una sola vez por tarea e iteración, y los reintentos salen agrupados. ✅
+5. **Portada:** sugerencias que rellenan el formulario, «ya fusionada», runs que quedan hoy y posición en la cola, comprobados en el E2E. En producción, el run #25 acabó en `done` con el texto exacto de la sugerencia, que es lo que la marca. ✅ (E2E y en parte en producción)
+6. **Pruebas automáticas:** Vitest (443 tests) y el E2E del panel, 17 de 17. ✅
+
+**Qué salió mal y qué se corrigió:**
+- **Run #25 atascado en los pasos de Testing:** con los dos Gemini Flash agotados, Testing usó Groq, que encadenó 11 avisos de límite por minuto y una respuesta fuera de contrato (`field-name` no estaba entre los `data-testid` del plan). El humano puso Claude el primero en las tres cadenas con `LLM_CHAIN_*` en Vercel (D36), sin tocar código.
+- **Tope de llamadas:** el run se bloqueó dos veces en 16 llamadas. El primer reintento llegó antes del despliegue con `LLM_CALLS_PER_RUN=24` y se volvió a bloquear; el segundo terminó con 21 llamadas. Con 3 tareas, 16 no llegan.
+- **Línea de tiempo en escritorio:** la rejilla de `.timeline li` se aplicaba también a las llamadas al LLM anidadas y la insignia de respaldo no se partía, así que la página crecía hasta unos 1530 px. El E2E no lo vio porque la semilla no tenía ninguna llamada con aviso; ahora la tiene y comprueba que la tarjeta no desborda.
+- **E2E en bucle:** `next dev` recargaba la página más de 200 veces en 4 s (las trazas de Playwright dentro del proyecto y el propio HMR) y el login se enviaba vacío. El E2E corre ahora sobre `next build` + `next start`, con la salida en el directorio temporal.
+- **Rama `e2e` de Neon:** al ser «schema only» tenía las tablas pero no el registro de migraciones de Drizzle, y `pnpm e2e:migrate` fallaba sin decir por qué. Se vaciaron sus esquemas y se aplicaron las 7 migraciones desde cero.
+- **Semilla:** los runs sembrados contaban como creados hoy y agotaban `RUNS_PER_DAY`. Ahora solo cuentan los dos de la cola.
+
+**Limitaciones que quedan:**
+- El E2E del panel no corre en CI: necesita la cadena de la rama como secreto.
+- El E2E no envía acciones; el criterio 3 solo se comprueba en producción.
+- El plan del run #25 (Flash-Lite) tiene los títulos de las tareas en inglés.
+
+**Hecho por el humano:**
+- Rama `e2e` de Neon y `.env.e2e`.
+- `LLM_CHAIN_ORCHESTRATOR`, `LLM_CHAIN_DEVELOP`, `LLM_CHAIN_TESTING` (Claude primero) y `LLM_CALLS_PER_RUN=24` en Vercel, y redespliegue.
+- El run #25 desde el móvil, reintentos y aprobaciones, y los merges de [crm-agents#13](https://github.com/daboy-dev/crm-agents/pull/13), [#14](https://github.com/daboy-dev/crm-agents/pull/14), [#15](https://github.com/daboy-dev/crm-agents/pull/15) y [crm-demo#28](https://github.com/daboy-dev/crm-demo/pull/28).
+
+**Resultado:** H7 hecho. Los criterios 1 a 4 están comprobados en producción, el 5 en el E2E y en parte en producción, y el 6 en Vitest y en el E2E. Transcripción en [`sesiones/15-h7-panel.md`](./sesiones/15-h7-panel.md).
+
+**Siguiente paso:** H8 · entrega: lista final de peticiones para los evaluadores en `demo-requests.ts`, decidir si pueden fusionar, volver a la cadena gratuita o dejar Claude primero, y README.
