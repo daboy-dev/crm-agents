@@ -429,3 +429,26 @@ describe("criteria for Testing (D38, D39)", () => {
     );
   });
 });
+
+describe("data-testid Develop must write (run #21)", () => {
+  it("only the ones the task's description names", async () => {
+    const { requiredTestIds } = await import("./index");
+    const brief = {
+      position: 1,
+      title: "Notas",
+      description:
+        'Añade el campo notes al formulario y muéstralo en el detalle con data-testid="client-notes".',
+      files: [],
+      references: [],
+      acceptanceCriteria: [
+        {
+          id: "c1",
+          type: "e2e" as const,
+          text: "x",
+          testIds: ["nav-clientes", "clients-table", "client-notes", "client"],
+        },
+      ],
+    };
+    expect(requiredTestIds(brief)).toEqual(["client-notes"]);
+  });
+});

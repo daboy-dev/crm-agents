@@ -26,6 +26,7 @@ import {
   type CriteriaSteps,
   type ExplainInput,
   type StepsInput,
+  type TaskBrief,
   type TestingExplanation,
 } from "./contracts";
 
@@ -61,6 +62,20 @@ export function runSplit(
   });
 }
 
+/**
+ * The data-testid Develop must write: those of the task's criteria that its
+ * description names, which is where the plan puts the new ones (D38). An
+ * existing one, like nav-clientes, lives in a file the task may not touch
+ * (run #21).
+ */
+export function requiredTestIds(task: TaskBrief): string[] {
+  const named = (id: string) =>
+    new RegExp(`(^|[^a-z0-9-])${id}([^a-z0-9-]|$)`).test(task.description);
+  return [...new Set(task.acceptanceCriteria.flatMap((c) => c.testIds))].filter(
+    named,
+  );
+}
+
 export function runDevelop(
   llm: LLMProvider,
   input: DevelopInput,
@@ -82,7 +97,7 @@ export function runDevelop(
         context.files.map((f) => [f.path, f.content]),
       ),
       requireChange: input.iteration === 1,
-      testIds: [...new Set(task.acceptanceCriteria.flatMap((c) => c.testIds))],
+      testIds: requiredTestIds(task),
     }),
   });
 }
