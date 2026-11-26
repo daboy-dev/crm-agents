@@ -94,6 +94,17 @@ export const chainFor = (agent: AgentName): Link[] =>
     process.env[`LLM_CHAIN_${agent.toUpperCase()}`] || DEFAULT_CHAINS[agent],
   );
 
+/** First link of each agent's chain, to mark backups in the panel (D49). */
+export function chainHeads(): Partial<Record<AgentName, string>> {
+  const agents: AgentName[] = ["orchestrator", "develop", "testing"];
+  return Object.fromEntries(
+    agents.flatMap((a) => {
+      const head = chainFor(a)[0];
+      return head ? [[a, linkId(head)]] : [];
+    }),
+  );
+}
+
 // --- Links ---
 
 export type Message = { role: "user" | "model"; text: string };

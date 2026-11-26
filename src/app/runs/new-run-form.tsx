@@ -57,6 +57,7 @@ export function NewRunForm({ providers, suggestions, limits }: Props) {
                 title={d.request}
                 data-testid="suggestion"
                 data-merged={d.merged}
+                data-out-of-scope={d.outOfScope === true}
               >
                 <strong>{d.label}</strong>
                 <span className="muted">

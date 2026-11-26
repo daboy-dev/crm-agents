@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import { Nav } from "@/app/nav";
 import { getDb } from "@/server/db/client";
 import { runProviders } from "@/server/llm";
+import { chainHeads } from "@/server/llm/chain";
 import { DEMO_REPO, runBranch } from "@/server/github/config";
 import { isFinal, type RunStatus } from "@/server/runs/machine";
 import { getRunDetail, type RunDetail } from "@/server/runs/queries";
@@ -404,6 +405,7 @@ async function RunView({
           steps: detail.steps,
           events: detail.events,
           deployState: detail.preview?.deployState,
+          chainHeads: chainHeads(),
         })}
         now={detail.loadedAt}
       />

@@ -120,21 +120,24 @@ const list = (names: string[]) =>
     ? (names[0] ?? "")
     : `${names.slice(0, -1).join(", ")} y ${names.at(-1)}`;
 
-/** Warning when Gemini's free quota is gone until 9:00 (D26, D37, D48). */
+const modelName = (id: string | null) => id?.split(":").at(-1) ?? "";
+
+/**
+ * Warning when a chain cannot use its first link today (D36, D48, D49).
+ * Exhausted links come back at 9:00 in Madrid (quota.ts).
+ */
 function quotaWarning(status: AgentQuota[]): string | null {
   const names = (q: AgentQuota[]) => list(q.map((x) => ACTOR_NAMES[x.agent]!));
   const none = status.filter((q) => q.next === null);
   if (none.length > 0) {
     return `Sin modelos disponibles para ${names(none)} hasta las 9:00 (hora de Madrid): los runs esperarán.`;
   }
-  const paid = status.filter((q) => q.paid);
-  if (paid.length > 0) {
-    return `La cuota gratuita de Gemini está agotada hasta las 9:00 (hora de Madrid): ${names(paid)} ${paid.length > 1 ? "usan" : "usa"} el respaldo de pago (Claude).`;
-  }
-  if (status.some((q) => q.geminiExhausted)) {
-    return "Algún modelo de Gemini ha agotado su cuota hasta las 9:00 (hora de Madrid): se usan los siguientes de la cadena.";
-  }
-  return null;
+  const fallback = status.filter((q) => q.fallback);
+  if (fallback.length === 0) return null;
+  const uses = fallback
+    .map((q) => `${ACTOR_NAMES[q.agent]} usa ${modelName(q.next)}`)
+    .join(", ");
+  return `El primer modelo de la cadena no está disponible hasta las 9:00 (hora de Madrid): ${uses}.`;
 }
 
 async function Form() {

@@ -50,17 +50,17 @@ export function contextData(data: unknown): ContextData {
 }
 
 /**
- * The backup links of a chain: a failed iteration may come from them
- * (D35, D36, D37).
+ * What each kind of link is in the chains: a failed iteration may come
+ * from a weaker backup (D35, D36, D37, D49).
  */
 function fallbackNote(model: string): string | null {
   if (model.includes("flash-lite")) {
     return "Flash-Lite, el respaldo más débil de Gemini: si falla la iteración, puede venir de aquí";
   }
   if (model.startsWith("anthropic:")) {
-    return "Claude, respaldo de pago cuando Gemini no tiene modelos";
+    return "Claude, de pago: primero de la cadena en la entrega (D49) y respaldo en la cadena gratuita (D37)";
   }
-  if (model.startsWith("groq:")) return "Groq, respaldo de Gemini";
+  if (model.startsWith("groq:")) return "Groq, respaldo gratuito (D36)";
   return null;
 }
 

@@ -9,10 +9,10 @@ export type AgentQuota = {
   agent: AgentName;
   /** Link the next call would use; null when every link is exhausted. */
   next: string | null;
-  /** The next call goes to the paid backup (D37). */
-  paid: boolean;
-  /** Some Gemini link of the chain is exhausted today. */
-  geminiExhausted: boolean;
+  /** Head of the chain, the link a call tries first (D36, D49). */
+  head: string | null;
+  /** The next call skips the head: it goes to a backup link. */
+  fallback: boolean;
 };
 
 /**
@@ -25,13 +25,12 @@ export function quotaStatus(
 ): AgentQuota[] {
   return chains.map(({ agent, links }) => {
     const next = links.find((l) => !exhausted.has(linkId(l))) ?? null;
+    const head = links[0] ? linkId(links[0]) : null;
     return {
       agent,
       next: next ? linkId(next) : null,
-      paid: next?.provider === "anthropic",
-      geminiExhausted: links.some(
-        (l) => l.provider === "gemini" && exhausted.has(linkId(l)),
-      ),
+      head,
+      fallback: next !== null && linkId(next) !== head,
     };
   });
 }

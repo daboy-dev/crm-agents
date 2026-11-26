@@ -70,12 +70,13 @@ export function AgentCards({
                   {c.model.split(":").at(-1)}
                 </code>
               )}
-              {c.paid && (
+              {c.fallback && (
                 <span
                   className="badge badge-bad"
-                  title="Respaldo de pago (D37)"
+                  title="No es el primer modelo de la cadena del agente (D36, D49)"
+                  data-testid="agent-card-fallback"
                 >
-                  pago
+                  respaldo
                 </span>
               )}
             </p>
