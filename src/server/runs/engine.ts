@@ -804,8 +804,10 @@ async function stepDeveloping(ctx: StepContext): Promise<StepResult> {
             {
               actor: "develop",
               kind: "unchanged",
-              message:
-                "Develop no ha cambiado ningún archivo: la iteración cuenta como fallida.",
+              // D40: renaming the data-testid back can undo Develop's fix.
+              message: prepared.notes.some((n) => n.kind === "simulation")
+                ? "Tras la simulación, los archivos quedan como ya estaban en la rama: la iteración cuenta como fallida."
+                : "Develop no ha cambiado ningún archivo: la iteración cuenta como fallida.",
             },
           ],
         },

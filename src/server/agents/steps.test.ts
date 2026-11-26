@@ -88,6 +88,32 @@ describe("steps of the criteria runner (D38)", () => {
     ).toEqual([]);
   });
 
+  it("knows {{stamp}} as its only placeholder (run #24)", () => {
+    expect(
+      messages(
+        withStep({
+          action: "expectText",
+          testId: "invoice-row",
+          text: "{{any}}",
+        }),
+      )[0],
+    ).toContain("{{any}} no existe");
+    expect(
+      messages(
+        withStep(
+          { action: "fill", testId: "field-notes", value: "{{x}}" },
+          "c2",
+        ),
+      ).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("opens a detail with goto, not by clicking a row (run #24)", () => {
+    expect(
+      messages(withStep({ action: "click", testId: "invoice-row" }))[0],
+    ).toContain("Pulsar invoice-row no navega");
+  });
+
   it("only takes the data-testid of the plan (D38)", () => {
     // From another criterion: Develop writes it all the same.
     expect(

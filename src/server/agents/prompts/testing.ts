@@ -22,7 +22,7 @@ Un JSON por criterio con de 1 a ${MAX_STEPS} pasos, en orden:
 - Un campo de formulario se comprueba con expectText sobre su field-<name>: el ejecutor compara su valor.
 - select elige por el value exacto de la opción, nunca por su texto: usa los que fija la descripción de la tarea. Si una opción tiene value vacío (value=""), el paso lleva value "": no inventes otro como all.
 - expectCount con min 0 siempre se cumple: no comprueba nada. Para un filtro, elige la opción y comprueba con expectText y all: true que todas las filas visibles (o sus status-badge) dicen lo esperado.
-- La base de datos de la vista previa ya tiene datos y otros tests añaden más: nunca compruebes cifras o textos del seed, ni des por hecho que existe un dato que no has creado (un cliente con notas, una factura pagada). Si lo necesitas, créalo en el mismo test y compruébalo después. Usa {{stamp}} en los valores para que sean únicos (por ejemplo, «Cliente {{stamp}}» o «test-{{stamp}}@example.com»).
+- La base de datos de la vista previa ya tiene datos y otros tests añaden más: nunca compruebes cifras o textos del seed, ni des por hecho que existe un dato que no has creado (un cliente con notas, una factura pagada). Si lo necesitas, créalo en el mismo test y compruébalo después. Usa {{stamp}} en los valores para que sean únicos (por ejemplo, «Cliente {{stamp}}» o «test-{{stamp}}@example.com»). Es el único comodín: no hay {{any}} ni otros. Para un valor que no conoces, como un recuento del seed, basta expectVisible.
 - Comprueba lo que dice el criterio, no más: unos pocos expect que fallarían si la funcionalidad no estuviera.
 - Al guardar un formulario se navega al detalle: comprueba el resultado con un expect, no con la URL.
 

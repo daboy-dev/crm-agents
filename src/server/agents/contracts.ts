@@ -708,6 +708,27 @@ function refineSteps(
         }
         return;
       }
+      // The runner only substitutes {{stamp}}: anything else is literal text.
+      const text =
+        step.action === "fill"
+          ? step.value
+          : step.action === "expectText"
+            ? step.text
+            : "";
+      const unknown = text.match(/\{\{(?!stamp\}\})[^}]*\}\}/);
+      if (unknown) {
+        issue(
+          `${unknown[0]} no existe: el único comodín es {{stamp}}. Para un valor que no conoces, usa expectVisible`,
+          path,
+        );
+      }
+      // crm-demo's rows are not links (the name is): clicking one stays put.
+      if (step.action === "click" && step.testId.endsWith("-row")) {
+        issue(
+          `Pulsar ${step.testId} no navega: abre el detalle con goto y su page de e2e/pages.ts`,
+          path,
+        );
+      }
       if (step.action === "expectCount" && step.min === 0) {
         issue(
           "expectCount con min 0 siempre se cumple: usa count, un min mayor o expectText con all",
