@@ -54,10 +54,6 @@ const SUPPORTED_KEYS = new Set([
   "enum",
   "items",
   "prefixItems",
-  "minItems",
-  "maxItems",
-  "minimum",
-  "maximum",
   "anyOf",
   "oneOf",
   "properties",
@@ -94,7 +90,9 @@ function prune(node: unknown): unknown {
 
 /**
  * JSON Schema of the contract, without what Gemini does not take (string
- * lengths, patterns). Zod still validates all of it, refinements included.
+ * lengths, patterns) nor numeric and array bounds: with them, the steps of
+ * Testing (D38) are "a constraint that has too many states" (run #21). Zod
+ * still validates all of it, refinements included.
  */
 export function toGeminiSchema(schema: z.ZodType): unknown {
   return prune(
@@ -180,6 +178,15 @@ export function isThinkingLevelRejected(error: unknown): boolean {
  * Model unavailable on Google's side (500, 503 "high demand", 504 deadline
  * exceeded): another model of the list may answer now.
  */
+/**
+ * The schema is too complex for the model (400 "too many states"): this
+ * link cannot serve the request, the next one may (run #21).
+ */
+export function isSchemaTooComplex(error: unknown): boolean {
+  const e = error as { status?: unknown; message?: unknown } | null;
+  return e?.status === 400 && /too many states/i.test(String(e.message ?? ""));
+}
+
 export const isOverloaded = (error: unknown) =>
   [500, 503, 504].includes(
     (error as { status?: unknown } | null)?.status as number,
@@ -213,6 +220,7 @@ export class GeminiClient implements ModelClient {
   classify(error: unknown): LinkError | null {
     const quota = classifyQuotaError(error);
     if (quota) return quota;
+    if (isSchemaTooComplex(error)) return { kind: "too_large" };
     return isOverloaded(error) ? { kind: "overloaded" } : null;
   }
 

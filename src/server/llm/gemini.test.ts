@@ -101,9 +101,29 @@ describe("toGeminiSchema", () => {
       "assumptions",
       "tasks",
     ]);
-    expect(text).toContain('"maxItems":4');
     expect(text).toContain('"enum":["e2e","visual"]');
-    expect(text).not.toMatch(/minLength|maxLength|pattern|\$schema/);
+    // Bounds make the steps of Testing too complex for Gemini (run #21).
+    expect(text).not.toMatch(
+      /minLength|maxLength|pattern|\$schema|minItems|maxItems|minimum|maximum/,
+    );
+  });
+
+  it("a schema with too many states skips to the next link (run #21)", async () => {
+    const tooComplex = new ApiError({
+      message: JSON.stringify({
+        error: {
+          code: 400,
+          message:
+            "The specified schema produces a constraint that has too many states for serving.",
+          status: "INVALID_ARGUMENT",
+        },
+      }),
+      status: 400,
+    });
+    const t = setup([tooComplex, planOk as GeminiResponse]);
+    const { calls } = await t.run();
+    expect(calls.map((c) => c.model)).toEqual(["gemini:flash-b"]);
+    expect(t.marked.size).toBe(0);
   });
 });
 
