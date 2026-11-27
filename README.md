@@ -94,9 +94,11 @@ Las evaluaciones de los prompts con la cadena gratuita están en [`docs/evals/`]
 
 ## Cómo se construyó
 
-- **Planificación y decisiones** en un Project de Claude (claude.ai). Ahí se discutían las opciones y el humano decidía. El resultado son las 50 decisiones de [`docs/DECISIONES.md`](./docs/DECISIONES.md), cada una con su contexto y sus consecuencias.
+- **Planificación y decisiones** en un Project de Claude (claude.ai). **Ahí es donde se tomaban de verdad las decisiones:** Claude proponía opciones, el humano elegía o las corregía, y de cada conversación salía el prompt de la siguiente sesión de Claude Code. El resultado son las 50 decisiones de [`docs/DECISIONES.md`](./docs/DECISIONES.md), cada una con su contexto, lo que propuso Claude, lo que decidió el humano y sus consecuencias.
 - **Implementación con Claude Code**, una sesión por hito (H0–H8), con un criterio de verificación en producción que tenía que cumplirse para dar el hito por cerrado. [`CLAUDE.md`](./CLAUDE.md) da a cada sesión el contexto del proyecto.
-- **Registro:** [`docs/PROCESO.md`](./docs/PROCESO.md) recoge cada sesión (objetivo, qué salió mal y qué se corrigió). Las transcripciones de Claude Code están en [`docs/sesiones/`](./docs/sesiones), revisadas para quitar claves y datos personales.
+- **Registro:** [`docs/PROCESO.md`](./docs/PROCESO.md) recoge cada sesión (objetivo, qué salió mal y qué se corrigió). En [`docs/sesiones/`](./docs/sesiones) están las transcripciones de las dos herramientas, intercaladas en orden y revisadas para quitar claves y datos personales:
+  - **Project de Claude** (números pares): [00](./docs/sesiones/00-planificacion.md) planificación general, y [02](./docs/sesiones/02-planificacion-h1.md), [04](./docs/sesiones/04-planificacion-h2.md), [06](./docs/sesiones/06-planificacion-h3.md), [08](./docs/sesiones/08-planificacion-h4.md), [10](./docs/sesiones/10-planificacion-h5.md), [12](./docs/sesiones/12-planificacion-h6.md), [14](./docs/sesiones/14-planificacion-h7.md) y [16](./docs/sesiones/16-planificacion-h8.md), la planificación de cada hito de H1 a H8. La [18](./docs/sesiones/18-cierre.md) es el repaso final tras H8.
+  - **Claude Code** (números impares, de la 01 a la 17): la implementación de cada hito.
 
 ## Stack
 
