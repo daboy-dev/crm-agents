@@ -3,7 +3,7 @@
 Cómo se ha construido este proyecto, sesión a sesión.
 
 **Método de trabajo:**
-- **Planificación y decisiones** en un Project de Claude dedicado a la prueba (claude.ai). Ahí se discuten las opciones y se deciden.
+- **Planificación y decisiones** en un Project de Claude dedicado a la prueba (claude.ai). Ahí se discuten las opciones y se deciden: es donde se toman de verdad las decisiones. Sus conversaciones son las sesiones pares y su transcripción también está en [`docs/sesiones/`](./sesiones).
 - **Implementación** con **Claude Code** en este repo, una sesión por hito.
 - Al cerrar cada sesión:
   - Una entrada aquí con objetivo, cómo fue, qué salió mal y qué se corrigió.
@@ -41,7 +41,7 @@ Cómo se ha construido este proyecto, sesión a sesión.
 - La revisión visual en escritorio y móvil necesita un navegador. Chromium en una función de Vercel gratuita se consideró demasiado pesado, así que Playwright pasa a GitHub Actions contra la URL de la vista previa (D5).
 - Para no arriesgar el panel, el CRM se separa en su propio repo, proyecto de Vercel y proyecto de Neon (D2, D7).
 
-**Resultado:** decisiones D1–D10, plan de hitos H0–H8 y un Whiteboard con el flujo de un run. Resumen de la sesión en [`sesiones/00-planificacion.md`](./sesiones/00-planificacion.md).
+**Resultado:** decisiones D1–D10, plan de hitos H0–H8 y un Whiteboard con el flujo de un run. Transcripción en [`sesiones/00-planificacion.md`](./sesiones/00-planificacion.md).
 
 **Siguiente paso:** sesión 01 de Claude Code (H0): esqueleto del repo, CI y primer despliegue.
 
@@ -82,7 +82,7 @@ Cómo se ha construido este proyecto, sesión a sesión.
 - El límite de 10 ramas es un riesgo real: si se llena, las vistas previas no llegan a compilar. Se añade la limpieza automática de ramas y un solo run activo (D11).
 - El criterio de H1 se amplía con un PR de prueba que compruebe la rama de Neon por vista previa y su borrado, para validar D11 antes de H2.
 
-**Resultado:** decisiones D11–D14 aceptadas (limpieza de ramas, stack y estructura de `crm-demo`, migraciones en el build, datos de prueba con huecos a propósito).
+**Resultado:** decisiones D11–D14 aceptadas (limpieza de ramas, stack y estructura de `crm-demo`, migraciones en el build, datos de prueba con huecos a propósito). Transcripción en [`sesiones/02-planificacion-h1.md`](./sesiones/02-planificacion-h1.md).
 
 **Siguiente paso:** sesión 03 de Claude Code (H1) en el repo `crm-demo`.
 
@@ -148,7 +148,7 @@ Cómo se ha construido este proyecto, sesión a sesión.
 - Lo más directo era que Actions subiera las capturas a Blob y avisara al panel con un POST. Se descartó: los workflows de `deployment_status` ejecutan el código del commit desplegado, así que un PR de Develop podría leer los secretos del panel. Los resultados vuelven en un artifact que el panel descarga al recibir `workflow_run` (D16). De ahí sale una regla para H5: Develop no puede tocar `.github/**` ni los helpers de `e2e/`.
 - El login del panel se adelanta de H3 a H2 para que `/pipeline` no quede pública (D19). H3 queda solo para el motor de runs.
 
-**Resultado:** decisiones D15–D19 aceptadas y criterio de H2 concretado.
+**Resultado:** decisiones D15–D19 aceptadas y criterio de H2 concretado. Transcripción en [`sesiones/04-planificacion-h2.md`](./sesiones/04-planificacion-h2.md).
 
 **Pendiente del humano antes de la sesión de Claude Code:**
 - Webhook del repo `crm-demo` hacia `https://crm-agents.vercel.app/api/webhooks/github`, con secreto y los eventos *Pull requests*, *Deployment statuses* y *Workflow runs*.
@@ -215,7 +215,7 @@ Cómo se ha construido este proyecto, sesión a sesión.
 - Un run esperando aprobación bloquearía la cola para siempre si nadie responde; se cancela a las 24 h (D23).
 - La regla de D16 (Develop no toca `.github/**` ni los helpers de `e2e/`) se adelanta de H5 a H3, con un escenario simulado que la comprueba (D24).
 
-**Resultado:** decisiones D20–D25 aceptadas. Criterio de H3 concretado:
+**Resultado:** decisiones D20–D25 aceptadas. Transcripción en [`sesiones/06-planificacion-h3.md`](./sesiones/06-planificacion-h3.md). Criterio de H3 concretado:
 1. Escenario `ok` con 2 tareas: plan aprobado → PR con 2 commits y una sola vista previa → aprobación final → merge → `done`, y la rama de Neon se borra.
 2. `fail-once`: una tarea falla en la iteración 1 y pasa en la 2, visible en la línea de tiempo.
 3. `blocked`: tras 3 iteraciones, el humano abandona y el PR se cierra con su rama borrada.
@@ -277,7 +277,7 @@ Cómo se ha construido este proyecto, sesión a sesión.
 - Un 429 por minuto no espera dentro de la función: aplaza el lease y lo retoma el sweep, sin contar como fallo (D26).
 - El Orquestador puede rechazar una petición fuera de alcance; el run termina en `rejected` sin crear rama (D28).
 
-**Resultado:** decisiones D26–D30 aceptadas. Criterio de H4:
+**Resultado:** decisiones D26–D30 aceptadas. Transcripción en [`sesiones/08-planificacion-h4.md`](./sesiones/08-planificacion-h4.md). Criterio de H4:
 1. En producción, las cuatro peticiones de D14 (NIF, buscador, facturas vencidas y página de contacto) dan planes válidos de 1 a 4 tareas con criterios comprobables.
 2. Un plan rechazado con feedback da una revisión 2 que lo recoge; al aprobarlo, el run sigue con Develop y Testing simulados hasta `done`.
 3. Una petición fuera de alcance acaba en `rejected` con su motivo, sin rama ni PR.
@@ -356,7 +356,7 @@ Cómo se ha construido este proyecto, sesión a sesión.
   - Los de Gemini solo permiten servicios de pago cuando la aplicación se ofrece a usuarios del Espacio Económico Europeo. Claude recomendó activar la facturación; el humano decidió seguir en la capa gratuita por ser una prueba técnica, y queda anotado como riesgo aceptado (extra de D26).
   - Groq gratis tiene 8.000 tokens por minuto: vale de respaldo para el Orquestador, pero no para Develop. Se generaliza la lista de modelos a una cadena de `proveedor:modelo` que salta los eslabones donde la petición no cabe (D36).
 
-**Resultado:** D31–D36 aceptadas, con extras en D21, D26, D28, D29 y D31.
+**Resultado:** D31–D36 aceptadas, con extras en D21, D26, D28, D29 y D31. Transcripción en [`sesiones/10-planificacion-h5.md`](./sesiones/10-planificacion-h5.md).
 
 **Criterio de H5:**
 - **Antes de producción, `pnpm eval:develop`** (a mano y gasta cuota, como `eval:plan`): se repite `pnpm eval:plan`, porque los planes guardados no llevan `references` (D32). Develop resuelve las tareas de cada plan de D14, la salida se aplica sobre un clon local de `crm-demo` en `base_sha` y se hace lo mismo que `pr-check` (`drizzle-kit generate`, `tsc` y lint). Salidas y resultados se guardan en `docs/evals/`. Unas 11 llamadas; mejor a primera hora, tras el reinicio de las 9:00.
@@ -462,7 +462,7 @@ Cómo se ha construido este proyecto, sesión a sesión.
 - **Cadena y límites:** como Testing ya no ve imágenes, Groq vuelve a valer para su cadena y va antes que Anthropic. El fallo provocado se simula desde el panel, como el error de tipos de H5, y `LLM_CALLS_PER_RUN` sube a 16 (D40).
 - **Peticiones de demo agotadas:** las cuatro de D14 (NIF, buscador, facturas vencidas y contacto) ya están fusionadas en `master` desde H5. Hacen falta peticiones nuevas para H6 y H7.
 
-**Resultado:** D38–D40 aceptadas. El Whiteboard del plan, que se había quedado en H4, se actualizó desde un chat abierto en su propia página, porque desde el Project no se puede editar.
+**Resultado:** D38–D40 aceptadas. El Whiteboard del plan, que se había quedado en H4, se actualizó desde un chat abierto en su propia página, porque desde el Project no se puede editar. Transcripción en [`sesiones/12-planificacion-h6.md`](./sesiones/12-planificacion-h6.md).
 
 **Criterio de H6:**
 - **Antes de producción, `pnpm eval:testing`** (a mano y gasta cuota): se repite `pnpm eval:plan` con las peticiones nuevas, porque los criterios ahora llevan sus `data-testid`, y Testing escribe los pasos de cada plan. Todo valida con Zod y se guarda en `docs/evals/`. Una ejecución con la cadena forzada a `groq:` también da pasos válidos.
@@ -581,7 +581,7 @@ Cómo se ha construido este proyecto, sesión a sesión.
 - **Aprobaciones (D47):** Claude propuso que las acciones del humano envíen la revisión, el sha o el estado que se ven, en vez de la versión del run. El humano lo aprobó. Arregla el botón que no hacía nada en la sesión 13.
 - **Portada de `/runs` (D48):** introducción, peticiones sugeridas que rellenan el formulario, simulaciones plegadas, límites del día y posición en la cola. Propuesta de Claude, aprobada por el humano.
 
-**Resultado:** D42–D48 aceptadas y un extra en D14.
+**Resultado:** D42–D48 aceptadas y un extra en D14. Transcripción en [`sesiones/14-planificacion-h7.md`](./sesiones/14-planificacion-h7.md).
 
 **Criterio de H7:**
 1. **Run de punta a punta en un móvil real:** el run del tipo de cliente se lanza, se aprueba el plan, se sigue y se aprueba la vista previa final desde el teléfono, hasta `done`. Las tarjetas reflejan en cada momento qué agente trabaja, y la columna nueva queda en producción tras el merge.
@@ -654,7 +654,7 @@ Cómo se ha construido este proyecto, sesión a sesión.
 - **Merge de los evaluadores (D50):** el usuario de prueba puede aprobar y fusionar, para que los evaluadores vean el flujo completo hasta producción.
 - **Peticiones para los evaluadores (extra de D14):** recuento de presupuestos del cliente, teléfono del cliente, filtro de presupuestos por estado, ordenar clientes y una petición fuera de alcance para enseñar el rechazo.
 
-**Resultado:** D49 y D50 aceptadas y un extra en D14.
+**Resultado:** D49 y D50 aceptadas y un extra en D14. Transcripción en [`sesiones/16-planificacion-h8.md`](./sesiones/16-planificacion-h8.md).
 
 **Criterio de H8:**
 1. `demo-requests.ts` tiene las cinco peticiones, comprobadas contra `master`, y la de fuera de alcance aparece marcada como tal.
@@ -690,3 +690,27 @@ Cómo se ha construido este proyecto, sesión a sesión.
 **Resultado:** H8 hecho. Criterios 1 a 6 comprobados; el 5 en producción con el run #27. Transcripción en [`sesiones/17-h8-entrega.md`](./sesiones/17-h8-entrega.md).
 
 **Pendiente del humano:** límite de gasto en la Console de Anthropic, Whiteboard con H5–H8 y las 4 preguntas cortas de la página de entrega.
+
+## Sesión 18 · Cierre tras H8 (Project de Claude) · 26/11/2026
+
+**Objetivo:** repasar lo que quedaba pendiente tras H8 antes de entregar.
+
+**Cómo fue:**
+- Claude listó lo pendiente: límite de gasto en la Console de Anthropic, los arreglos de documentación de las sesiones 12 y 14 (los apartados de D37 que estaban en la sesión 08 y el extra de D10), el Whiteboard con H5–H8 y una prueba como evaluador en una ventana privada.
+- El humano puso el límite de gasto (30 $) y actualizó el Whiteboard con el prompt que preparó Claude.
+- Revisión de los README de los dos repos: dejar a la vista que el run necesita una página del panel abierta (D22), corregir la limpieza de ramas de Neon en `crm-demo` (extra de D11) y explicar cómo lo modifican los agentes. Las credenciales del usuario de prueba se entregan aparte, no en el repo.
+
+**Resultado:** documentación lista para la entrega. Transcripción en [`sesiones/18-cierre.md`](./sesiones/18-cierre.md).
+
+## Sesión 19 · Transcripciones del Project (Claude Code) · 27/11/2026
+
+**Objetivo:** incluir en el repo las conversaciones del Project de Claude, que es donde se tomaban las decisiones, y no solo las de Claude Code.
+
+**Cómo fue:**
+- El humano exportó sus datos de claude.ai. Del export se tomaron solo las 10 conversaciones del Project, por su nombre exacto. El resto de conversaciones del export no se tocó.
+- Se convirtieron a Markdown con el mismo formato que las de Claude Code: mensajes del usuario y de Claude, el razonamiento interno omitido y las herramientas resumidas en una línea. Los documentos nuevos que escribe Claude (prompts de Claude Code y `PLAN.md`) van plegados; los adjuntos que son copias de `DECISIONES.md`, `PROCESO.md`, `CLAUDE.md` o `README.md` se citan por nombre, sin su texto.
+- Ocupan los números pares que ya usaba este proceso (00–16) y la 18 para el cierre. La 00 sustituye al resumen de la planificación, que se citaba aquí pero nunca llegó al repo.
+- Se revisaron una a una buscando claves, tokens, URLs con credenciales, emails y datos personales. No había ninguno: solo nombres de variables. Se sustituyó el enlace privado al Whiteboard por un marcador.
+- El README explica que las decisiones se tomaban en el Project y enlaza cada transcripción.
+
+**Resultado:** transcripciones del Project en [`docs/sesiones/`](./sesiones), intercaladas con las de Claude Code.
